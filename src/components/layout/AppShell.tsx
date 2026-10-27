@@ -212,6 +212,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const navItem = findNavItem(location.pathname);
+  const auth = useAuth();
+  const view = useWorkspaceView();
   const title =
     location.pathname.startsWith('/chapters/') ? 'Chapter' : navItem ? t(navItem.labelKey) : 'MKJ StudyOS';
 
@@ -242,8 +244,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <IonIcon icon={menuOutline} style={{ fontSize: 22 }} />
           </button>
           <div className="app-topbar__title">
-            <h1>{title}</h1>
-            <div className="app-topbar__sub">MKJ StudyOS · HSC Science</div>
+            {/* Not a heading: the page itself renders the one <h1>. Two h1s per
+                screen make the outline ambiguous for screen readers. */}
+            <p className="app-topbar__heading">{title}</p>
+            <div className="app-topbar__sub">
+              MKJ StudyOS{view?.demoActive ? ' · demo data' : auth.mode === 'local' ? ' · this device only' : ''}
+            </div>
           </div>
           <div className="desktop-only">
             <ShellStatusBadges />

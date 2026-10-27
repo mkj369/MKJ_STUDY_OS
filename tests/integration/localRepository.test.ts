@@ -83,7 +83,10 @@ describe('per-user isolation (local mode)', () => {
     const curriculumA = await repoA.listCurriculum();
     const curriculumB = await repoB.listCurriculum();
     expect(curriculumA.versions).toHaveLength(curriculumB.versions.length);
-    expect(curriculumA.versions[0]?.is_demo).toBe(true);
+    // Demo rows and the official SSC/HSC subject structures coexist; the demo
+    // one is not necessarily first any more.
+    expect(curriculumA.versions.some((version) => version.is_demo)).toBe(true);
+    expect(curriculumA.versions.filter((version) => !version.is_demo)).toHaveLength(6);
   });
 
   it('rejects writes to curriculum tables', async () => {

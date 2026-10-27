@@ -24,6 +24,9 @@ export const DEMO_VERSION: CurriculumVersion = {
   version_label: 'demo-v1',
   title: 'Demo HSC Science structure (not official NCTB content)',
   source_url: null,
+  scope: 'subject_structure',
+  source_checked_at: null,
+  source_note: 'Placeholder structure for the demo workflow. Not NCTB content.',
   verification_status: 'needs_verification',
   is_demo: true,
   created_at: '2026-01-01T00:00:00.000Z',
@@ -142,6 +145,8 @@ export const DEMO_SUBJECTS: CurriculumSubject[] = SEEDS.map((seed, index) => ({
   paper_label: seed.paper,
   is_compulsory: seed.compulsory,
   sort_order: index + 1,
+  verification_status: 'needs_verification',
+  source_url: null,
   created_at: NOW,
 }));
 

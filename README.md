@@ -60,7 +60,7 @@ weekly report, and receive planned reminders.
 
 | Feature | What is real | Where |
 | --- | --- | --- |
-| **Syllabus tracker** | Class/group/stream filters, curriculum versions with authority + academic year + verification status, 11 activities tracked independently (reading, lectures, notes, formula sheet, practice, board, admission, MCQ, written, revision, self test), topic-level status, chapter/subject coverage, completion *estimates* labelled as estimates | `/syllabus` |
+| **Syllabus tracker** | Level (SSC/HSC), academic year, group/stream and subject filters, curriculum versions with authority + academic year + verification status, 11 activities tracked independently (reading, lectures, notes, formula sheet, practice, board, admission, MCQ, written, revision, self test), topic-level status, chapter/subject coverage, completion *estimates* labelled as estimates | `/syllabus` |
 | **Daily time tracker** | One timeline merging study sessions (source of truth) with non-study day blocks; stopwatch with pause/resume and a 180-minute cap; overlap detection; duplicate warning (never auto-deleted); planned vs actual from your study windows; rest days; subject-wise totals; end-of-day summary | `/time` |
 | **Smart planner** | Suggestions with evidence (revision due, overdue task, unresolved mistake, remaining syllabus), accept → task, split, reschedule, postpone, reject; guilt-free recovery that drops what no longer matters | `/planner`, `/tasks` |
 | **Smart revision** | Spaced baseline from your confidence (1–2 d, 3 d, 7 d, 14 d), your own next date wins, due-today queue, history, weak chapters; revision count is **not** mastery | `/revisions/smart` |
@@ -128,6 +128,8 @@ structural placeholder (`needs_verification`), **not official NCTB content**.
    | `0003_learning_systems.sql` | Phase 2: topics, day blocks, focus sessions, exam targets, practice questions/attempts, note kinds/tags, mistake detail columns |
    | `0004_demo_topics.sql` | demo topics for the demo curriculum |
    | `0005_mistake_practice_link.sql` | optional mistake → practice question link with a composite `(id, user_id)` FK |
+   | `0006_curriculum_provenance.sql` | curriculum `scope` (textbook / exam syllabus / subject structure), `source_checked_at`, `source_note`, per-subject verification status |
+   | `0007_official_subject_structure.sql` | SSC + HSC subject lists for Science, Humanities and Business Studies from NCTB — **subject names only, no chapters**, all `needs_verification` |
 
    `0005` uses `on delete set null (practice_question_id)`, which needs Postgres 15+
    (Supabase projects are 15/16/17; PGlite here is 18).
@@ -149,25 +151,37 @@ and diff them against the domain types before switching queries over.
 
 ### Using your own curriculum data
 
-The repository never ships a verified official syllabus. Add a version, subjects and
-chapters with SQL or use the CSV/JSON chapter import for chapters of an adopted subject.
+The repository ships the **official NCTB subject structure** for SSC and HSC (Science,
+Humanities, Business Studies) but **no chapter lists**: those live inside the NCTB
+textbook PDFs and were not machine-readable when the seed was written, so they are
+absent rather than invented. Add chapters with SQL or the CSV/JSON chapter import.
 Keep `verification_status`, `source_url` and `academic_year` accurate. Version a new
 curriculum instead of editing rows students already adopted.
+
+See `docs/CURRICULUM.md` for exactly what was confirmed, from which URL, and what a
+human still has to check before anything may be marked `verified`.
 
 ---
 
 ## 5. Curriculum accuracy
 
-- The seeded curriculum is **demo**: names are structural placeholders, every row is
-  `is_demo = true`, and versions carry `verification_status = 'needs_verification'` plus a
-  visible notice in the syllabus tracker.
+- Two kinds of curriculum data ship, and they are visibly different:
+  - **Demo** (`is_demo = true`): HSC Science placeholder structure. Chapter names are
+    fake ("Demo chapter 1 — mechanics"), and the UI badges them.
+  - **Official subject structure** (`is_demo = false`, `scope = 'subject_structure'`):
+    NCTB subject names in English and Bangla for SSC and HSC × Science / Humanities /
+    Business Studies. **No chapters.** Every row is `needs_verification`, because the
+    subject names were cross-checked but the chapter lists do not exist yet.
+- `scope` separates a full textbook table of contents from an exam-only revised syllabus
+  from a bare subject structure. They are never presented as the same thing.
 - No NCTB chapter list, lecture count, mark distribution or exam date is invented. Where
   a denominator is unknown the UI shows “Not recorded”.
 - To import real data you must record the source (`authority`, `source_url`),
   `academic_year`, `version_label` and verification status. Only then flip the status to
   `verified`.
-- The schema is version-ready for Classes 1–12, SSC/HSC and admission preparation, but
-  **no such official data is included**.
+- The schema is version-ready for Classes 1–12, SSC/HSC and admission preparation.
+  Chapter-level official data is **not** included and is never implied by the UI: the
+  curriculum browser reports "Chapter list not yet verified" from the real row counts.
 
 ---
 

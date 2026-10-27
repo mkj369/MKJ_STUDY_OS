@@ -21,14 +21,20 @@ import {
 import { errorMessage } from '@/utils/errors';
 import { newId } from '@/services/seed/demoWorkspace';
 import type { Repository } from '@/services/repository';
-import type { VerificationStatus } from '@/types/domain';
-
-const VERIFICATION_LABEL: Record<VerificationStatus, { text: string; tone: 'good' | 'warn' | 'neutral' | 'danger' }> = {
-  verified: { text: 'Verified source', tone: 'good' },
-  needs_verification: { text: 'Needs verification', tone: 'warn' },
-  draft: { text: 'Draft', tone: 'neutral' },
-  retired: { text: 'Retired', tone: 'danger' },
-};
+import {
+  COVERAGE_LABEL,
+  EMPTY_FILTERS,
+  SCOPE_LABEL,
+  VERIFICATION_LABEL,
+  chapterCoverage,
+  filterCurriculum,
+  groupOptions,
+  levelOptions,
+  summariseCurriculum,
+  subjectDisplayName,
+  yearOptions,
+  type CurriculumFilters,
+} from '@/domain/curriculum';
 
 function CurriculumContent() {
   const { data } = useWorkspaceQuery();
@@ -46,16 +52,44 @@ function CurriculumContent() {
   const [importError, setImportError] = useState<string | null>(null);
   const [lastBatchId, setLastBatchId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [filters, setFilters] = useState<CurriculumFilters>(EMPTY_FILTERS);
   const importRef = useRef<HTMLDivElement>(null);
 
   const versions = useMemo(() => {
     if (!bundle) return [];
-    return [...bundle.curriculum.versions].sort((a, b) => a.title.localeCompare(b.title));
+    return [...bundle.curriculum.versions].sort(
+      (a, b) =>
+        Number(a.is_demo) - Number(b.is_demo) ||
+        a.education_level.localeCompare(b.education_level) ||
+        (a.stream ?? '').localeCompare(b.stream ?? ''),
+    );
   }, [bundle]);
+
+  const filtersToShow = useMemo(
+    () => ({
+      levels: levelOptions(versions),
+      years: yearOptions(versions, filters.level),
+      groups: groupOptions(versions, filters.level, filters.year),
+    }),
+    [versions, filters.level, filters.year],
+  );
+
+  const filtered = useMemo(() => {
+    if (!bundle) return [];
+    const { versions: allVersions, subjects, chapters } = bundle.curriculum;
+    return filterCurriculum(allVersions, subjects, chapters, filters);
+  }, [bundle, filters]);
+
+  const summary = useMemo(
+    () =>
+      bundle
+        ? summariseCurriculum(bundle.curriculum.versions, bundle.curriculum.subjects, bundle.curriculum.chapters)
+        : null,
+    [bundle],
+  );
 
   if (!bundle || !view) return null;
 
-  const subjectById = new Map(bundle.curriculum.subjects.map((s) => [s.id, s]));
   const adoptedCurriculumSubjectIds = new Set(
     bundle.subjects.map((s) => s.curriculum_subject_id).filter((id): id is string => Boolean(id)),
   );
@@ -210,7 +244,7 @@ function CurriculumContent() {
     <>
       <PageHeader
         title="My Curriculum"
-        description="A flexible, versioned syllabus. The starter curriculum is explicitly unverified demo structure — you control what you study."
+        description="A flexible, versioned syllabus. Official subject structure is seeded for SSC and HSC; chapter lists stay unverified until someone checks them against the cited NCTB source. You control what you study."
         actions={
           <>
             <button type="button" className="btn btn--primary btn--sm" onClick={() => setDialogOpen(true)}>
@@ -228,10 +262,100 @@ function CurriculumContent() {
       />
 
       <Notice tone="warn" title="No fabricated syllabus.">
-        Curriculum rows carry their authority, academic year, version and verification status. The built-in
-        HSC Science starter content is marked <strong>needs verification</strong> and is demo structure only.
-        Add chapters from your own textbook, or import a list you trust.
+        Curriculum rows carry their authority, academic year, version and verification status. The SSC/HSC
+        subject lists below are seeded from official NCTB subject structure, but <strong>their chapter lists
+        are not verified yet</strong> — they were not readable as machine-parsable text when this data was
+        added, and chapter titles are never invented to fill the gap. The demo version is placeholder
+        structure only. Add chapters from your own textbook, or import a list you trust.
       </Notice>
+
+      {summary ? (
+        <SectionCard title="What is actually loaded" hint="Counted from your database, not estimated">
+          <div className="grid grid--two">
+            <div className="stack" style={{ gap: 2 }}>
+              <p className="small">
+                <strong>{summary.versions}</strong> curriculum version(s) · <strong>{summary.subjects}</strong> subject(s)
+              </p>
+              <p className="small">
+                <strong>{summary.chapters}</strong> chapter row(s), of which{' '}
+                <strong>{summary.verifiedChapters}</strong> verified
+              </p>
+              <p className="tiny muted">
+                {summary.demoVersions} version(s) are demo placeholders. Official subject lists carry no chapter
+                rows, so their progress bars start empty — that is a missing source, not a finished syllabus.
+              </p>
+            </div>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      <SectionCard title="Filter the reference curriculum" hint="Filters change what you browse, never your records.">
+        <div className="grid grid--two">
+          <label className="field">
+            <span className="field__label">Level</span>
+            <select
+              className="input"
+              value={filters.level}
+              onChange={(event) =>
+                setFilters((current) => ({ ...current, level: event.target.value, year: '', group: '' }))
+              }
+            >
+              <option value="">All levels</option>
+              {filtersToShow.levels.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="field__label">Academic year</span>
+            <select
+              className="input"
+              value={filters.year}
+              onChange={(event) => setFilters((current) => ({ ...current, year: event.target.value, group: '' }))}
+            >
+              <option value="">All years</option>
+              {filtersToShow.years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="field__label">Group / stream</span>
+            <select
+              className="input"
+              value={filters.group}
+              onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value }))}
+            >
+              <option value="">All groups</option>
+              {filtersToShow.groups.map((group) => (
+                <option key={group} value={group}>
+                  {group}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="field__label">Subject</span>
+            <input
+              className="input"
+              type="search"
+              placeholder="Physics, পদার্থবিজ্ঞান, …"
+              value={filters.subjectQuery}
+              onChange={(event) => setFilters((current) => ({ ...current, subjectQuery: event.target.value }))}
+            />
+            <span className="field__help">Matches English or Bangla names.</span>
+          </label>
+        </div>
+        {filters.level || filters.year || filters.group || filters.subjectQuery ? (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setFilters(EMPTY_FILTERS)}>
+            Clear filters
+          </button>
+        ) : null}
+      </SectionCard>
 
       <div style={{ height: 16 }} />
 
@@ -243,13 +367,27 @@ function CurriculumContent() {
             message="In cloud mode the starter curriculum is created by the database migrations. In local mode it ships with the app. You can always create custom subjects and chapters."
           />
         </SectionCard>
+      ) : filtered.length === 0 ? (
+        <SectionCard>
+          <EmptyState
+            title="No curriculum versions match these filters"
+            message="Clear the filters to see every level, year and group that is loaded. Nothing was deleted."
+            action={
+              <button type="button" className="btn btn--secondary btn--sm" onClick={() => setFilters(EMPTY_FILTERS)}>
+                Clear filters
+              </button>
+            }
+          />
+        </SectionCard>
       ) : (
         <div className="stack">
-          {versions.map((version) => {
-            const subjects = bundle.curriculum.subjects
-              .filter((s) => s.curriculum_version_id === version.id)
-              .sort((a, b) => a.sort_order - b.sort_order);
+          {filtered.map(({ version, subjects, chapterCount }) => {
             const verification = VERIFICATION_LABEL[version.verification_status];
+            const coverage = chapterCoverage(
+              version,
+              bundle.curriculum.subjects.filter((s) => s.curriculum_version_id === version.id),
+              bundle.curriculum.chapters,
+            );
             return (
               <SectionCard
                 key={version.id}
@@ -264,6 +402,15 @@ function CurriculumContent() {
                   </div>
                 }
               >
+                <div className="list-row__meta" style={{ marginBottom: 10 }}>
+                  <Badge tone={version.scope === 'textbook' ? 'info' : 'neutral'}>{SCOPE_LABEL[version.scope]}</Badge>
+                  <Badge tone={coverage === 'complete' ? 'good' : coverage === 'partial' ? 'info' : 'warn'}>
+                    {COVERAGE_LABEL[coverage]}
+                  </Badge>
+                  <span>{subjects.length} subject(s)</span>
+                  <span>{chapterCount} chapter row(s)</span>
+                  {version.source_checked_at ? <span>source checked {version.source_checked_at}</span> : null}
+                </div>
                 {version.source_url ? (
                   <p className="small" style={{ marginBottom: 10 }}>
                     <a href={version.source_url} target="_blank" rel="noreferrer noopener">
@@ -275,6 +422,7 @@ function CurriculumContent() {
                     No source URL recorded for this version.
                   </p>
                 )}
+                {version.source_note ? <p className="tiny muted" style={{ marginBottom: 10 }}>{version.source_note}</p> : null}
                 <div className="list">
                   {subjects.map((subject) => {
                     const chapters = bundle.curriculum.chapters.filter((c) => c.curriculum_subject_id === subject.id);
@@ -284,12 +432,19 @@ function CurriculumContent() {
                       <div className="list-row" key={subject.id}>
                         <div className="list-row__main">
                           <div className="list-row__title">
-                            {subject.name}
+                            {subjectDisplayName(subject)}
                             {subject.paper_label ? ` — ${subject.paper_label}` : ''}
                           </div>
                           <div className="list-row__meta">
-                            <span>{chapters.length} demo chapter row(s)</span>
+                            <span>
+                              {chapters.length === 0
+                                ? 'no chapter list yet'
+                                : `${chapters.length} chapter row(s)`}
+                            </span>
                             {subject.is_compulsory ? <span>compulsory</span> : <span>optional</span>}
+                            <Badge tone={subject.verification_status === 'verified' ? 'good' : 'warn'}>
+                              {VERIFICATION_LABEL[subject.verification_status].text}
+                            </Badge>
                             {adopted ? <span>in your workspace</span> : <span>not added yet</span>}
                           </div>
                         </div>
@@ -299,18 +454,22 @@ function CurriculumContent() {
                               type="button"
                               className="btn btn--primary btn--sm"
                               disabled={busyKey === subject.id}
-                              onClick={() => void adoptSubject(version.id, subject.id, subjectById.get(subject.id)?.name ?? 'Subject')}
+                              onClick={() => void adoptSubject(version.id, subject.id, subject.name)}
                             >
                               {busyKey === subject.id ? 'Adding…' : 'Add subject'}
                             </button>
+                          ) : missingChapters === 0 ? (
+                            <span className="tiny muted">
+                              {chapters.length === 0 ? 'Track chapters you add yourself' : 'All chapters added'}
+                            </span>
                           ) : (
                             <button
                               type="button"
                               className="btn btn--secondary btn--sm"
-                              disabled={busyKey === `chapters-${subject.id}` || missingChapters === 0}
+                              disabled={busyKey === `chapters-${subject.id}`}
                               onClick={() => void addAllChapters(version.id, subject.id, subject.name)}
                             >
-                              {missingChapters === 0 ? 'All chapters added' : `Add ${missingChapters} chapter(s)`}
+                              Add {missingChapters} chapter(s)
                             </button>
                           )}
                         </div>

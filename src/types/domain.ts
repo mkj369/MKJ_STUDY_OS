@@ -137,17 +137,31 @@ export interface Profile {
   updated_at: Timestamp;
 }
 
+/**
+ * What a curriculum row actually describes. A full textbook table of contents,
+ * an exam-only revised syllabus and a bare subject structure are different
+ * artefacts and must never be shown as if they were the same thing.
+ */
+export const CURRICULUM_SCOPES = ['textbook', 'exam_syllabus', 'subject_structure'] as const;
+export type CurriculumScope = (typeof CURRICULUM_SCOPES)[number];
+
 export interface CurriculumVersion {
   id: ID;
   authority: string;
   country: string;
   education_level: string;
   class_grade: string;
+  /** Study group / shift, e.g. Science, Humanities, Business Studies. */
   stream: string | null;
   academic_year: string;
   version_label: string;
   title: string;
   source_url: string | null;
+  scope: CurriculumScope;
+  /** Date a human last compared the rows with the cited source. */
+  source_checked_at: string | null;
+  /** What exactly was checked, and what still needs checking. */
+  source_note: string | null;
   verification_status: VerificationStatus;
   is_demo: boolean;
   created_at: Timestamp;
@@ -163,6 +177,8 @@ export interface CurriculumSubject {
   paper_label: string | null;
   is_compulsory: boolean;
   sort_order: number;
+  verification_status: VerificationStatus;
+  source_url: string | null;
   created_at: Timestamp;
 }
 

@@ -8,6 +8,7 @@ import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { userChapterSchema, userTopicSchema, type ChapterFormValues, type UserTopicValues } from '@/domain/schemas';
 import { TOPIC_STATUS_LABELS, estimateCompletion } from '@/domain/syllabus';
 import { TOPIC_STATUSES, type TopicStatus, type UserTopic } from '@/types/domain';
+import { levelOptions, yearOptions } from '@/domain/curriculum';
 import { errorMessage } from '@/utils/errors';
 
 function statusTone(status: TopicStatus) {
@@ -24,7 +25,8 @@ function SyllabusContent() {
   const { data } = useWorkspaceQuery();
   const mutate = useMutate();
   const notify = useNotify();
-  const [classGrade, setClassGrade] = useState('');
+  const [level, setLevel] = useState('');
+  const [year, setYear] = useState('');
   const [stream, setStream] = useState('');
   const [versionId, setVersionId] = useState('');
   const [onlyIncomplete, setOnlyIncomplete] = useState(false);
@@ -33,7 +35,8 @@ function SyllabusContent() {
   const [chapterDialog, setChapterDialog] = useState<string | null>(null);
 
   const versions = useMemo(() => data?.bundle.curriculum.versions ?? [], [data]);
-  const classGrades = useMemo(() => [...new Set(versions.map((version) => version.class_grade))].sort(), [versions]);
+  const levels = useMemo(() => levelOptions(versions), [versions]);
+  const years = useMemo(() => yearOptions(versions, level), [versions, level]);
   const streams = useMemo(
     () => [...new Set(versions.map((version) => version.stream).filter((value): value is string => Boolean(value)))].sort(),
     [versions],
@@ -42,9 +45,11 @@ function SyllabusContent() {
     () =>
       versions.filter(
         (version) =>
-          (!classGrade || version.class_grade === classGrade) && (!stream || version.stream === stream),
+          (!level || version.education_level === level) &&
+          (!year || version.academic_year === year) &&
+          (!stream || version.stream === stream),
       ),
-    [versions, classGrade, stream],
+    [versions, level, year, stream],
   );
   const version = versionOptions.find((candidate) => candidate.id === versionId) ?? null;
   const curriculumTopics = data?.bundle.curriculum.topics ?? [];
@@ -156,15 +161,41 @@ function SyllabusContent() {
         description="Track reading, lectures, notes, formula sheets, practice, board and admission questions, MCQs, written work, revision and self-tests — one line per chapter. Percentages always show their denominator."
       />
 
-      <SectionCard title="Filters" hint="Filters change the reference curriculum you browse, never your records.">
+      <SectionCard title="Filters" hint="Filters change the reference curriculum you browse, never your records or your progress.">
         <div className="grid grid--two">
           <label className="field">
-            <span className="field__label">Class</span>
-            <select className="input" value={classGrade} onChange={(event) => setClassGrade(event.target.value)}>
-              <option value="">All classes</option>
-              {classGrades.map((grade) => (
-                <option key={grade} value={grade}>
-                  {grade}
+            <span className="field__label">Level</span>
+            <select
+              className="input"
+              value={level}
+              onChange={(event) => {
+                setLevel(event.target.value);
+                setYear('');
+                setVersionId('');
+              }}
+            >
+              <option value="">SSC and HSC</option>
+              {levels.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="field__label">Academic year</span>
+            <select
+              className="input"
+              value={year}
+              onChange={(event) => {
+                setYear(event.target.value);
+                setVersionId('');
+              }}
+            >
+              <option value="">All years</option>
+              {years.map((value) => (
+                <option key={value} value={value}>
+                  {value}
                 </option>
               ))}
             </select>
@@ -214,7 +245,8 @@ function SyllabusContent() {
         {version ? (
           <Notice tone={version.verification_status === 'verified' ? 'info' : 'warn'} title="Syllabus source">
             {version.authority} · {version.education_level} · {version.academic_year} · version{' '}
-            {version.version_label} · verification: <strong>{version.verification_status}</strong>
+            {version.version_label} · scope {' '}
+            {version.scope.replace(/_/g, ' ')} · verification: <strong>{version.verification_status}</strong>
             {version.source_url ? (
               <>
                 {' '}

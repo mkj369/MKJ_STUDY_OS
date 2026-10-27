@@ -168,8 +168,10 @@ ion-app {
   min-width: 0;
 }
 
-.app-topbar__title h1 {
+.app-topbar__heading {
+  margin: 0;
   font-size: 1.05rem;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -5,6 +5,7 @@ import {
   type TableMap,
 } from '@/types/domain';
 import { DEMO_CURRICULUM } from '@/services/seed/demoCurriculum';
+import { OFFICIAL_CURRICULUM } from '@/services/seed/officialCurriculum';
 import type { KeyValueStorage } from './storage';
 import { STORAGE_PREFIX } from './storage';
 
@@ -80,7 +81,15 @@ export class LocalDatabase {
     return db;
   }
 
+  /**
+   * Reference data is merged in, never replacing what is already stored: a
+   * student's own imported chapters, adopted subjects and progress all keep
+   * their ids. Existing curriculum rows are updated in place (the seed is the
+   * source of truth for its own deterministic ids) so a later release can
+   * correct a mistyped subject name without losing progress.
+   */
   private ensureCurriculum(db: DatabaseShape): void {
+    this.mergeCurriculum(db, OFFICIAL_CURRICULUM);
     const versions = db.tables['curriculum_versions'] as unknown as TableMap['curriculum_versions'][];
     if (!versions?.some((v) => v.id === DEMO_CURRICULUM.version.id)) {
       versions?.push({ ...DEMO_CURRICULUM.version });
@@ -92,6 +101,27 @@ export class LocalDatabase {
     const chapters = db.tables['curriculum_chapters'] as unknown as TableMap['curriculum_chapters'][];
     for (const chapter of DEMO_CURRICULUM.chapters) {
       if (!chapters.some((c) => c.id === chapter.id)) chapters.push({ ...chapter });
+    }
+  }
+
+  private mergeCurriculum(
+    db: DatabaseShape,
+    bundle: {
+      versions: readonly TableMap['curriculum_versions'][];
+      subjects: readonly TableMap['curriculum_subjects'][];
+    },
+  ): void {
+    const versions = db.tables['curriculum_versions'] as unknown as TableMap['curriculum_versions'][];
+    for (const version of bundle.versions) {
+      const existing = versions.findIndex((v) => v.id === version.id);
+      if (existing >= 0) versions[existing] = { ...versions[existing], ...version };
+      else versions.push({ ...version });
+    }
+    const subjects = db.tables['curriculum_subjects'] as unknown as TableMap['curriculum_subjects'][];
+    for (const subject of bundle.subjects) {
+      const existing = subjects.findIndex((s) => s.id === subject.id);
+      if (existing >= 0) subjects[existing] = { ...subjects[existing], ...subject };
+      else subjects.push({ ...subject });
     }
   }
 

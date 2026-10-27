@@ -137,7 +137,7 @@ describe('migrations apply cleanly', () => {
   it('round-trips the demo curriculum with explicit verification status', async () => {
     const rows = await userQuery<{ is_demo: boolean; verification_status: string; title: string }>(
       USER_A,
-      'select is_demo, verification_status, title from curriculum_versions',
+      'select is_demo, verification_status, title from curriculum_versions where is_demo',
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]?.is_demo).toBe(true);
@@ -145,6 +145,45 @@ describe('migrations apply cleanly', () => {
     expect(rows[0]?.title).toMatch(/not official/i);
     const chapters = await count(USER_A, 'curriculum_chapters');
     expect(chapters).toBeGreaterThan(0);
+  });
+
+  it('seeds official subject structure across both levels and all three groups', async () => {
+    const versions = await userQuery<{ education_level: string; stream: string; scope: string }>(
+      USER_A,
+      'select education_level, stream, scope from curriculum_versions where not is_demo order by education_level, stream',
+    );
+    expect(versions.map((v) => `${v.education_level}/${v.stream}`)).toEqual([
+      'HSC/Business Studies',
+      'HSC/Humanities',
+      'HSC/Science',
+      'SSC/Business Studies',
+      'SSC/Humanities',
+      'SSC/Science',
+    ]);
+    // Scope is recorded so a subject list is never mistaken for textbook contents.
+    expect(versions.every((v) => v.scope === 'subject_structure')).toBe(true);
+
+    const subjects = await userQuery<{ n: number; verified: number }>(
+      USER_A,
+      `select count(*)::int as n,
+              count(*) filter (where s.verification_status = 'verified')::int as verified
+         from curriculum_subjects s
+         join curriculum_versions v on v.id = s.curriculum_version_id
+        where not v.is_demo`,
+    );
+    expect(subjects[0]?.n).toBeGreaterThan(0);
+    expect(subjects[0]?.verified).toBe(0);
+
+    // No invented chapter titles may exist for the official versions.
+    const officialChapters = await userQuery<{ n: number }>(
+      USER_A,
+      `select count(*)::int as n
+         from curriculum_chapters c
+         join curriculum_subjects s on s.id = c.curriculum_subject_id
+         join curriculum_versions v on v.id = s.curriculum_version_id
+        where not v.is_demo`,
+    );
+    expect(officialChapters[0]?.n).toBe(0);
   });
 });
 
