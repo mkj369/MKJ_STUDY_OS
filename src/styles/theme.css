@@ -22,6 +22,14 @@
   --mkj-warning-soft: #fff6e5;
   --mkj-radius: 14px;
   --mkj-radius-sm: 10px;
+  --mkj-radius-lg: 18px;
+  /* Spacing scale — one rhythm for every screen instead of ad-hoc pixel gaps. */
+  --mkj-space-1: 4px;
+  --mkj-space-2: 8px;
+  --mkj-space-3: 12px;
+  --mkj-space-4: 16px;
+  --mkj-space-5: 22px;
+  --mkj-space-6: 30px;
   --mkj-shadow: 0 1px 2px rgba(16, 29, 24, 0.06), 0 8px 24px rgba(16, 29, 24, 0.06);
   --mkj-shadow-sm: 0 1px 2px rgba(16, 29, 24, 0.08);
   --mkj-nav-width: 264px;
@@ -654,32 +662,50 @@ ion-app {
   border: 1px solid var(--mkj-line);
   border-radius: var(--mkj-radius);
   background: var(--mkj-surface);
-  padding: 14px;
+  padding: var(--mkj-space-4);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 104px;
+  gap: var(--mkj-space-1);
+  min-height: 112px;
   text-decoration: none;
   color: inherit;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+a.stat:hover {
+  border-color: color-mix(in srgb, var(--mkj-primary) 38%, var(--mkj-line));
+  box-shadow: var(--mkj-shadow-sm);
+  transform: translateY(-1px);
+}
+
+a.stat:active {
+  transform: translateY(0);
 }
 
 .stat__label {
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   color: var(--mkj-muted);
-  font-weight: 600;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
 }
 
 .stat__value {
-  font-size: 1.55rem;
+  /* Clamped so "Not recorded" stays on one line on a phone without shrinking
+     real numbers into insignificance on a desktop. */
+  font-size: clamp(1.2rem, 1.02rem + 0.5vw, 1.45rem);
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
+  text-wrap: balance;
 }
 
 .stat__hint {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: var(--mkj-muted);
-  line-height: 1.35;
+  line-height: 1.45;
+  margin-top: auto;
 }
 
 /* ------------------------------ progress ------------------------------- */
@@ -1342,4 +1368,161 @@ ion-app {
 
 .bar__fill--warn {
   background: var(--mkj-warning, #b26a00);
+}
+
+/* --------------------------- dashboard layout --------------------------- */
+/*
+ * A single vertical rhythm for the dashboard: one gap value between blocks,
+ * a hero band that carries the greeting + the two primary actions, and a
+ * two-column split where the left column is deliberately wider because it
+ * holds "what to do next" rather than reference material.
+ */
+
+.dash {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mkj-space-4);
+}
+
+/* --- hero ------------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--mkj-line);
+  border-radius: var(--mkj-radius-lg);
+  padding: var(--mkj-space-5);
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--mkj-primary-soft) 0%, transparent 58%),
+    var(--mkj-surface);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--mkj-space-4);
+}
+
+.hero__body {
+  min-width: 0;
+  flex: 1 1 22rem;
+}
+
+.hero h1 {
+  font-size: clamp(1.35rem, 1.12rem + 0.7vw, 1.7rem);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mkj-space-2);
+  margin-top: var(--mkj-space-2);
+  color: var(--mkj-muted);
+  font-size: 0.82rem;
+}
+
+.hero__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--mkj-line);
+  background: var(--mkj-surface);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--mkj-ink-soft);
+  white-space: nowrap;
+}
+
+.hero__chip ion-icon {
+  font-size: 0.9rem;
+  color: var(--mkj-primary);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mkj-space-2);
+}
+
+@media (max-width: 520px) {
+  .hero {
+    padding: var(--mkj-space-4);
+  }
+  .hero__actions {
+    width: 100%;
+  }
+  .hero__actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* --- stat grid -------------------------------------------------------- */
+
+/* Eight stats should read as a block, not as 6 + 2 orphans. */
+@media (min-width: 1120px) {
+  .grid--stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 760px) and (max-width: 1119px) {
+  .grid--stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* --- uneven split ----------------------------------------------------- */
+
+.dash-split {
+  display: grid;
+  gap: var(--mkj-space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 980px) {
+  .dash-split {
+    /* The actionable panel gets the extra width. */
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    /* Cards share the row height so a short panel never leaves a hole beside a
+       tall neighbour; internals stay top-aligned. */
+    align-items: stretch;
+  }
+}
+
+/* Keep card content top-aligned when the card is stretched by its neighbour. */
+.dash-split > .card {
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-split > .card > .list {
+  flex: 1;
+}
+
+/* Panels inside the dashboard share padding and heading rhythm. */
+.dash .card {
+  padding: var(--mkj-space-4) var(--mkj-space-4) var(--mkj-space-4);
+}
+
+.dash .card__title {
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.dash .card__header {
+  margin-bottom: var(--mkj-space-3);
+}
+
+/* The dashboard footer is reference text, not content. */
+.dash-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mkj-space-1);
+  padding-top: var(--mkj-space-1);
+  border-top: 1px solid var(--mkj-line);
 }

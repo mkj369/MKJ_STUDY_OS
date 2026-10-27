@@ -6,7 +6,9 @@ import {
   calendarOutline,
   checkmarkCircleOutline,
   chevronForwardOutline,
+  cloudDoneOutline,
   flaskOutline,
+  phonePortraitOutline,
   refreshOutline,
   timeOutline,
 } from 'ionicons/icons';
@@ -24,7 +26,7 @@ import {
   StatusBadge,
 } from '@/components/ui/Page';
 import { ErrorState, LoadingState } from '@/components/ui/States';
-import { minutesToHuman, weekRange, addDaysISO, diffDaysISO } from '@/domain/dates';
+import { minutesToHuman, weekRange, diffDaysISO } from '@/domain/dates';
 import { PRIORITY_WEIGHT } from '@/domain/tasks';
 import { buildTimeline, formatMinutes, summarizeTime } from '@/domain/timeTracking';
 import { errorMessage } from '@/utils/errors';
@@ -119,16 +121,24 @@ export function DashboardPage() {
 
   if (view.totals.subjects === 0) {
     return (
-      <>
-        <div className="page-head">
-          <div>
+      <div className="dash">
+        <header className="hero">
+          <div className="hero__body">
             <h1>Welcome, {displayName}</h1>
-            <p>
-              MKJ StudyOS remembers what you record, shows what is still unknown, and helps you choose the
-              next useful action.
-            </p>
+            <div className="hero__meta">
+              <span className="hero__chip">
+                <IonIcon icon={calendarOutline} aria-hidden="true" /> {today}
+              </span>
+              <span className="hero__chip">
+                <IonIcon icon={phonePortraitOutline} aria-hidden="true" /> Local demo mode
+              </span>
+              <span className="tiny muted">
+                MKJ StudyOS remembers what you record, shows what is still unknown, and helps you choose the
+                next useful action.
+              </span>
+            </div>
           </div>
-        </div>
+        </header>
         <SectionCard title="Start with one subject">
           <EmptyState
             icon={<IonIcon icon={addOutline} aria-hidden="true" />}
@@ -146,26 +156,37 @@ export function DashboardPage() {
             }
           />
         </SectionCard>
-        <div style={{ height: 12 }} />
         <Notice tone="neutral" title="What this app will not do.">
           It will not invent study history, lecture counts, marks or predicted results. Missing records always
           say “not recorded”, never “you did not study”.
         </Notice>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="page-head">
-        <div>
+    <div className="dash">
+      <header className="hero">
+        <div className="hero__body">
           <h1>Good to see you, {displayName}</h1>
-          <p>
-            Today is {today} ({profile.timezone || 'Asia/Dhaka'}) · Everything below comes from records you
-            entered.
-          </p>
+          <div className="hero__meta">
+            <span className="hero__chip">
+              <IonIcon icon={calendarOutline} aria-hidden="true" /> {today}
+            </span>
+            <span className="hero__chip">
+              <IonIcon icon={timeOutline} aria-hidden="true" /> {profile.timezone || 'Asia/Dhaka'}
+            </span>
+            <span className="hero__chip">
+              <IonIcon
+                icon={auth.mode === 'cloud' ? cloudDoneOutline : phonePortraitOutline}
+                aria-hidden="true"
+              />
+              {auth.mode === 'cloud' ? 'Supabase cloud' : 'Local demo mode'}
+            </span>
+            <span className="tiny muted">Everything below comes from records you entered.</span>
+          </div>
         </div>
-        <div className="row">
+        <div className="hero__actions">
           <Link to="/lectures" className="btn btn--primary btn--sm">
             <IonIcon icon={addOutline} aria-hidden="true" /> Log a lecture
           </Link>
@@ -173,79 +194,20 @@ export function DashboardPage() {
             Log study time
           </Link>
         </div>
-      </div>
+      </header>
 
       {view.demoActive ? (
-        <div style={{ marginBottom: 12 }}>
-          <Notice tone="warn" title="Demo data is loaded.">
-            Every demo row is labelled <DemoBadge />. Remove it from{' '}
-            <Link to="/settings">Settings → Data</Link> before entering real records.{' '}
-            <button type="button" className="link-button" onClick={() => navigate('/settings')}>
-              Manage
-            </button>
-          </Notice>
-        </div>
+        <Notice tone="warn" title="Demo data is loaded.">
+          Every demo row is labelled <DemoBadge />. Remove it from{' '}
+          <Link to="/settings">Settings → Data</Link> before entering real records.{' '}
+          <button type="button" className="link-button" onClick={() => navigate('/settings')}>
+            Manage
+          </button>
+        </Notice>
       ) : null}
 
-      <div className="grid grid--stats">
-        <StatCard
-          label="Today’s tasks"
-          value={view.dashboardTasks.length}
-          hint={
-            view.taskCounts.overdue > 0
-              ? `${view.taskCounts.overdue} overdue — reschedule without guilt`
-              : 'Planned or due today'
-          }
-          to="/tasks"
-          badge={view.taskCounts.overdue > 0 ? <Badge tone="warn">Overdue</Badge> : null}
-        />
-        <StatCard
-          label="Study recorded this week"
-          value={minutesToHuman(weekMinutes)}
-          hint={`${sessionsThisWeek.length} session${sessionsThisWeek.length === 1 ? '' : 's'} logged · time is not proof of learning`}
-          to="/sessions"
-        />
-        <StatCard
-          label="Study time today"
-          value={todayTime.studyMinutes > 0 ? formatMinutes(todayTime.studyMinutes) : 'Not recorded'}
-          hint={
-            todayTime.otherMinutes > 0
-              ? `${formatMinutes(todayTime.otherMinutes)} of other blocks (college, sleep, breaks…)`
-              : 'From study sessions only'
-          }
-          to="/time"
-        />
-        <StatCard
-          label="Next exam"
-          value={nextExam ? `${nextExam.daysRemaining} day(s)` : 'Not recorded'}
-          hint={nextExam ? `${nextExam.title} · ${nextExam.examDate}` : 'Add an exam target to see a countdown'}
-          to="/exams/prep"
-        />
-        <StatCard
-          label="Checklist completion"
-          value={view.totals.checklistTotal > 0 ? `${Math.round((view.totals.checklistDone / view.totals.checklistTotal) * 100)}%` : '—'}
-          hint={`${view.totals.checklistDone} of ${view.totals.checklistTotal} items · separate from mastery`}
-          to="/subjects"
-        />
-        <StatCard
-          label="Revisions due"
-          value={dueRevisions.length}
-          hint={dueRevisions.length === 0 ? 'Nothing due from recorded revisions' : 'Based on your own review dates'}
-          to="/revisions"
-          badge={dueRevisions.some((r) => r.bucket === 'overdue') ? <Badge tone="danger">Overdue</Badge> : null}
-        />
-        <StatCard
-          label="Open difficult topics"
-          value={view.totals.openDifficulties}
-          hint="Only topics you marked"
-          to="/difficulties"
-        />
-        <StatCard label="Latest exam result" value={examPercentLabel} hint={`${view.examSummary.count} result(s) recorded`} to="/exams" />
-      </div>
-
-      <div style={{ height: 16 }} />
-
-      <div className="grid grid--two">
+      {/* What to do next comes first: the action outranks reference numbers. */}
+      <div className="dash-split">
         <SectionCard
           title="Next useful action"
           hint="Derived from deadlines, evidence and your own priorities"
@@ -366,9 +328,63 @@ export function DashboardPage() {
         </SectionCard>
       </div>
 
-      <div style={{ height: 16 }} />
+      <section className="grid grid--stats" aria-label="Today at a glance">
+        <StatCard
+          label="Today’s tasks"
+          value={view.dashboardTasks.length}
+          hint={
+            view.taskCounts.overdue > 0
+              ? `${view.taskCounts.overdue} overdue — reschedule without guilt`
+              : 'Planned or due today'
+          }
+          to="/tasks"
+          badge={view.taskCounts.overdue > 0 ? <Badge tone="warn">Overdue</Badge> : null}
+        />
+        <StatCard
+          label="Study recorded this week"
+          value={minutesToHuman(weekMinutes)}
+          hint={`${sessionsThisWeek.length} session${sessionsThisWeek.length === 1 ? '' : 's'} logged · time is not proof of learning`}
+          to="/sessions"
+        />
+        <StatCard
+          label="Study time today"
+          value={todayTime.studyMinutes > 0 ? formatMinutes(todayTime.studyMinutes) : 'Not recorded'}
+          hint={
+            todayTime.otherMinutes > 0
+              ? `${formatMinutes(todayTime.otherMinutes)} of other blocks (college, sleep, breaks…)`
+              : 'From study sessions only'
+          }
+          to="/time"
+        />
+        <StatCard
+          label="Next exam"
+          value={nextExam ? `${nextExam.daysRemaining} day(s)` : 'Not recorded'}
+          hint={nextExam ? `${nextExam.title} · ${nextExam.examDate}` : 'Add an exam target to see a countdown'}
+          to="/exams/prep"
+        />
+        <StatCard
+          label="Checklist completion"
+          value={view.totals.checklistTotal > 0 ? `${Math.round((view.totals.checklistDone / view.totals.checklistTotal) * 100)}%` : '—'}
+          hint={`${view.totals.checklistDone} of ${view.totals.checklistTotal} items · separate from mastery`}
+          to="/subjects"
+        />
+        <StatCard
+          label="Revisions due"
+          value={dueRevisions.length}
+          hint={dueRevisions.length === 0 ? 'Nothing due from recorded revisions' : 'Based on your own review dates'}
+          to="/revisions"
+          badge={dueRevisions.some((r) => r.bucket === 'overdue') ? <Badge tone="danger">Overdue</Badge> : null}
+        />
+        <StatCard
+          label="Open difficult topics"
+          value={view.totals.openDifficulties}
+          hint="Only topics you marked"
+          to="/difficulties"
+        />
+        <StatCard label="Latest exam result" value={examPercentLabel} hint={`${view.examSummary.count} result(s) recorded`} to="/exams" />
+      </section>
 
-      <div className="grid grid--two">
+      <div className="dash-split">
         <SectionCard title="Needs attention" hint="Each item names the record behind it">
           {attentionChapters.length === 0 ? (
             <EmptyState
@@ -458,85 +474,79 @@ export function DashboardPage() {
         </SectionCard>
       </div>
 
-      <div style={{ height: 16 }} />
-
-      <SectionCard
-        title="Upcoming deadlines"
-        hint="Deadlines you entered. Nothing here is invented."
-        action={
-          <Link to="/tasks" className="btn btn--ghost btn--sm">
-            Planner
-          </Link>
-        }
-      >
-        {dueSoonTasks.length === 0 ? (
-          <p className="small muted">No task has a deadline in the next three days.</p>
-        ) : (
-          <div className="list">
-            {dueSoonTasks.map((task) => (
-              <div className="list-row" key={task.id}>
-                <div className="list-row__main">
-                  <div className="list-row__title">{task.title}</div>
-                  <div className="list-row__meta">
-                    <span>due {task.due_date}</span>
-                    <span>{task.estimated_minutes} min</span>
-                  </div>
-                </div>
-                <Badge tone={task.due_date && task.due_date < today ? 'danger' : 'neutral'}>
-                  {task.due_date && task.due_date < today ? 'Overdue' : 'Upcoming'}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        )}
-      </SectionCard>
-
-      <div style={{ height: 16 }} />
-
-      <SectionCard title="Recent exams & results" hint="Entered marks only; no predictions">
-        {bundle.exams.length === 0 ? (
-          <p className="small muted">No exam results entered yet.</p>
-        ) : (
-          <div className="list">
-            {[...bundle.exams]
-              .sort((a, b) => (a.exam_date < b.exam_date ? 1 : -1))
-              .slice(0, 3)
-              .map((exam) => {
-                const percent = exam.total_marks > 0 ? Math.round((exam.marks_obtained / exam.total_marks) * 1000) / 10 : null;
-                const subject = view.subjectById.get(exam.user_subject_id ?? '');
-                return (
-                  <div className="list-row" key={exam.id}>
-                    <div className="list-row__main">
-                      <div className="list-row__title">{exam.exam_name}</div>
-                      <div className="list-row__meta">
-                        <span>{exam.exam_date}</span>
-                        {subject ? <span>{subject.label}</span> : null}
-                        <span>
-                          {exam.marks_obtained}/{exam.total_marks}
-                        </span>
-                      </div>
+      <div className="dash-split">
+        <SectionCard
+          title="Upcoming deadlines"
+          hint="Deadlines you entered. Nothing here is invented."
+          action={
+            <Link to="/tasks" className="btn btn--ghost btn--sm">
+              Planner
+            </Link>
+          }
+        >
+          {dueSoonTasks.length === 0 ? (
+            <p className="small muted">No task has a deadline in the next three days.</p>
+          ) : (
+            <div className="list">
+              {dueSoonTasks.map((task) => (
+                <div className="list-row" key={task.id}>
+                  <div className="list-row__main">
+                    <div className="list-row__title">{task.title}</div>
+                    <div className="list-row__meta">
+                      <span>due {task.due_date}</span>
+                      <span>{task.estimated_minutes} min</span>
                     </div>
-                    <Badge tone={percent !== null && percent < 50 ? 'danger' : percent !== null && percent >= 80 ? 'good' : 'neutral'}>
-                      {percent !== null ? `${percent}%` : 'Not recorded'}
-                    </Badge>
                   </div>
-                );
-              })}
-          </div>
-        )}
-      </SectionCard>
+                  <Badge tone={task.due_date && task.due_date < today ? 'danger' : 'neutral'}>
+                    {task.due_date && task.due_date < today ? 'Overdue' : 'Upcoming'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
 
-      <div style={{ height: 14 }} />
-      <DataFreshness lastRecordDate={view.lastRecordDate} now={today} />
-      <p className="tiny muted" style={{ marginTop: 4 }}>
-        <IonIcon icon={alertCircleOutline} aria-hidden="true" /> Need to catch up? Missing records never lower
-        your progress; they only mark information as unknown. Add records when you can.
-      </p>
-      <div style={{ height: 8 }} />
-      <p className="tiny muted">
-        Logged {addDaysISO(today, 0)} · local time zone {profile.timezone || 'Asia/Dhaka'} · synced mode:{' '}
-        {auth.mode === 'cloud' ? 'Supabase cloud' : 'browser storage'}
-      </p>
-    </>
+        <SectionCard title="Recent exams & results" hint="Entered marks only; no predictions">
+          {bundle.exams.length === 0 ? (
+            <p className="small muted">No exam results entered yet.</p>
+          ) : (
+            <div className="list">
+              {[...bundle.exams]
+                .sort((a, b) => (a.exam_date < b.exam_date ? 1 : -1))
+                .slice(0, 3)
+                .map((exam) => {
+                  const percent = exam.total_marks > 0 ? Math.round((exam.marks_obtained / exam.total_marks) * 1000) / 10 : null;
+                  const subject = view.subjectById.get(exam.user_subject_id ?? '');
+                  return (
+                    <div className="list-row" key={exam.id}>
+                      <div className="list-row__main">
+                        <div className="list-row__title">{exam.exam_name}</div>
+                        <div className="list-row__meta">
+                          <span>{exam.exam_date}</span>
+                          {subject ? <span>{subject.label}</span> : null}
+                          <span>
+                            {exam.marks_obtained}/{exam.total_marks}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge tone={percent !== null && percent < 50 ? 'danger' : percent !== null && percent >= 80 ? 'good' : 'neutral'}>
+                        {percent !== null ? `${percent}%` : 'Not recorded'}
+                      </Badge>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      <footer className="dash-foot">
+        <DataFreshness lastRecordDate={view.lastRecordDate} now={today} />
+        <p className="tiny muted" style={{ marginTop: 4 }}>
+          <IonIcon icon={alertCircleOutline} aria-hidden="true" /> Need to catch up? Missing records never lower
+          your progress; they only mark information as unknown. Add records when you can.
+        </p>
+      </footer>
+    </div>
   );
 }
