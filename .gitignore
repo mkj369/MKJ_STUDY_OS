@@ -1,0 +1,51 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+dist-ssr/
+build/
+coverage/
+*.local
+*.tsbuildinfo
+
+# environment / secrets
+.env
+.env.local
+.env.*.local
+.env.production
+
+# editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.swp
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Capacitor / Android generated artefacts
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/capacitor-cordova-android-plugins/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Supabase CLI temp
+supabase/.temp/
+supabase/.branches/
+# local function secrets (never commit)
+supabase/.env.local
+supabase/.env
+
