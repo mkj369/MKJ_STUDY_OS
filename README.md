@@ -185,6 +185,7 @@ npm run test:db       # vitest run tests/db — migrations + RLS in PGlite
 npm run test:e2e      # playwright test — real Chromium against a preview build
 npm run verify        # typecheck && lint && build && test (build first: the bundle secret scan reads dist/)
 npm run verify:cloud  # hosted Supabase + optional real AI check (see §9.1)
+npm run android:preflight # JDK 17 / Android SDK / wrapper / synced-assets check
 npm run android:sync  # build + cap sync android
 npm run android:build # ./gradlew assembleDebug → APK (needs JDK + SDK)
 npm run android:open  # open the Android project
@@ -195,8 +196,9 @@ npm run android:open  # open the Android project
 ```
 npm run typecheck  → no errors
 npm run lint       → no errors, no warnings
-npm test           → 33 files, 386 tests passed
+npm test           → 34 files, 402 tests passed
                      (incl. 33 database/migration/RLS assertions in tests/db,
+                      24 Android config + preflight assertions,
                       a build-bundle secret scan and the loading/error/retry states)
 npm run build      → ✓ built in 5.88 s
 npm run test:e2e   → 37 passed (50.2 s) in Chromium against the production preview build
@@ -299,7 +301,7 @@ secrets, run `npm run verify:cloud -- --ai` (see §9.1).
 | --- | --- | --- |
 | `npm run typecheck` | whole project incl. tests | pass |
 | `npm run lint` | ESLint (no warnings allowed in the result we report) | pass |
-| `npm test` | 33 files / 386 tests | pass |
+| `npm test` | 34 files / 402 tests | pass |
 | `npx vitest run tests/db` | migrations `0001`–`0005` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability | pass (33 tests) |
 | `npm run build` | production build + chunk report | pass |
 | `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep, icon rendering | pass (37 tests, 50.2 s) |
@@ -323,6 +325,9 @@ Key test files:
   invented-number rejection, 401/5xx/timeout behaviour, retry policy, provider config.
 - `tests/android/config.test.ts` — package id parity, SDK levels, reminder permissions,
   notification icon existence, Gradle wrapper pinning, corrected test stubs.
+- `tests/android/preflight.test.ts` — `scripts/android-preflight.mjs`: Java version
+  parsing (including `1.8.0_x`), numeric build-tools ordering, SDK package detection,
+  missing wrapper and un-synced assets, and that every failure carries a remedy.
 - `tests/csv.test.ts` — CSV quoting plus spreadsheet-formula neutralisation.
 - `tests/ui/appBoot.test.tsx` — the real app boots in jsdom, seeds demo rows, navigates and
   renders every Phase 1 screen without a load error.
@@ -452,16 +457,23 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests
 
 ## 10. Android build
 
-Prerequisites: Node 20+, JDK 17+, Android Studio with an SDK, and a device or emulator.
-
-The native project is committed, so building is two commands on a machine with the SDK:
+Prerequisites: Node 20.19+, JDK 17+, and the Android SDK (platform 35 + build-tools +
+platform-tools). A full walkthrough — including installing on your own phone, which backend
+the APK should use, and what must never go into it — is in
+**[docs/ANDROID_APK.md](docs/ANDROID_APK.md)**.
 
 ```bash
-npm run android:sync      # vite build + cap sync android
-npm run android:build     # → android/app/build/outputs/apk/debug/app-debug.apk
+npm run android:preflight  # checks JDK, SDK, wrapper and synced assets; prints the fix
+npm run android:sync       # vite build + cap sync android
+npm run android:build      # → android/app/build/outputs/apk/debug/app-debug.apk
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 # or: npm run android:open   (Android Studio)
 ```
+
+The APK contains only the web bundle. With no `.env.local` it runs in **local demo mode**
+with no key of any kind inside it; if you point it at your own Supabase project, only the
+**anon** key is compiled in (safe because RLS is on) — never a service-role key or an AI
+provider key. `npx vitest run tests/bundle` scans the built bundle for those.
 
 What is in the repository: `appId com.mkjstudyos.app`, `minSdk 23 / target 35`,
 `androidScheme https`, the `@capacitor/local-notifications@7.0.7` plugin registered by
@@ -472,11 +484,14 @@ exist. `tests/android/config.test.ts` re-checks package id, SDK levels, permissi
 icon on every run, and the template test stubs were fixed so `./gradlew test` does not fail
 on the renamed package.
 
-**Status in this snapshot: configuration PASS, APK and device BLOCKED.** No JDK or Android
-SDK is installed and `dl.google.com` is unreachable, so nothing was compiled and no
-notification was delivered. Reminders use inexact alarms unless the user grants exact-alarm
-access — untested on hardware. See [docs/VERIFICATION.md](docs/VERIFICATION.md) §2.3 for the
-device checklist.
+**Status in this snapshot: sync PASS, configuration PASS, APK and device BLOCKED.** The web
+build and `cap sync` were executed here (40 assets copied, plugin registered), but there is
+no JDK, no Android SDK, and `services.gradle.org` / `dl.google.com` / Maven hosts are
+unreachable, so `gradlew assembleDebug` was never run and no APK exists in this repository.
+`npm run android:preflight` reproduces that verdict in one command. Reminders use inexact
+alarms unless the user grants exact-alarm access — untested on hardware. See
+[docs/ANDROID_APK.md](docs/ANDROID_APK.md) for the build and install steps and
+[docs/VERIFICATION.md](docs/VERIFICATION.md) §2.3 for the device checklist.
 
 ---
 
@@ -582,7 +597,7 @@ tests/
   ui/             jsdom app boot + component tests
   e2e/            Playwright journeys, accessibility sweep
   android/        native configuration guard (no SDK required)
-docs/             progress rules, verification record
+docs/             progress rules, verification record, Android build guide
 ```
 
 ---

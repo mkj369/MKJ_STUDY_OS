@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "android:preflight": "node scripts/android-preflight.mjs",
     "android:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
     "test:e2e": "playwright test",
