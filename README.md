@@ -380,7 +380,7 @@ check are in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 | B — syllabus tracking | `journeys.spec.ts` | tick a checklist item, reload, still ticked; dashboard shows the same denominator |
 | C — time tracking | `phase2.spec.ts` | log a 45-minute college block, it appears on the timeline |
 | D — planning & revision | `journeys.spec.ts` | create task → complete it (moves to Done) → create second task → reschedule → persists after reload |
-| E — mistake book | `journeys.spec.ts` | log a mistake linked to a practice question, reload, unlink it without deleting the mistake |
+| E — mistake book | `journeys.spec.ts` | log a mistake linked to a practice question, reload, follow the link into that exact question, save an attempt, unlink without deleting the mistake |
 | F — questions & notes | `phase2.spec.ts`, `journeys.spec.ts` | practice question + graded attempt (100 %), quick capture note found by vault search |
 | G — progress & AI fallback | `journeys.spec.ts` | four insight bands render; AI-off message is explicit |
 | H — security | `tests/db`, `tests/integration` | cross-user reads/writes rejected in Postgres and in the repository (the browser build is single-workspace by design) |
@@ -426,6 +426,14 @@ tests, then fixed:
     to fetch each SVG at runtime (and failed offline/in the Android webview): only 15 of 44
     icons had a glyph. Navigation now imports the icon data; the browser test asserts 100 %
     of icons render from inline SVG.
+11. **The migrations were not re-apply safe**, although §4 says they are. `create trigger`
+    and `create policy` were unguarded, so a second paste (or a re-run after a partial
+    failure) aborted on `trigger "profiles_touch_updated_at" already exists`. Every
+    trigger/policy is now created after `drop … if exists`; `tests/db/idempotency.test.ts`
+    applies the full set twice to one database.
+12. **The mistake book's practice link went to the page, not the question.** “Practice
+    question: …” now opens `/practice?question=<id>` and immediately shows that question's
+    attempt form (invalid or archived ids show a warning), proven end to end in journey E.
 
 ### Database tests without a hosted project
 
