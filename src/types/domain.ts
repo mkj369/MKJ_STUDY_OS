@@ -257,6 +257,13 @@ export interface StudySession {
   user_subject_id: ID;
   user_chapter_id: ID | null;
   activity_type: ActivityType;
+  /** Optional topic the session covered. */
+  user_topic_id: ID | null;
+  /** Optional task the session was working on (focus/planner link). */
+  user_task_id: ID | null;
+  /** How the row was created; timers are idempotent through client_entry_id. */
+  source: 'manual' | 'timer' | 'focus';
+  client_entry_id: string | null;
   /** Calendar date the study happened. Manual entry always sets this. */
   session_date: DateOnly;
   /** Optional precise start/end for a timer; null for manual entries. */
@@ -316,9 +323,14 @@ export interface MistakeLog {
   category: MistakeCategory;
   question_ref: string | null;
   what_went_wrong: string;
+  /** What the student actually wrote/said before the correction. */
+  attempted_answer: string | null;
   correction: string | null;
+  /** One-sentence takeaway to revisit later. */
+  lesson_learned: string | null;
   occurred_at: DateOnly;
   is_resolved: boolean;
+  resolved_at: Timestamp | null;
   is_demo: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -382,6 +394,147 @@ export interface StudyResource {
   updated_at: Timestamp;
 }
 
+export const TOPIC_STATUSES = ['not_recorded', 'in_progress', 'needs_revision', 'complete'] as const;
+export type TopicStatus = (typeof TOPIC_STATUSES)[number];
+
+export const DAY_BLOCK_CATEGORIES = [
+  'college',
+  'class',
+  'exam',
+  'homework',
+  'sleep',
+  'break',
+  'personal',
+  'commute',
+  'prayer',
+  'custom',
+] as const;
+export type DayBlockCategory = (typeof DAY_BLOCK_CATEGORIES)[number];
+
+export const NOTE_KINDS = ['note', 'formula', 'definition', 'bookmark'] as const;
+export type NoteKind = (typeof NOTE_KINDS)[number];
+
+export const PRACTICE_SOURCES = ['user', 'imported', 'ai'] as const;
+export type PracticeSource = (typeof PRACTICE_SOURCES)[number];
+
+export const PRACTICE_DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
+export type PracticeDifficulty = (typeof PRACTICE_DIFFICULTIES)[number];
+
+/** Curriculum reference topic under a chapter (read-only in the app). */
+export interface CurriculumTopic {
+  id: ID;
+  curriculum_chapter_id: ID;
+  title: string;
+  title_bn: string | null;
+  sort_order: number;
+  source_url: string | null;
+  verification_status: VerificationStatus;
+  is_demo: boolean;
+  created_at: Timestamp;
+}
+
+/** The student's own topic, adopted from the curriculum or typed by hand. */
+export interface UserTopic {
+  id: ID;
+  user_id: ID;
+  user_chapter_id: ID;
+  curriculum_topic_id: ID | null;
+  custom_title: string | null;
+  status: TopicStatus;
+  notes: string | null;
+  is_demo: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/**
+ * A non-study block on the daily timeline. Study time lives in study_sessions so
+ * the same minute is never counted twice.
+ */
+export interface DailyBlock {
+  id: ID;
+  user_id: ID;
+  entry_date: DateOnly;
+  category: DayBlockCategory;
+  custom_label: string | null;
+  user_subject_id: ID | null;
+  user_chapter_id: ID | null;
+  started_at: Timestamp | null;
+  ended_at: Timestamp | null;
+  duration_minutes: number;
+  source: 'manual' | 'timer';
+  client_entry_id: string | null;
+  notes: string | null;
+  is_demo: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface FocusSession {
+  id: ID;
+  user_id: ID;
+  user_task_id: ID | null;
+  user_subject_id: ID | null;
+  user_chapter_id: ID | null;
+  focus_minutes: number;
+  break_minutes: number;
+  planned_intervals: number;
+  completed_intervals: number;
+  started_at: Timestamp;
+  ended_at: Timestamp | null;
+  status: 'running' | 'completed' | 'abandoned';
+  study_session_id: ID | null;
+  notes: string | null;
+  is_demo: boolean;
+  created_at: Timestamp;
+}
+
+export interface ExamTarget {
+  id: ID;
+  user_id: ID;
+  title: string;
+  exam_type: ExamType;
+  exam_date: DateOnly;
+  user_subject_id: ID | null;
+  coverage_note: string | null;
+  priority: TaskPriority;
+  status: 'planned' | 'active' | 'completed' | 'cancelled';
+  is_demo: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface PracticeQuestion {
+  id: ID;
+  user_id: ID;
+  user_subject_id: ID | null;
+  user_chapter_id: ID | null;
+  question_text: string;
+  answer_text: string | null;
+  explanation: string | null;
+  source: PracticeSource;
+  difficulty: PracticeDifficulty;
+  tags: string[];
+  is_archived: boolean;
+  is_demo: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface PracticeAttempt {
+  id: ID;
+  user_id: ID;
+  practice_question_id: ID;
+  attempted_at: Timestamp;
+  answer_given: string | null;
+  is_correct: boolean | null;
+  needs_review: boolean;
+  time_spent_minutes: number | null;
+  notes: string | null;
+  is_demo: boolean;
+  created_at: Timestamp;
+}
+
 export interface StudyNote {
   id: ID;
   user_id: ID;
@@ -389,6 +542,9 @@ export interface StudyNote {
   body: string;
   user_subject_id: ID | null;
   user_chapter_id: ID | null;
+  kind: NoteKind;
+  tags: string[];
+  is_pinned: boolean;
   is_demo: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -462,8 +618,15 @@ export interface TableMap {
   curriculum_versions: CurriculumVersion;
   curriculum_subjects: CurriculumSubject;
   curriculum_chapters: CurriculumChapter;
+  curriculum_topics: CurriculumTopic;
   user_subjects: UserSubject;
   user_chapters: UserChapter;
+  user_topics: UserTopic;
+  daily_blocks: DailyBlock;
+  focus_sessions: FocusSession;
+  exam_targets: ExamTarget;
+  practice_questions: PracticeQuestion;
+  practice_attempts: PracticeAttempt;
   chapter_checklist_items: ChapterChecklistItem;
   chapter_checklist_progress: ChapterChecklistProgress;
   lecture_records: LectureRecord;
@@ -488,6 +651,12 @@ export const USER_OWNED_TABLES = [
   'profiles',
   'user_subjects',
   'user_chapters',
+  'user_topics',
+  'daily_blocks',
+  'focus_sessions',
+  'exam_targets',
+  'practice_questions',
+  'practice_attempts',
   'chapter_checklist_items',
   'chapter_checklist_progress',
   'lecture_records',
@@ -509,6 +678,7 @@ export const CURRICULUM_TABLES = [
   'curriculum_versions',
   'curriculum_subjects',
   'curriculum_chapters',
+  'curriculum_topics',
 ] as const satisfies readonly TableName[];
 
 export const REPOSITORY_TABLES = [

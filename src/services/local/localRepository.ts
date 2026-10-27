@@ -174,6 +174,11 @@ export class LocalRepository implements Repository {
       if (table === 'user_chapters') {
         this.cascadeChapter(state, id);
       }
+      if (table === 'practice_questions') {
+        state.tables['practice_attempts'] = (state.tables['practice_attempts'] ?? []).filter(
+          (attempt) => attempt['practice_question_id'] !== id,
+        );
+      }
       if (table === 'user_subjects') {
         const dependentTables = [
           'lecture_records',
@@ -183,6 +188,11 @@ export class LocalRepository implements Repository {
           'mistake_logs',
           'study_tasks',
           'exam_results',
+          'exam_targets',
+          'daily_blocks',
+          'focus_sessions',
+          'practice_questions',
+          'practice_attempts',
           'study_resources',
           'notes',
         ];
@@ -217,7 +227,10 @@ export class LocalRepository implements Repository {
     state.tables['chapter_checklist_progress'] = (state.tables['chapter_checklist_progress'] ?? []).filter(
       (progress) => !itemIds.includes(progress['checklist_item_id'] as string),
     );
-    for (const table of ['lecture_records', 'study_sessions', 'revision_sessions', 'topic_difficulties', 'mistake_logs', 'study_tasks']) {
+    state.tables['user_topics'] = (state.tables['user_topics'] ?? []).filter(
+      (topic) => topic['user_chapter_id'] !== chapterId,
+    );
+    for (const table of ['lecture_records', 'study_sessions', 'revision_sessions', 'topic_difficulties', 'mistake_logs', 'study_tasks', 'daily_blocks', 'focus_sessions', 'practice_questions']) {
       state.tables[table] = (state.tables[table] ?? []).map((row) =>
         row['user_chapter_id'] === chapterId ? { ...row, user_chapter_id: null } : row,
       );
@@ -260,7 +273,8 @@ export class LocalRepository implements Repository {
     const versions = await this.list('curriculum_versions');
     const subjects = await this.list('curriculum_subjects');
     const chapters = await this.list('curriculum_chapters');
-    return { versions, subjects, chapters };
+    const topics = await this.list('curriculum_topics');
+    return { versions, subjects, chapters, topics };
   }
 
   async adoptCurriculumSubject(versionId: ID, subjectId: ID): Promise<TableMap['user_subjects']> {
@@ -398,7 +412,7 @@ export class LocalRepository implements Repository {
   /* -------------------------------- demo -------------------------------- */
 
   async hasDemoData(): Promise<boolean> {
-    for (const table of ['user_subjects', 'user_chapters', 'lecture_records', 'study_tasks'] as RepositoryTable[]) {
+    for (const table of ['user_subjects', 'user_chapters', 'lecture_records', 'study_tasks', 'daily_blocks', 'practice_questions'] as RepositoryTable[]) {
       const rows = await this.list(table);
       if (rows.some((row) => (row as { is_demo?: boolean }).is_demo === true)) return true;
     }
@@ -492,20 +506,26 @@ export class LocalRepository implements Repository {
   }
 
   async listAllUserData(): Promise<UserDataBundle> {
-    const [curriculum, subjects, chapters, checklistItems, checklistProgress, lectures, sessions, revisions, difficulties, mistakes, tasks, exams, resources, notes, summaries, reminderPreferences, reminderEvents, profile] =
+    const [curriculum, subjects, chapters, topics, checklistItems, checklistProgress, lectures, sessions, dailyBlocks, focusSessions, revisions, difficulties, mistakes, tasks, exams, examTargets, practiceQuestions, practiceAttempts, resources, notes, summaries, reminderPreferences, reminderEvents, profile] =
       await Promise.all([
         this.listCurriculum(),
         this.list('user_subjects'),
         this.list('user_chapters'),
+        this.list('user_topics'),
         this.list('chapter_checklist_items'),
         this.list('chapter_checklist_progress'),
         this.list('lecture_records'),
         this.list('study_sessions'),
+        this.list('daily_blocks'),
+        this.list('focus_sessions'),
         this.list('revision_sessions'),
         this.list('topic_difficulties'),
         this.list('mistake_logs'),
         this.list('study_tasks'),
         this.list('exam_results'),
+        this.list('exam_targets'),
+        this.list('practice_questions'),
+        this.list('practice_attempts'),
         this.list('study_resources'),
         this.list('notes'),
         this.list('weekly_summaries'),
@@ -516,15 +536,21 @@ export class LocalRepository implements Repository {
     return {
       subjects,
       chapters,
+      topics,
       checklistItems,
       checklistProgress,
       lectures,
       sessions,
+      dailyBlocks,
+      focusSessions,
       revisions,
       difficulties,
       mistakes,
       tasks,
       exams,
+      examTargets,
+      practiceQuestions,
+      practiceAttempts,
       resources,
       notes,
       summaries,

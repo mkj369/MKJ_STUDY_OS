@@ -15,7 +15,9 @@
 --    client write policies (service role / migrations only).
 -- ============================================================================
 
-create extension if not exists pgcrypto;
+-- gen_random_uuid() is built into Postgres 13+ (Supabase runs 15+), so no
+-- extension is required. Keeping this migration extension-free also lets the
+-- test harness (PGlite) execute the exact production SQL.
 
 -- ---------------------------------------------------------------------------
 -- Helpers

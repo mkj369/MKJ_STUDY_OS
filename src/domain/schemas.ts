@@ -8,6 +8,10 @@ import { isDateOnly } from '@/domain/dates';
 import {
   ACTIVITY_TYPES,
   CHAPTER_STATUSES,
+  DAY_BLOCK_CATEGORIES,
+  NOTE_KINDS,
+  PRACTICE_DIFFICULTIES,
+  PRACTICE_SOURCES,
   CHECKLIST_KINDS,
   DIFFICULTY_SEVERITIES,
   DIFFICULTY_STATUSES,
@@ -19,6 +23,7 @@ import {
   REVISION_METHODS,
   TASK_PRIORITIES,
   TASK_STATUSES,
+  TOPIC_STATUSES,
 } from '@/types/domain';
 
 export const dateOnly = z
@@ -212,7 +217,9 @@ export const mistakeSchema = z.object({
   category: z.enum(MISTAKE_CATEGORIES),
   question_ref: optionalText(200),
   what_went_wrong: trimmedText(1000).min(1, 'Describe the mistake.'),
+  attempted_answer: optionalText(2000),
   correction: optionalText(1000),
+  lesson_learned: optionalText(1000),
   occurred_at: dateOnly,
   is_resolved: z.boolean().default(false),
 });
@@ -264,11 +271,27 @@ export const taskStatusSchema = z.object({ status: z.enum(TASK_STATUSES) });
 
 /* --------------------------------- notes --------------------------------- */
 
+const tagList = z
+  .string()
+  .trim()
+  .max(200)
+  .optional()
+  .transform((value) =>
+    (value ?? '')
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+      .slice(0, 10),
+  );
+
 export const noteSchema = z.object({
   title: trimmedText(120).min(1, 'Title is required.'),
   body: z.string().trim().min(1, 'Write something in the note.').max(20000),
   user_subject_id: z.string().optional().or(z.literal('')),
   user_chapter_id: z.string().optional().or(z.literal('')),
+  kind: z.enum(NOTE_KINDS).default('note'),
+  tags: tagList,
+  is_pinned: z.boolean().default(false),
 });
 
 export const resourceSchema = z
@@ -286,6 +309,99 @@ export const resourceSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['url'], message: 'A link is required for this type.' });
     }
   });
+
+/* --------------------------- syllabus topics ----------------------------- */
+
+export const userTopicSchema = z
+  .object({
+    user_chapter_id: uuidLike,
+    curriculum_topic_id: z.string().optional().or(z.literal('')),
+    custom_title: trimmedText(160).optional(),
+    status: z.enum(TOPIC_STATUSES).default('not_recorded'),
+    notes: optionalText(1000),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.curriculum_topic_id && !value.custom_title) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['custom_title'],
+        message: 'Choose a curriculum topic or type a title.',
+      });
+    }
+  });
+
+export const topicStatusSchema = z.object({ status: z.enum(TOPIC_STATUSES) });
+
+/* ----------------------------- daily blocks ------------------------------ */
+
+export const dailyBlockSchema = z
+  .object({
+    entry_date: dateOnly,
+    category: z.enum(DAY_BLOCK_CATEGORIES),
+    custom_label: optionalText(80),
+    user_subject_id: z.string().optional().or(z.literal('')),
+    user_chapter_id: z.string().optional().or(z.literal('')),
+    duration_minutes: z.coerce.number().int().min(1, 'At least 1 minute.').max(1440, 'That is more than a day.'),
+    started_time: z
+      .string()
+      .trim()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use 24-hour time like 19:30.')
+      .optional()
+      .or(z.literal('')),
+    notes: optionalText(1000),
+  })
+  .superRefine((value, ctx) => {
+    if (value.category === 'custom' && !value.custom_label) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['custom_label'], message: 'Name the custom block.' });
+    }
+  });
+
+/* ------------------------------ focus mode ------------------------------- */
+
+export const focusPlanSchema = z.object({
+  user_task_id: z.string().optional().or(z.literal('')),
+  user_subject_id: z.string().optional().or(z.literal('')),
+  user_chapter_id: z.string().optional().or(z.literal('')),
+  focus_minutes: z.coerce.number().int().min(5, 'At least 5 minutes.').max(120, 'Keep a block under 120 minutes.'),
+  break_minutes: z.coerce.number().int().min(0).max(30),
+  planned_intervals: z.coerce.number().int().min(1).max(8),
+});
+
+/* ------------------------------ exam targets ----------------------------- */
+
+export const examTargetSchema = z.object({
+  title: trimmedText(120).min(1, 'Exam name is required.'),
+  exam_type: z.enum(EXAM_TYPES),
+  exam_date: dateOnly,
+  user_subject_id: z.string().optional().or(z.literal('')),
+  coverage_note: optionalText(500),
+  priority: z.enum(TASK_PRIORITIES).default('medium'),
+  status: z.enum(['planned', 'active', 'completed', 'cancelled']).default('planned'),
+});
+
+/* --------------------------- practice questions -------------------------- */
+
+export const practiceQuestionSchema = z.object({
+  question_text: trimmedText(4000).min(1, 'Write the question.'),
+  answer_text: optionalText(4000),
+  explanation: optionalText(4000),
+  source: z.enum(PRACTICE_SOURCES).default('user'),
+  difficulty: z.enum(PRACTICE_DIFFICULTIES).default('medium'),
+  user_subject_id: z.string().optional().or(z.literal('')),
+  user_chapter_id: z.string().optional().or(z.literal('')),
+  tags: tagList,
+});
+
+export const practiceAttemptSchema = z.object({
+  practice_question_id: uuidLike,
+  answer_given: optionalText(4000),
+  is_correct: z.boolean().default(false),
+  needs_review: z.boolean().default(false),
+  time_spent_minutes: z
+    .union([z.coerce.number().int().min(0).max(600), z.literal(''), z.undefined()])
+    .transform((v) => (v === '' || v === undefined ? null : Number(v))),
+  notes: optionalText(1000),
+});
 
 /* ------------------------------- reminders ------------------------------- */
 
@@ -380,4 +496,10 @@ export type ResourceValues = z.infer<typeof resourceSchema>;
 export type ReminderPreferencesValues = z.infer<typeof reminderPreferencesSchema>;
 export type ImportRow = z.infer<typeof importRowSchema>;
 export type ChapterFormValues = z.infer<typeof userChapterSchema>;
+export type UserTopicValues = z.infer<typeof userTopicSchema>;
+export type DailyBlockValues = z.infer<typeof dailyBlockSchema>;
+export type FocusPlanValues = z.infer<typeof focusPlanSchema>;
+export type ExamTargetValues = z.infer<typeof examTargetSchema>;
+export type PracticeQuestionValues = z.infer<typeof practiceQuestionSchema>;
+export type PracticeAttemptValues = z.infer<typeof practiceAttemptSchema>;
 export type SubjectFormValues = z.infer<typeof userSubjectSchema>;

@@ -8,6 +8,13 @@
  */
 import type {
   ChapterChecklistItem,
+  CurriculumTopic,
+  DailyBlock,
+  ExamTarget,
+  FocusSession,
+  PracticeAttempt,
+  PracticeQuestion,
+  UserTopic,
   ChapterChecklistProgress,
   CurriculumChapter,
   CurriculumSubject,
@@ -26,10 +33,28 @@ import type {
 
 export type { RepositoryTable, TableMap };
 
+/**
+ * Columns with a database default, per table, that callers may omit.
+ * A global list would wrongly relax unrelated tables (e.g. lecture_records.source
+ * or checklist kind are genuinely required), so defaults are scoped per table.
+ */
+interface TableDefaults {
+  study_sessions: 'source' | 'client_entry_id' | 'user_topic_id' | 'user_task_id';
+  notes: 'kind' | 'tags' | 'is_pinned';
+  mistake_logs: 'attempted_answer' | 'lesson_learned' | 'resolved_at';
+  practice_questions: 'source' | 'difficulty' | 'tags' | 'is_archived';
+  practice_attempts: 'attempted_at' | 'answer_given' | 'is_correct' | 'needs_review' | 'time_spent_minutes' | 'notes';
+  daily_blocks: 'source' | 'client_entry_id' | 'custom_label' | 'user_subject_id' | 'user_chapter_id' | 'started_at' | 'ended_at' | 'notes';
+  user_topics: 'status' | 'notes';
+  exam_targets: 'exam_type' | 'coverage_note' | 'priority' | 'status' | 'user_subject_id';
+  focus_sessions: 'user_task_id' | 'user_subject_id' | 'user_chapter_id' | 'break_minutes' | 'planned_intervals' | 'completed_intervals' | 'ended_at' | 'status' | 'study_session_id' | 'notes';
+}
+type DefaultedColumns<T extends RepositoryTable> = T extends keyof TableDefaults ? TableDefaults[T] : never;
+
 /** Fields the client may supply; server defaults cover the rest. */
 export type NewRow<T extends RepositoryTable> = Omit<
   TableMap[T],
-  'id' | 'user_id' | 'created_at' | 'updated_at'
+  'id' | 'user_id' | 'created_at' | 'updated_at' | DefaultedColumns<T>
 > & { id?: ID };
 
 export interface RepositoryMode {
@@ -130,6 +155,12 @@ export interface UserDataBundle {
   checklistProgress: ChapterChecklistProgress[];
   lectures: TableMap['lecture_records'][];
   sessions: TableMap['study_sessions'][];
+  dailyBlocks: DailyBlock[];
+  focusSessions: FocusSession[];
+  examTargets: ExamTarget[];
+  practiceQuestions: PracticeQuestion[];
+  practiceAttempts: PracticeAttempt[];
+  topics: UserTopic[];
   revisions: TableMap['revision_sessions'][];
   difficulties: TableMap['topic_difficulties'][];
   mistakes: TableMap['mistake_logs'][];
@@ -142,6 +173,7 @@ export interface UserDataBundle {
     versions: CurriculumVersion[];
     subjects: CurriculumSubject[];
     chapters: CurriculumChapter[];
+    topics: CurriculumTopic[];
   };
   profile: Profile;
   reminderPreferences: ReminderPreferences;

@@ -1,10 +1,15 @@
 import type {
   ChapterChecklistItem,
   ChapterChecklistProgress,
+  DailyBlock,
   DateOnly,
   ExamResult,
+  ExamTarget,
+  FocusSession,
   LectureRecord,
   MistakeLog,
+  PracticeAttempt,
+  PracticeQuestion,
   Profile,
   ReminderPreferences,
   RevisionSession,
@@ -13,6 +18,7 @@ import type {
   TopicDifficulty,
   UserChapter,
   UserSubject,
+  UserTopic,
 } from '@/types/domain';
 
 export const TODAY = '2026-10-27';
@@ -119,6 +125,10 @@ export function makeSession(overrides: Partial<StudySession> = {}): StudySession
     user_subject_id: 'subject-1',
     user_chapter_id: 'chapter-1',
     activity_type: 'practice',
+    user_topic_id: null,
+    user_task_id: null,
+    source: 'manual',
+    client_entry_id: null,
     session_date: TODAY,
     started_at: null,
     ended_at: null,
@@ -185,12 +195,130 @@ export function makeMistake(overrides: Partial<MistakeLog> = {}): MistakeLog {
     category: 'calculation',
     question_ref: null,
     what_went_wrong: 'Forgot to square time',
+    attempted_answer: null,
     correction: null,
+    lesson_learned: null,
     occurred_at: TODAY,
     is_resolved: false,
+    resolved_at: null,
     is_demo: false,
     created_at: STAMP,
     updated_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeTopic(overrides: Partial<UserTopic> = {}): UserTopic {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    user_chapter_id: 'chapter-1',
+    curriculum_topic_id: null,
+    custom_title: 'Motion graphs',
+    status: 'not_recorded',
+    notes: null,
+    is_demo: false,
+    created_at: STAMP,
+    updated_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeBlock(overrides: Partial<DailyBlock> = {}): DailyBlock {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    entry_date: TODAY,
+    category: 'college',
+    custom_label: null,
+    user_subject_id: null,
+    user_chapter_id: null,
+    started_at: null,
+    ended_at: null,
+    duration_minutes: 120,
+    source: 'manual',
+    client_entry_id: null,
+    notes: null,
+    is_demo: false,
+    created_at: STAMP,
+    updated_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeExamTarget(overrides: Partial<ExamTarget> = {}): ExamTarget {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    title: 'Half-yearly exam',
+    exam_type: 'school',
+    exam_date: day(10),
+    user_subject_id: null,
+    coverage_note: null,
+    priority: 'high',
+    status: 'planned',
+    is_demo: false,
+    created_at: STAMP,
+    updated_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeQuestion(overrides: Partial<PracticeQuestion> = {}): PracticeQuestion {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    user_subject_id: 'subject-1',
+    user_chapter_id: 'chapter-1',
+    question_text: 'State Newton’s second law.',
+    answer_text: 'F = ma',
+    explanation: null,
+    source: 'user',
+    difficulty: 'medium',
+    tags: [],
+    is_archived: false,
+    is_demo: false,
+    created_at: STAMP,
+    updated_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeAttempt(overrides: Partial<PracticeAttempt> = {}): PracticeAttempt {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    practice_question_id: 'question-1',
+    attempted_at: STAMP,
+    answer_given: null,
+    is_correct: true,
+    needs_review: false,
+    time_spent_minutes: null,
+    notes: null,
+    is_demo: false,
+    created_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeFocusSession(overrides: Partial<FocusSession> = {}): FocusSession {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    user_task_id: null,
+    user_subject_id: 'subject-1',
+    user_chapter_id: 'chapter-1',
+    focus_minutes: 25,
+    break_minutes: 5,
+    planned_intervals: 2,
+    completed_intervals: 1,
+    started_at: STAMP,
+    ended_at: `${TODAY}T10:30:00.000Z`,
+    status: 'completed',
+    study_session_id: null,
+    notes: null,
+    is_demo: false,
+    created_at: STAMP,
     ...overrides,
   };
 }
@@ -236,6 +364,24 @@ export function makeExam(overrides: Partial<ExamResult> = {}): ExamResult {
     analysis: null,
     strengths: null,
     weak_areas: null,
+    is_demo: false,
+    created_at: STAMP,
+    updated_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeNote(overrides: Partial<import('@/types/domain').StudyNote> = {}) {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    title: 'Formula sheet',
+    body: 'v = u + at',
+    user_subject_id: 'subject-1',
+    user_chapter_id: 'chapter-1',
+    kind: 'formula' as const,
+    tags: [] as string[],
+    is_pinned: false,
     is_demo: false,
     created_at: STAMP,
     updated_at: STAMP,

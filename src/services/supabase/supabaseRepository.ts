@@ -139,12 +139,13 @@ export class SupabaseRepository implements Repository {
   }
 
   async listCurriculum() {
-    const [versions, subjects, chapters] = await Promise.all([
+    const [versions, subjects, chapters, topics] = await Promise.all([
       this.list('curriculum_versions'),
       this.list('curriculum_subjects'),
       this.list('curriculum_chapters'),
+      this.list('curriculum_topics'),
     ]);
-    return { versions, subjects, chapters };
+    return { versions, subjects, chapters, topics };
   }
 
   async adoptCurriculumSubject(versionId: ID, subjectId: ID): Promise<TableMap['user_subjects']> {
@@ -401,15 +402,21 @@ export class SupabaseRepository implements Repository {
       curriculum,
       subjects,
       chapters,
+      topics,
       checklistItems,
       checklistProgress,
       lectures,
       sessions,
+      dailyBlocks,
+      focusSessions,
       revisions,
       difficulties,
       mistakes,
       tasks,
       exams,
+      examTargets,
+      practiceQuestions,
+      practiceAttempts,
       resources,
       notes,
       summaries,
@@ -420,15 +427,21 @@ export class SupabaseRepository implements Repository {
       this.listCurriculum(),
       this.list('user_subjects'),
       this.list('user_chapters'),
+      this.list('user_topics'),
       this.list('chapter_checklist_items'),
       this.list('chapter_checklist_progress'),
       this.list('lecture_records'),
       this.list('study_sessions'),
+      this.list('daily_blocks'),
+      this.list('focus_sessions'),
       this.list('revision_sessions'),
       this.list('topic_difficulties'),
       this.list('mistake_logs'),
       this.list('study_tasks'),
       this.list('exam_results'),
+      this.list('exam_targets'),
+      this.list('practice_questions'),
+      this.list('practice_attempts'),
       this.list('study_resources'),
       this.list('notes'),
       this.list('weekly_summaries'),
@@ -439,15 +452,21 @@ export class SupabaseRepository implements Repository {
     return {
       subjects,
       chapters,
+      topics,
       checklistItems,
       checklistProgress,
       lectures,
       sessions,
+      dailyBlocks,
+      focusSessions,
       revisions,
       difficulties,
       mistakes,
       tasks,
       exams,
+      examTargets,
+      practiceQuestions,
+      practiceAttempts,
       resources,
       notes,
       summaries,
