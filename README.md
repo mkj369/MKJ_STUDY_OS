@@ -137,6 +137,12 @@ structural placeholder (`needs_verification`), **not official NCTB content**.
 
 5. Restart `npm run dev`. The app switches to cloud mode and shows the sign-in screen.
 
+Row types are hand-written in `src/types/domain.ts` and kept honest by
+`tests/db/tableSync.test.ts` (every migrated table must have a type and vice versa). Once
+the Supabase CLI is available you can generate the canonical types with
+`supabase gen types typescript --project-id YOUR_REF > src/types/database.generated.ts`
+and diff them against the domain types before switching queries over.
+
 ### Using your own curriculum data
 
 The repository never ships a verified official syllabus. Add a version, subjects and
@@ -185,7 +191,7 @@ npm run typecheck  → no errors
 npm run lint       → no errors, no warnings
 npm test           → 27 files, 347 tests passed
                      (incl. 32 database/migration/RLS assertions in tests/db)
-npm run build      → ✓ built in 5.58 s
+npm run build      → ✓ built in 5.54 s
 npm run test:e2e   → 36 passed (51.9 s) in Chromium against the production preview build
 ```
 
@@ -195,7 +201,7 @@ Bundle after route-level code splitting (raw / gzip):
 ionic-vendor      1 261.03 kB / 278.17 kB   (only chunk above Vite's 500 kB warning)
 supabase-vendor     227.08 kB /  58.97 kB
 data-vendor         129.52 kB /  36.63 kB
-app entry           148.73 kB /  43.49 kB
+app entry           149.72 kB /  43.65 kB
 react-vendor         22.55 kB /   8.32 kB
 27 route chunks       4–25 kB each
 8 shared chunks      small helpers (delete button, time formatting, Ionic page glue)
