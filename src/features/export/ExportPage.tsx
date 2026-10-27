@@ -262,7 +262,7 @@ function ExportContent() {
         </p>
       </SectionCard>
 
-      <SectionCard title="Edit, delete, restore" hint="Where each kind of record is managed.">
+      <SectionCard title="Edit and delete records" hint="Where each kind of record is managed.">
         <ul className="list">
           <li className="list-row">
             <div className="list-row__main">
@@ -319,7 +319,8 @@ function ExportContent() {
               <div className="list-row__meta">
                 <span>
                   Cloud accounts can be deleted from Settings, which calls a server-side function so the browser never
-                  holds an admin key. Local workspaces are removed by clearing browser storage.
+                  holds an admin key. Local workspaces are cleared with “Delete all my records” in Settings, or by
+                  clearing browser storage.
                 </span>
               </div>
             </div>
@@ -328,7 +329,8 @@ function ExportContent() {
         </ul>
         <Notice tone="warn" title="Keep the backup somewhere safe">
           A downloaded file can contain personal study records. Store it where you keep your own documents, and delete
-          old copies you no longer need.
+          old copies you no longer need. Restoring a JSON backup is not built into the app yet, so treat this file as
+          the archive of record.
         </Notice>
       </SectionCard>
     </>
