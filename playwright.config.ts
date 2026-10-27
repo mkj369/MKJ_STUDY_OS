@@ -2,8 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 import { chromiumEnv, chromiumExecutablePath } from './scripts/playwright-browser.mjs';
 
 /**
- * Browser E2E. Runs against the Vite dev server in local-demo mode, so no
- * Supabase project or network access is required.
+ * Browser E2E. Builds the production bundle and serves it with `vite preview`, so the
+ * lazy-loaded chunks, hashed assets and split vendor bundles are exercised — not just
+ * the dev server. Local-demo mode means no Supabase project or network access is needed.
  *
  * The executable is resolved at config load; if the packaged browsers are not
  * installed this fails fast with the shim's error rather than silently passing.
@@ -19,7 +20,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:4173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     launchOptions: {
@@ -30,9 +31,9 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://127.0.0.1:5173',
+    command: 'npm run build && npm run preview -- --port 4173 --strictPort',
+    url: 'http://127.0.0.1:4173',
     reuseExistingServer: true,
-    timeout: 120_000,
+    timeout: 180_000,
   },
 });

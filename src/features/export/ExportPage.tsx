@@ -171,7 +171,7 @@ function ExportContent() {
           <button type="button" className="btn btn--primary" disabled={busy === 'json'} onClick={() => void exportJson()}>
             {busy === 'json' ? 'Preparing…' : 'Download full JSON backup'}
           </button>
-          <select className="input input--inline" value={csvTable} onChange={(event) => setCsvTable(event.target.value as RepositoryTable)}>
+          <select className="input input--inline" aria-label="Table to export as CSV" value={csvTable} onChange={(event) => setCsvTable(event.target.value as RepositoryTable)}>
             {tables.map((table) => (
               <option key={table} value={table}>
                 {TABLE_LABELS[table] ?? table}

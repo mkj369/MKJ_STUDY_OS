@@ -21,7 +21,7 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | **Unit-tested** | Covered by deterministic domain tests (`npx vitest run`) |
 | **Integration-tested** | Local repository / auth tested in Node with a fake storage |
 | **DB-tested** | SQL migrations applied and RLS asserted in PGlite (Postgres 18/WASM) |
-| **Browser-tested** | Playwright against Chromium: real UI, real localStorage, real downloads |
+| **Browser-tested** | Playwright against Chromium on the production bundle: real UI, real localStorage, real downloads |
 | **Cloud-verified** | Run against a hosted Supabase project — **not done in this snapshot** |
 | **Device-verified** | Installed on Android hardware/emulator — **not done in this snapshot** |
 
@@ -32,7 +32,7 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Data layer: local demo repository | **Integration-tested**, including cross-workspace isolation |
 | Data layer: Supabase repository | **Written** — cloud mode has never been executed against a real project |
 | Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
-| Screens: 27 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested** for the 11 Phase-2 routes and the main flows; all Phase-1 screens rendered in **jsdom**, not every one clicked in Chromium |
+| Screens: 27 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
 | Postgres schema + RLS (`0001`–`0005`) | **DB-tested** in PGlite; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
@@ -186,7 +186,7 @@ npm run lint       → no errors, no warnings
 npm test           → 27 files, 347 tests passed
                      (incl. 32 database/migration/RLS assertions in tests/db)
 npm run build      → ✓ built in 5.58 s
-npm run test:e2e   → 11 passed (22.4 s) in Chromium
+npm run test:e2e   → 36 passed (51.9 s) in Chromium against the production preview build
 ```
 
 Bundle after route-level code splitting (raw / gzip):
@@ -281,7 +281,7 @@ made from this repository snapshot** — there was no key available.
 | `npm test` | 27 files / 347 tests | pass |
 | `npx vitest run tests/db` | migrations `0001`–`0005` applied to PGlite; RLS, FKs, constraints, storage policies, audit immutability | pass (32 tests) |
 | `npm run build` | production build + chunk report | pass |
-| `npx playwright test` | real Chromium, local workspace, 27 routes and 11 flows | pass (11 tests, 21 s) |
+| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep | pass (36 tests, 52 s) |
 
 Key test files:
 
@@ -304,7 +304,8 @@ Key test files:
 - `tests/db/schema.test.ts` — two users, cross-user reads/writes denied, forged ownership
   rejected, subject delete restricted, foreign-key behaviour, RLS on every Phase 2 table.
 - `tests/db/tableSync.test.ts` — every SQL table has a TypeScript row type and vice versa.
-- `tests/e2e/*` — the journeys below, via Chromium against the production build.
+- `tests/e2e/*` — the journeys below plus a 25-route accessibility sweep (names, labels,
+  landmarks), via Chromium against the production build.
 
 ### Journeys covered in the browser
 
@@ -320,6 +321,7 @@ Key test files:
 | H — security | `tests/db`, `tests/integration` | cross-user reads/writes rejected in Postgres and in the repository (the browser build is single-workspace by design) |
 | I — backup/export | `journeys.spec.ts` | downloaded JSON parses, contains `user_subjects` with `user_id` and `is_demo` |
 | Mobile shell | `smoke.spec.ts` | 390×844: no horizontal overflow, drawer navigation works, main column scrolls |
+| Accessibility | `a11y.spec.ts` | every route: one `main`, one `h1`, every button/link has an accessible name, every control has a label, every image has `alt` |
 
 ### Defects found and fixed during this verification pass
 

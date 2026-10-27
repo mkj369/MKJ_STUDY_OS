@@ -227,7 +227,7 @@ function PracticeContent() {
         hint="Search-free list of what you have; the filters narrow by subject, difficulty and origin."
         action={
           <div className="row">
-            <select className="input input--inline" value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>
+            <select className="input input--inline" aria-label="Filter by subject" value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>
               <option value="">All subjects</option>
               {view.subjects.map((subject) => (
                 <option key={subject.subject.id} value={subject.subject.id}>
@@ -235,7 +235,7 @@ function PracticeContent() {
                 </option>
               ))}
             </select>
-            <select className="input input--inline" value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value)}>
+            <select className="input input--inline" aria-label="Filter by difficulty" value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value)}>
               <option value="">Any difficulty</option>
               {DIFFICULTY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -243,7 +243,7 @@ function PracticeContent() {
                 </option>
               ))}
             </select>
-            <select className="input input--inline" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
+            <select className="input input--inline" aria-label="Filter by origin" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
               <option value="">Any origin</option>
               {SOURCE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
