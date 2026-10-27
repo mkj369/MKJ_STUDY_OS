@@ -17,17 +17,125 @@ claims the APK has been built.
 | Requirement | Why | How to check |
 | --- | --- | --- |
 | Node.js 20.19+ | builds the web bundle, runs Capacitor | `node -v` |
-| JDK 17 or newer | Android Gradle Plugin 8.7 requires it | `java -version` |
-| Android SDK: platform 35, build-tools, platform-tools | compiles and packages the APK | Android Studio → SDK Manager |
+| JDK 17 (17 or 21 both work) | Android Gradle Plugin 8.7 requires 17+ | `java -version` |
+| Android SDK: `platforms;android-35`, `build-tools;35.0.0`, `platform-tools` | compiles and packages the APK | §1.2 |
 | ~2 GB free disk and internet (first build only) | Gradle 8.11.1 plus Android dependencies | — |
 
-You can install the SDK either with **Android Studio** (easiest — it includes a JDK and
-sets `ANDROID_HOME` for you) or with the **command-line tools**. You do not need Android
-Studio after the build; the APK is a normal file you copy to the phone.
+Two ways to satisfy the toolchain: **Android Studio** (bundles a JDK and the SDK, and is
+easiest on macOS/Windows) or the **command-line tools** (smallest footprint, and the path
+described below for Linux). You do not need Android Studio after the build — the APK is a
+plain file you copy to the phone.
+
+The rest of this section is Linux; §1.4 has the macOS/Windows shortcuts.
 
 ---
 
-## 1. Check the toolchain
+## 1. Set up the toolchain on Linux
+
+The commands assume Debian/Ubuntu (`apt`). Fedora and Arch equivalents are listed where
+they differ. Only the JDK install, the udev rules and the `plugdev` group change need
+`sudo`; the SDK itself installs into your home directory.
+
+### 1.1 Install JDK 17
+
+```bash
+# Debian / Ubuntu (22.04, 24.04, Debian 12)
+sudo apt update && sudo apt install -y openjdk-17-jdk-headless
+
+# Fedora
+sudo dnf install -y java-17-openjdk-devel
+
+# Arch
+sudo pacman -S --needed jdk17-openjdk
+```
+
+Prefer Eclipse Temurin? Download the `.tar.gz` from <https://adoptium.net> and unpack it
+to a stable location, e.g.:
+
+```bash
+mkdir -p "$HOME/.jdks" && tar -xzf ~/Downloads/OpenJDK17U-jdk_x64_linux_hotspot_*.tar.gz -C "$HOME/.jdks"
+export JAVA_HOME="$HOME/.jdks/$(ls "$HOME/.jdks" | grep -m1 'jdk-17')"
+```
+
+Confirm the version:
+
+```bash
+java -version        # must print 17.x (or 21.x); anything lower will fail the build
+```
+
+Now make `JAVA_HOME` explicit. The robust way to find it, whatever install method you used:
+
+```bash
+export JAVA_HOME="$(readlink -f "$(command -v java)" | sed 's:/bin/java$::')"
+echo "$JAVA_HOME"    # e.g. /usr/lib/jvm/java-17-openjdk-amd64
+```
+
+Add it permanently so a new terminal keeps it (log out/in once after editing):
+
+```bash
+cat >> ~/.bashrc <<'EOF'
+export JAVA_HOME="$(readlink -f "$(command -v java)" | sed 's:/bin/java$::')"
+EOF
+```
+
+`java -version` and `javac -version` should both report 17. Gradle reads `JAVA_HOME`
+first; if it is unset it falls back to `java` on `PATH`, which is why a wrong default JDK
+(for example 11 or 24) shows up as `Unsupported class file major version`.
+
+### 1.2 Install the Android SDK (command-line tools)
+
+No Android Studio needed. Download the current command-line tools for Linux from
+<https://developer.android.com/studio#command-tools> (the file is
+`commandlinetools-linux-<build>_latest.zip`), then lay them out where `sdkmanager`
+expects them. The `cmdline-tools/latest/` folder name matters:
+
+```bash
+sudo apt install -y unzip          # needed once, to unpack the tools archive
+export ANDROID_HOME="$HOME/Android/Sdk"
+mkdir -p "$ANDROID_HOME/cmdline-tools"
+
+unzip ~/Downloads/commandlinetools-linux-*_latest.zip -d /tmp/cmdline-tools
+mv /tmp/cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+
+export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+
+sdkmanager --version             # proves JDK 17 + the tools layout are correct
+yes | sdkmanager --licenses      # accept the SDK licences (required before Gradle builds)
+sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+```
+
+If you already have Android Studio, either use its SDK (`$HOME/Android/Sdk` by default on
+Linux) or point `ANDROID_HOME` at the SDK path shown in *SDK Manager*. You can also skip
+the environment variable entirely by creating `android/local.properties`:
+
+```properties
+sdk.dir=/home/YOUR_USER/Android/Sdk
+```
+
+Persist the variables (this is the step people forget, which then makes the preflight and
+Gradle disagree):
+
+```bash
+cat >> ~/.bashrc <<'EOF'
+export ANDROID_HOME="$HOME/Android/Sdk"
+export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+EOF
+source ~/.bashrc
+```
+
+**Allow `adb` to see the phone (Linux only).** Without udev rules `adb devices` reports
+`no permissions` or shows nothing:
+
+```bash
+sudo apt install -y android-sdk-platform-tools-common   # Debian/Ubuntu udev rules
+sudo usermod -aG plugdev "$USER"                        # then log out and back in
+adb kill-server && adb devices                          # replug the cable first
+```
+
+Fedora/Arch: install the distribution's `android-udev` rules package, or copy the vendor
+rules from the Android documentation, then repeat the `usermod` and `adb` steps.
+
+### 1.3 Run the preflight
 
 From the repository root:
 
@@ -36,51 +144,37 @@ npm ci                 # or: npm install
 npm run android:preflight
 ```
 
-The preflight prints one line per requirement with a `fix:` line for anything missing:
+It prints one line per requirement with a `fix:` line for anything missing:
 
 ```
-  [PASS] Node.js ≥ 20.19
-  [FAIL] JDK 17+
-         found: java not found on PATH
+  [PASS] Node.js ≥ 20.19        found: v22.22.3
+  [FAIL] JDK 17+                found: java not found on PATH
          fix:   Install JDK 17 ...
-  [FAIL] Android SDK
-         found: no ANDROID_HOME / ANDROID_SDK_ROOT ...
+  [FAIL] Android SDK (platform 35)
+         found: no ANDROID_HOME / ANDROID_SDK_ROOT and no default SDK folder
+         fix:   sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" ...
   [PASS] Gradle wrapper (offline-capable)
   [PASS] Web assets synced into android/
 ```
 
-Exit code `0` means you are ready. `2` means something is missing. Add `--json` if you
-want to pipe the result somewhere.
+Exit code `0` means you are ready; `2` means something is still missing. `--json` gives the
+same data in machine-readable form. The SDK check accepts `ANDROID_HOME` or the legacy
+`ANDROID_SDK_ROOT`, and requires the platform-35 folder plus build-tools and platform-tools
+to exist.
 
-**If the JDK is the only thing missing:** install Eclipse Temurin 17
-(<https://adoptium.net>), then point `JAVA_HOME` at it:
+If the web-assets line fails, run `npm run android:sync` (step §3) before building —
+otherwise the app installs but opens a blank white screen.
 
-```bash
-# macOS / Linux
-export JAVA_HOME="$HOME/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home"  # macOS
-export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64                                        # Linux
-# Windows (new terminal after this)
-setx JAVA_HOME "C:\Program Files\Eclipse Adoptium\jdk-17"
-```
+### 1.4 macOS and Windows shortcuts
 
-Android Studio's bundled JDK also works (`Settings → Build, Execution, Deployment →
-Build Tools → Gradle → Gradle JDK`).
-
-**If the SDK is missing**, either open Android Studio → **SDK Manager** → *SDK Platforms*
-→ check **Android 15 (API 35)**, and *SDK Tools* → check **Android SDK Build-Tools** and
-**Android SDK Platform-Tools**; or with the command-line tools:
-
-```bash
-sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-sdkmanager --licenses        # accept the prompts
-export ANDROID_HOME="$HOME/Android/Sdk"      # Windows: setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"
-```
-
-If you would rather not set an environment variable, create `android/local.properties`:
-
-```properties
-sdk.dir=/absolute/path/to/Android/Sdk
-```
+- **macOS:** `brew install --cask temurin` (installs the current LTS — 17 and 21 both work),
+  or install Android Studio, then
+  `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`; SDK via Android Studio or
+  `brew install --cask android-commandlinetools`, `export ANDROID_HOME="$HOME/Library/Android/sdk"`.
+- **Windows:** install Android Studio (it sets `ANDROID_HOME` and supplies a JDK), or
+  Temurin 17 plus `setx JAVA_HOME "C:\Program Files\Eclipse Adoptium\jdk-17"` and
+  `setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"`. Open a **new** terminal afterwards.
+  Gradle's Unix wrapper is not used there — see §3.
 
 ---
 
@@ -142,6 +236,9 @@ npm run android:build    # cd android && ./gradlew assembleDebug
 `android:sync` takes a few seconds and was verified here (40 hashed asset files copied,
 plugin list `@capacitor/local-notifications@7.0.7`). `android:build` is the step that
 needs the JDK and SDK.
+
+On Linux, if the wrapper is not executable (for example after unzipping a download rather
+than cloning), run `chmod +x android/gradlew` once.
 
 The first Gradle run downloads the Gradle 8.11.1 distribution and the Android dependencies
 (several hundred MB). If your network blocks those hosts it fails with a download error —
@@ -259,6 +356,10 @@ adb logcat -s Capacitor:V CapacitorConsole:V chromium:V | tee studyos-logcat.txt
 | app shows a blank white screen | `android/app/src/main/assets/public` empty | run `npm run android:sync` **before** building |
 | "App not installed" when tapping the APK | older version with a different signature | uninstall the old copy, install again |
 | notifications never appear | permission denied, or battery optimisation | Settings → Apps → MKJ StudyOS → Notifications; disable battery optimisation |
+| `adb devices` shows `no permissions` or an empty list (Linux) | no udev rules for the phone's vendor id | §1.2: install the udev rules package, `usermod -aG plugdev`, replug, `adb kill-server` |
+| `Failed to install … licenses have not been accepted` | SDK licences pending | run `sdkmanager --licenses` and accept every prompt (see §1.2) |
+| `Unsupported class file major version` / `class file has wrong version` | Gradle is running on a JDK other than 17/21 (Gradle 8.11 does not support JDK 24+) | point `JAVA_HOME` at JDK 17 or 21, §1.1 |
+| `permission denied: ./gradlew` | executable bit lost | `chmod +x android/gradlew` |
 
 ---
 
