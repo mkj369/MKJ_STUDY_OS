@@ -191,8 +191,8 @@ npm run typecheck  → no errors
 npm run lint       → no errors, no warnings
 npm test           → 27 files, 347 tests passed
                      (incl. 32 database/migration/RLS assertions in tests/db)
-npm run build      → ✓ built in 5.54 s
-npm run test:e2e   → 36 passed (51.9 s) in Chromium against the production preview build
+npm run build      → ✓ built in 5.14 s
+npm run test:e2e   → 37 passed (48.1 s) in Chromium against the production preview build
 ```
 
 Bundle after route-level code splitting (raw / gzip):
@@ -201,7 +201,7 @@ Bundle after route-level code splitting (raw / gzip):
 ionic-vendor      1 261.03 kB / 278.17 kB   (only chunk above Vite's 500 kB warning)
 supabase-vendor     227.08 kB /  58.97 kB
 data-vendor         129.52 kB /  36.63 kB
-app entry           149.72 kB /  43.65 kB
+app entry           157.04 kB /  45.26 kB
 react-vendor         22.55 kB /   8.32 kB
 27 route chunks       4–25 kB each
 8 shared chunks      small helpers (delete button, time formatting, Ionic page glue)
@@ -287,7 +287,7 @@ made from this repository snapshot** — there was no key available.
 | `npm test` | 27 files / 347 tests | pass |
 | `npx vitest run tests/db` | migrations `0001`–`0005` applied to PGlite; RLS, FKs, constraints, storage policies, audit immutability | pass (32 tests) |
 | `npm run build` | production build + chunk report | pass |
-| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep | pass (36 tests, 52 s) |
+| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep, icon rendering | pass (37 tests) |
 
 Key test files:
 
@@ -327,7 +327,7 @@ Key test files:
 | H — security | `tests/db`, `tests/integration` | cross-user reads/writes rejected in Postgres and in the repository (the browser build is single-workspace by design) |
 | I — backup/export | `journeys.spec.ts` | downloaded JSON parses, contains `user_subjects` with `user_id` and `is_demo` |
 | Mobile shell | `smoke.spec.ts` | 390×844: no horizontal overflow, drawer navigation works, main column scrolls |
-| Accessibility | `a11y.spec.ts` | every route: one `main`, one `h1`, every button/link has an accessible name, every control has a label, every image has `alt` |
+| Accessibility | `a11y.spec.ts` | every route: one `main`, one `h1`, every button/link has an accessible name, every control has a label, every image has `alt`; every icon renders inline |
 
 ### Defects found and fixed during this verification pass
 
@@ -363,6 +363,10 @@ tests, then fixed:
 9. **CSV export allowed spreadsheet formula injection.** A note starting with `=` was
    written verbatim. `src/utils/csv.ts` now prefixes formula-like strings and has its own
    tests.
+10. **Most navigation icons never rendered.** `nav.ts` stored icon *names*, so Ionic tried
+    to fetch each SVG at runtime (and failed offline/in the Android webview): only 15 of 44
+    icons had a glyph. Navigation now imports the icon data; the browser test asserts 100 %
+    of icons render from inline SVG.
 
 ### Database tests without a hosted project
 

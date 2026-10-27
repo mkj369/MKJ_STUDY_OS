@@ -100,3 +100,20 @@ for (const route of ROUTES) {
     expect(problems, `${route}: ${problems.join('\n')}`).toEqual([]);
   });
 }
+
+test('icons render from inline SVG instead of a runtime fetch', async ({ page }) => {
+  await boot(page);
+  await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible();
+  await page.waitForTimeout(300);
+  const icons = await page.evaluate(() => {
+    const elements = [...document.querySelectorAll('ion-icon')];
+    return {
+      total: elements.length,
+      rendered: elements.filter((el) => (el.shadowRoot?.innerHTML ?? '').includes('<svg')).length,
+    };
+  });
+  // A bare icon *name* makes Ionic try to download the SVG; in this build the icons
+  // are data URIs, so every icon must have its SVG without any network request.
+  expect(icons.total).toBeGreaterThan(10);
+  expect(icons.rendered).toBe(icons.total);
+});
