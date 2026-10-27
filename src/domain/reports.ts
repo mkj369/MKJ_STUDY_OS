@@ -10,9 +10,12 @@ import { addDaysISO, diffDaysISO, weekRange } from '@/domain/dates';
 import { computeChapterProgress, type ChapterContext, type ChapterProgress } from '@/domain/progress';
 import { isOpenTask, isOverdue } from '@/domain/tasks';
 import { buildRevisionQueue } from '@/domain/revisions';
+import { chapterDisplayTitle } from '@/features/shared/selectors';
 import type {
   ChapterChecklistItem,
   ChapterChecklistProgress,
+  CurriculumChapter,
+  CurriculumSubject,
   DateOnly,
   ExamResult,
   LectureRecord,
@@ -33,6 +36,12 @@ export interface ReportFact {
 
 export interface ReportGap {
   code: string;
+  /**
+   * Stable identity for React lists. Two chapters can share the same flag code
+   * and even the same display label, so the key is built from the chapter id.
+   * Never use `label` as a list key.
+   */
+  key: string;
   label: string;
   reason: string;
   evidence: string[];
@@ -40,6 +49,8 @@ export interface ReportGap {
 }
 
 export interface ReportRecommendation {
+  /** Stable identity for React lists; titles are not guaranteed unique. */
+  key: string;
   title: string;
   why: string;
   evidence: string[];
@@ -47,6 +58,8 @@ export interface ReportRecommendation {
 }
 
 export interface SuggestedTask {
+  /** Stable identity for React lists; titles are not guaranteed unique. */
+  key: string;
   title: string;
   estimated_minutes: number;
   priority: 'low' | 'medium' | 'high';
@@ -98,6 +111,14 @@ export interface WeeklyReportInput {
   today: DateOnly;
   subjects: UserSubject[];
   chapters: UserChapter[];
+  /**
+   * Curriculum chapters referenced by `chapters[].curriculum_chapter_id`.
+   * Imported chapters have `custom_title = null`, so without these the report
+   * can only say "Chapter". Optional so existing callers keep working.
+   */
+  curriculumChapters?: CurriculumChapter[];
+  /** Curriculum subjects referenced by `subjects[].curriculum_subject_id`. */
+  curriculumSubjects?: CurriculumSubject[];
   checklistItems: ChapterChecklistItem[];
   checklistProgress: ChapterChecklistProgress[];
   lectures: LectureRecord[];
@@ -162,11 +183,36 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
   const generatedAt = input.generatedAt ?? new Date().toISOString();
 
   const subjectById = new Map(input.subjects.map((s) => [s.id, s]));
+  const curriculumSubjectById = new Map((input.curriculumSubjects ?? []).map((s) => [s.id, s]));
+  /** Same fallback order as `chapterTitle`: custom name → curriculum name → neutral. */
+  const subjectName = (id: string | null | undefined): string => {
+    if (!id) return 'Unassigned subject';
+    const subject = subjectById.get(id);
+    if (!subject) return 'Subject';
+    return subjectLabel(
+      subject,
+      subject.curriculum_subject_id
+        ? curriculumSubjectById.get(subject.curriculum_subject_id)?.name ?? null
+        : null,
+      subject.custom_paper_label ?? null,
+    );
+  };
   const chapterById = new Map(input.chapters.map((c) => [c.id, c]));
+  const curriculumChapterById = new Map((input.curriculumChapters ?? []).map((c) => [c.id, c]));
+  /**
+   * One resolver for the whole app: a custom title wins, otherwise the
+   * curriculum chapter name, otherwise a neutral fallback. Previously this
+   * returned the literal 'Chapter' for every imported chapter, which both
+   * mislabelled the report and produced duplicate React keys.
+   */
   const chapterTitle = (id: string | null): string => {
     if (!id) return 'Unassigned chapter';
     const chapter = chapterById.get(id);
-    return chapter?.custom_title ?? 'Chapter';
+    if (!chapter) return 'Chapter not in your workspace';
+    return chapterDisplayTitle(
+      chapter,
+      chapter.curriculum_chapter_id ? curriculumChapterById.get(chapter.curriculum_chapter_id) ?? null : null,
+    );
   };
 
   const sessionsThisWeek = input.sessions.filter((s) => inRange(sessionDate(s), start, end));
@@ -237,7 +283,7 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
         sessionsThisWeek.length === 0
           ? 'No sessions recorded this week'
           : `${sessionsThisWeek.length} session${sessionsThisWeek.length === 1 ? '' : 's'} · ${studyMinutes} minutes across ${activeDays} day${activeDays === 1 ? '' : 's'}`,
-      evidence: sessionsThisWeek.slice(0, 5).map((s) => `${sessionDate(s)} · ${subjectLabel(subjectById.get(s.user_subject_id))} · ${s.duration_minutes} min`),
+      evidence: sessionsThisWeek.slice(0, 5).map((s) => `${sessionDate(s)} · ${subjectName(s.user_subject_id)} · ${s.duration_minutes} min`),
     },
     {
       label: 'Lectures recorded',
@@ -299,6 +345,7 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
       if (possibleGaps.length >= 6) break;
       possibleGaps.push({
         code: flag.code,
+        key: `chapter:${chapterId}:${flag.code}`,
         label: `${flag.label} — ${chapterTitle(chapterId)}`,
         reason: flag.reason,
         evidence: [`Chapter: ${chapterTitle(chapterId)}`, `Chapter status: ${progress.status}`],
@@ -309,6 +356,7 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
   if (overdueTasks.length > 0) {
     possibleGaps.push({
       code: 'overdue_task',
+      key: 'module:overdue_task',
       label: `${overdueTasks.length} overdue task${overdueTasks.length === 1 ? '' : 's'}`,
       reason: 'Tasks with a deadline in the past are still open.',
       evidence: overdueTasks.slice(0, 5).map((t) => `${t.title} (due ${t.due_date})`),
@@ -334,7 +382,7 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
       userChapterId: ctx.chapter.id,
       userSubjectId: ctx.chapter.user_subject_id,
       chapterTitle: chapterTitle(ctx.chapter.id),
-      subjectName: subjectLabel(subjectById.get(ctx.chapter.user_subject_id)),
+      subjectName: subjectName(ctx.chapter.user_subject_id),
       revisions: ctx.revisions,
     })),
     input.today,
@@ -343,12 +391,14 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
   const overdueRevision = revisionQueue.find((r) => r.bucket === 'overdue');
   if (overdueRevision) {
     recommendations.push({
+      key: 'overdue_revision',
       title: `Revise ${overdueRevision.chapterTitle}`,
       why: 'Its next review date has passed and it was scheduled from your own confidence rating.',
       evidence: [`Next review: ${overdueRevision.summary.nextDate}`, `Last confidence: ${overdueRevision.summary.lastConfidence}/5`],
       priority: 'high',
     });
     suggestedTasks.push({
+      key: 'overdue_revision',
       title: `Revise ${overdueRevision.chapterTitle}`,
       estimated_minutes: 30,
       priority: 'high',
@@ -361,12 +411,14 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
   const highDifficulty = openHighDifficulties[0];
   if (highDifficulty) {
     recommendations.push({
+      key: 'high_difficulty',
       title: `Work on “${highDifficulty.topic_name}”`,
       why: `You marked this as a high-severity difficulty and it is still ${highDifficulty.status}.`,
       evidence: [`Logged ${highDifficulty.created_at.slice(0, 10)}`, highDifficulty.reason ?? 'No reason recorded'],
       priority: 'high',
     });
     suggestedTasks.push({
+      key: 'high_difficulty',
       title: `Revisit difficult topic: ${highDifficulty.topic_name}`,
       estimated_minutes: 30,
       priority: 'high',
@@ -378,12 +430,14 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
 
   if (overdueTasks.length > 0) {
     recommendations.push({
+      key: 'overdue_tasks',
       title: 'Reschedule or shrink overdue tasks',
       why: 'Open tasks passed their deadlines. Rescheduling is supported; nothing is deleted automatically.',
       evidence: overdueTasks.slice(0, 3).map((t) => `${t.title} (due ${t.due_date})`),
       priority: 'medium',
     });
     suggestedTasks.push({
+      key: 'overdue_tasks',
       title: `Reschedule ${overdueTasks.length} overdue task${overdueTasks.length === 1 ? '' : 's'}`,
       estimated_minutes: 10,
       priority: 'medium',
@@ -396,18 +450,20 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
   );
   if (practiceGap) {
     const chapter = chapterById.get(practiceGap.chapterId);
-    const subjectName = subjectLabel(subjectById.get(chapter?.user_subject_id ?? ''));
+    const practiceSubject = subjectName(chapter?.user_subject_id ?? null);
     recommendations.push({
+      key: `practice:${practiceGap.chapterId}`,
       title: `Log a practice session for ${chapterTitle(practiceGap.chapterId)}`,
       why: 'The practice checklist item is unticked and no practice session is on record for this chapter.',
       evidence: [`Checklist: ${practiceGap.checklist.done}/${practiceGap.checklist.total} items`, 'No practice session recorded'],
       priority: 'medium',
     });
     suggestedTasks.push({
+      key: `practice:${practiceGap.chapterId}`,
       title: `Practice ${chapterTitle(practiceGap.chapterId)}`,
       estimated_minutes: 40,
       priority: 'medium',
-      reason: `Practice not recorded for ${subjectName}.`,
+      reason: `Practice not recorded for ${practiceSubject}.`,
       user_subject_id: chapter?.user_subject_id ?? null,
       user_chapter_id: chapter?.id ?? null,
     });
@@ -415,6 +471,7 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
 
   if (sessionsThisWeek.length === 0 && recommendations.length < 5) {
     recommendations.push({
+      key: 'no_sessions',
       title: 'Add one record of what you actually did',
       why: 'No study sessions are recorded for this week, so the app cannot show progress. Missing data is not proof of inactivity.',
       evidence: [`Week ${start} → ${end}`],
@@ -424,6 +481,7 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReportResult 
 
   if (recommendations.length === 0) {
     recommendations.push({
+      key: 'keep_rhythm',
       title: 'Keep the current rhythm',
       why: 'No evidence-based gap was flagged from this week’s records.',
       evidence: [`${chaptersWithRecords} chapters with records`, `${tasksCompleted.length} tasks completed`],

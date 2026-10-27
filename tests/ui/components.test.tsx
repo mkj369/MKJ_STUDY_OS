@@ -158,7 +158,8 @@ describe('not found page', () => {
         <NotFoundPage />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    // Regression: every route must expose exactly one level-1 heading.
+    expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument();
     expect(screen.getByText(/Nothing was changed/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute('href', '/');
   });

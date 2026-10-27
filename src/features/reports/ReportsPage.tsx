@@ -46,7 +46,7 @@ function ReportBody({ payload, source }: { payload: WeeklyReportPayload; source:
         ) : (
           <ul className="report-list">
             {payload.possible_gaps.map((gap) => (
-              <li key={`${gap.code}-${gap.label}`}>
+              <li key={gap.key}>
                 <strong>{gap.label}</strong>{' '}
                 <Badge tone={gap.severity === 'high' ? 'danger' : gap.severity === 'attention' ? 'warn' : 'neutral'}>
                   {gap.severity}
@@ -63,7 +63,7 @@ function ReportBody({ payload, source }: { payload: WeeklyReportPayload; source:
         <h3>Recommended next actions</h3>
         <ol className="report-list">
           {payload.recommendations.map((recommendation) => (
-            <li key={recommendation.title}>
+            <li key={recommendation.key}>
               <strong>{recommendation.title}</strong> <Badge tone="neutral">{recommendation.priority}</Badge>
               <div className="small muted">Why: {recommendation.why}</div>
             </li>
@@ -78,7 +78,7 @@ function ReportBody({ payload, source }: { payload: WeeklyReportPayload; source:
         ) : (
           <ul className="report-list">
             {payload.suggested_tasks.map((task) => (
-              <li key={task.title}>
+              <li key={task.key}>
                 {task.title} · {task.estimated_minutes} min · {task.priority}
                 <div className="tiny muted">{task.reason}</div>
               </li>
@@ -130,6 +130,8 @@ function ReportsContent() {
       today: view.today,
       subjects: bundle.subjects,
       chapters: bundle.chapters,
+      curriculumChapters: bundle.curriculum.chapters,
+      curriculumSubjects: bundle.curriculum.subjects,
       checklistItems: bundle.checklistItems,
       checklistProgress: bundle.checklistProgress,
       lectures: bundle.lectures,
@@ -350,7 +352,7 @@ function ReportsContent() {
         ) : (
           <div className="list">
             {payload.suggested_tasks.map((task) => (
-              <div className="list-row" key={task.title}>
+              <div className="list-row" key={task.key}>
                 <div className="list-row__main">
                   <div className="list-row__title">{task.title}</div>
                   <div className="list-row__meta">

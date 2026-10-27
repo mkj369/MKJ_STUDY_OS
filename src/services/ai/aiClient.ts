@@ -150,8 +150,25 @@ export class SupabaseAIProvider implements AIProvider {
       return { ok: false, code: 'invalid_response', message: messageFor('invalid_response') };
     }
     const raw = envelope.report as WeeklyReportPayload;
+    /**
+     * A provider response carries no list keys (the schema strips unknown
+     * fields), so assign deterministic ones here. Without this, two rows with
+     * the same text would share a React key.
+     */
     const payload: WeeklyReportPayload = {
       ...raw,
+      possible_gaps: (raw.possible_gaps ?? []).map((gap, index) => ({
+        ...gap,
+        key: gap.key ?? `ai:gap:${gap.code}:${index}`,
+      })),
+      recommendations: (raw.recommendations ?? []).map((item, index) => ({
+        ...item,
+        key: item.key ?? `ai:rec:${index}`,
+      })),
+      suggested_tasks: (raw.suggested_tasks ?? []).map((task, index) => ({
+        ...task,
+        key: task.key ?? `ai:task:${index}`,
+      })),
       week: raw.week ?? { start: options.weekStart, end: options.weekEnd },
       disclaimer:
         raw.disclaimer ??
