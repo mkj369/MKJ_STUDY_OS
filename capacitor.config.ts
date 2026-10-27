@@ -20,7 +20,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     LocalNotifications: {
-      smallIcon: 'ic_stat_icon_config_sample',
+      // drawable/ic_stat_studyos.xml — a white alpha-mask icon for the status bar.
+      // The plugin falls back to the launcher icon if this resource is missing.
+      smallIcon: 'ic_stat_studyos',
       iconColor: '#0f5132',
     },
   },

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MKJ StudyOS</string>
+    <string name="title_activity_main">MKJ StudyOS</string>
+    <string name="package_name">com.mkjstudyos.app</string>
+    <string name="custom_url_scheme">com.mkjstudyos.app</string>
+</resources>
