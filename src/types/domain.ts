@@ -320,6 +320,8 @@ export interface MistakeLog {
   user_subject_id: ID;
   user_chapter_id: ID | null;
   exam_result_id: ID | null;
+  /** Optional link to the practice question this mistake came from (migration 0005). */
+  practice_question_id: ID | null;
   category: MistakeCategory;
   question_ref: string | null;
   what_went_wrong: string;

@@ -69,12 +69,16 @@ describe('first run (local demo mode)', () => {
     await userEvent.click(await screen.findByRole('button', { name: /start local workspace/i }));
     await screen.findByText(/welcome,|good to see you/i, {}, { timeout: 15000 });
 
+    // Ionic briefly hides the shell while a page settles in jsdom, so wait for
+    // the navigation to become visible instead of assuming it is there already.
+    await waitFor(() => expect(screen.getAllByRole('navigation').length).toBeGreaterThan(0));
     const nav = screen.getAllByRole('navigation')[0]!;
     await userEvent.click(within(nav).getByRole('link', { name: /lecture log/i }));
     await waitFor(() => expect(window.location.hash).toContain('/lectures'));
     expect((await screen.findAllByText('Lecture Log')).length).toBeGreaterThan(0);
 
     // Curriculum screen renders its honest demo disclaimer.
+    await waitFor(() => expect(screen.getAllByRole('navigation').length).toBeGreaterThan(0));
     const nav2 = screen.getAllByRole('navigation')[0]!;
     await userEvent.click(within(nav2).getByRole('link', { name: /my curriculum/i }));
     await waitFor(() => expect(window.location.hash).toContain('/curriculum'));

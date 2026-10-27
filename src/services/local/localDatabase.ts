@@ -10,6 +10,34 @@ import { STORAGE_PREFIX } from './storage';
 
 export type Row = Record<string, unknown>;
 
+/**
+ * Columns added after the first release. Browser storage written by an earlier
+ * build has no values for them, so they are backfilled on read with the same
+ * defaults Postgres would apply. Without this an upgrade would crash the UI on
+ * `undefined.map` instead of showing the user's old records.
+ */
+const COLUMN_DEFAULTS: Partial<Record<RepositoryTable, Record<string, unknown>>> = {
+  notes: { kind: 'note', tags: [], is_pinned: false },
+  study_sessions: { source: 'manual', client_entry_id: null, user_topic_id: null, user_task_id: null },
+  mistake_logs: { attempted_answer: null, lesson_learned: null, resolved_at: null, practice_question_id: null },
+  practice_questions: { source: 'user', difficulty: 'medium', tags: [], is_archived: false },
+  practice_attempts: { is_correct: null, needs_review: false, time_spent_minutes: null, notes: null },
+  daily_blocks: { started_at: null, ended_at: null, source: 'manual', client_entry_id: null, notes: null, custom_label: null },
+  user_topics: { status: 'not_recorded', notes: null },
+  exam_targets: { exam_type: 'school', priority: 'medium', status: 'planned', coverage_note: null },
+  focus_sessions: { break_minutes: 0, planned_intervals: 1, completed_intervals: 0, ended_at: null, status: 'completed', study_session_id: null, notes: null },
+};
+
+function normaliseRow(table: RepositoryTable, row: Row): Row {
+  const defaults = COLUMN_DEFAULTS[table];
+  if (!defaults) return row;
+  const next = { ...row };
+  for (const [column, value] of Object.entries(defaults)) {
+    if (next[column] === undefined) next[column] = Array.isArray(value) ? [] : value;
+  }
+  return next;
+}
+
 interface DatabaseShape {
   version: 1;
   tables: Record<string, Row[]>;
@@ -45,7 +73,7 @@ export class LocalDatabase {
     const tables: Record<string, Row[]> = {};
     for (const table of ALL_TABLES) {
       const existing = parsed?.tables?.[table];
-      tables[table] = Array.isArray(existing) ? existing : [];
+      tables[table] = Array.isArray(existing) ? existing.map((row) => normaliseRow(table, row)) : [];
     }
     const db: DatabaseShape = { version: 1, tables };
     this.ensureCurriculum(db);

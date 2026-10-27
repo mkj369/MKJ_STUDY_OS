@@ -49,3 +49,9 @@ supabase/.branches/
 supabase/.env.local
 supabase/.env
 
+
+# Playwright artefacts
+test-results/
+playwright-report/
+blob-report/
+.playwright/

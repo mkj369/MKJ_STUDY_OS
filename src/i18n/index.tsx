@@ -6,7 +6,7 @@
  * adding a language is a data change, not a rewrite. Long-form body copy and
  * form microcopy are still English-only in Phase 1 (documented limitation).
  */
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Locale } from '@/types/domain';
 
 export type TranslationKey =
@@ -24,6 +24,17 @@ export type TranslationKey =
   | 'nav.reports'
   | 'nav.reminders'
   | 'nav.settings'
+  | 'nav.syllabus'
+  | 'nav.time'
+  | 'nav.planner'
+  | 'nav.smartRevision'
+  | 'nav.weakness'
+  | 'nav.preparation'
+  | 'nav.practice'
+  | 'nav.vault'
+  | 'nav.insights'
+  | 'nav.focus'
+  | 'nav.export'
   | 'common.loading'
   | 'common.retry'
   | 'common.cancel'
@@ -61,6 +72,17 @@ const en: Dictionary = {
   'nav.reports': 'AI Coach & Reports',
   'nav.reminders': 'Reminders',
   'nav.settings': 'Profile & Settings',
+  'nav.syllabus': 'Syllabus Tracker',
+  'nav.time': 'Daily Time',
+  'nav.planner': 'Smart Planner',
+  'nav.smartRevision': 'Smart Revision',
+  'nav.weakness': 'Weakness Analyzer',
+  'nav.preparation': 'Exam Preparation',
+  'nav.practice': 'Question Practice',
+  'nav.vault': 'Formula Vault',
+  'nav.insights': 'Progress Insights',
+  'nav.focus': 'Focus Mode',
+  'nav.export': 'Export & History',
   'common.loading': 'Loading…',
   'common.retry': 'Retry',
   'common.cancel': 'Cancel',
@@ -97,6 +119,17 @@ const bn: Dictionary = {
   'nav.reports': 'এআই কোচ ও রিপোর্ট',
   'nav.reminders': 'রিমাইন্ডার',
   'nav.settings': 'প্রোফাইল ও সেটিংস',
+  'nav.syllabus': 'সিলেবাস ট্র্যাকার',
+  'nav.time': 'দৈনিক সময়',
+  'nav.planner': 'স্মার্ট প্ল্যানার',
+  'nav.smartRevision': 'স্মার্ট রিভিশন',
+  'nav.weakness': 'দুর্বলতা বিশ্লেষণ',
+  'nav.preparation': 'পরীক্ষা প্রস্তুতি',
+  'nav.practice': 'প্রশ্ন অনুশীলন',
+  'nav.vault': 'ফর্মুলা ভল্ট',
+  'nav.insights': 'প্রগ্রেস ইনসাইট',
+  'nav.focus': 'ফোকাস মোড',
+  'nav.export': 'এক্সপোর্ট ও ইতিহাস',
   'common.loading': 'লোড হচ্ছে…',
   'common.retry': 'আবার চেষ্টা করুন',
   'common.cancel': 'বাতিল',
@@ -118,7 +151,7 @@ const bn: Dictionary = {
   'app.demoBanner': 'ডেমো ডেটা লোড করা আছে। সেটিংস → ডেটা থেকে যেকোনো সময় মুছে ফেলুন।',
 };
 
-const dictionaries: Record<Locale, Dictionary> = { en, bn };
+export const DICTIONARIES: Record<Locale, Dictionary> = { en, bn };
 const STORAGE_KEY = 'mkj.studyos.locale';
 
 interface I18nValue {
@@ -151,11 +184,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Screen readers need the document language to follow the chosen locale.
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   const value = useMemo<I18nValue>(
     () => ({
       locale,
       setLocale,
-      t: (key) => dictionaries[locale][key] ?? dictionaries.en[key] ?? key,
+      t: (key) => DICTIONARIES[locale][key] ?? DICTIONARIES.en[key] ?? key,
     }),
     [locale, setLocale],
   );

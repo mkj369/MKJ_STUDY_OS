@@ -45,7 +45,14 @@ export class LocalAuthClient implements AuthClient {
     try {
       const raw = this.storage.getItem(SESSION_KEY);
       if (!raw) return null;
-      return toUser(JSON.parse(raw));
+      const parsed = JSON.parse(raw) as unknown;
+      // Stored shape is { user, createdAt }. Older builds wrote the user
+      // directly, so accept both instead of silently signing the student out
+      // on every reload.
+      if (parsed && typeof parsed === 'object' && 'user' in parsed) {
+        return toUser((parsed as { user: unknown }).user);
+      }
+      return toUser(parsed);
     } catch {
       return null;
     }

@@ -10,6 +10,20 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    // Vendor chunks stay stable across app deploys, so a returning user
+    // re-downloads only the app code. Route chunks are created in AppRoutes.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          ionic: ['@ionic/react', 'ionicons'],
+          supabase: ['@supabase/supabase-js'],
+          data: ['@tanstack/react-query', 'zod', 'date-fns', 'react-hook-form', '@hookform/resolvers'],
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

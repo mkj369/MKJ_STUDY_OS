@@ -10,7 +10,14 @@ import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { noteSchema, resourceSchema, type NoteValues, type ResourceValues } from '@/domain/schemas';
 import { emptyToNull, errorMessage } from '@/utils/errors';
 import type { StudyNote, StudyResource } from '@/types/domain';
-import { RESOURCE_TYPES } from '@/types/domain';
+import { NOTE_KINDS, RESOURCE_TYPES } from '@/types/domain';
+
+const NOTE_KIND_LABELS: Record<string, string> = {
+  note: 'Note',
+  formula: 'Formula / equation',
+  definition: 'Definition',
+  bookmark: 'Bookmark',
+};
 
 const RESOURCE_LABELS: Record<string, string> = {
   book: 'Book',
@@ -21,6 +28,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 const RESOURCE_OPTIONS = RESOURCE_TYPES.map((value) => ({ value, label: RESOURCE_LABELS[value] ?? value }));
+const NOTE_KIND_OPTIONS = NOTE_KINDS.map((value) => ({ value, label: NOTE_KIND_LABELS[value] ?? value }));
 
 function NotesContent() {
   const { data } = useWorkspaceQuery();
@@ -45,6 +53,9 @@ function NotesContent() {
       body: values.body,
       user_subject_id: values.user_subject_id || null,
       user_chapter_id: chapterId,
+      kind: values.kind,
+      tags: values.tags,
+      is_pinned: values.is_pinned,
     };
     if (editingNote) {
       await mutate((repo) => repo.update('notes', editingNote.id, payload));
@@ -280,11 +291,17 @@ function NotesContent() {
             body: editingNote?.body ?? '',
             user_subject_id: editingNote?.user_subject_id ?? '',
             user_chapter_id: editingNote?.user_chapter_id ?? '',
+            kind: editingNote?.kind ?? 'note',
+            tags: editingNote?.tags?.join(', ') ?? '',
+            is_pinned: editingNote?.is_pinned ?? false,
           }}
           submitLabel="Save note"
           fields={[
             { name: 'title', label: 'Title', type: 'text' },
+            { name: 'kind', label: 'Kind', type: 'select', options: NOTE_KIND_OPTIONS },
             { name: 'body', label: 'Note', type: 'textarea', rows: 8 },
+            { name: 'tags', label: 'Tags', type: 'text', optional: true, placeholder: 'comma separated' },
+            { name: 'is_pinned', label: 'Pin this item', type: 'checkbox' },
             {
               name: 'user_subject_id',
               label: 'Subject',

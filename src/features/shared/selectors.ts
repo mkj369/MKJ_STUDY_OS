@@ -14,6 +14,10 @@ import {
   type SubjectProgress,
 } from '@/domain/progress';
 import { buildRevisionQueue, type RevisionQueueEntry } from '@/domain/revisions';
+import { buildChapterCoverage, computeSubjectCoverage, type ChapterCoverage, type SubjectCoverage } from '@/domain/syllabus';
+import { analyzeMistakes, type MistakeAnalysis } from '@/domain/mistakes';
+import { buildPracticeQueue, summarizePractice, type PracticeSummary, type ReviewCandidate } from '@/domain/practice';
+import { countdownFor, type ExamCountdown } from '@/domain/preparation';
 import { summarizeTasks, todayTasks, type TaskCounts } from '@/domain/tasks';
 import type { UserDataBundle } from '@/services/repository';
 import type {
@@ -23,6 +27,7 @@ import type {
   DateOnly,
   UserChapter,
   UserSubject,
+  UserTopic,
 } from '@/types/domain';
 
 export interface ChapterView {
@@ -65,6 +70,7 @@ export interface WorkspaceView {
   };
   lastRecordDate: DateOnly | null;
   demoActive: boolean;
+  phase2: Phase2View;
 }
 
 export function subjectDisplayName(subject: UserSubject, curriculumSubject: CurriculumSubject | null): string {
@@ -206,7 +212,7 @@ export function buildWorkspaceView(bundle: UserDataBundle, todayOverride?: DateO
     0,
   );
 
-  return {
+  const base: Omit<WorkspaceView, 'phase2'> = {
     today,
     subjects,
     chapterById: chapterViewsById,
@@ -230,6 +236,7 @@ export function buildWorkspaceView(bundle: UserDataBundle, todayOverride?: DateO
     lastRecordDate: lastRecordDates.length > 0 ? (lastRecordDates[lastRecordDates.length - 1] as DateOnly) : null,
     demoActive: demoRows > 0,
   };
+  return { ...base, phase2: buildPhase2View(bundle, base) };
 }
 
 /** Chapter options for selects, grouped by subject label. */
@@ -253,4 +260,93 @@ export function findSubjectForChapter(subjects: SubjectView[], chapterId: string
     if (subject.chapters.some((c) => c.chapter.id === chapterId)) return subject;
   }
   return null;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Phase 2 view models: syllabus coverage, practice, mistakes, countdowns.    */
+/* Built once here so a percentage is never computed twice.                   */
+/* ------------------------------------------------------------------------- */
+
+export interface Phase2View {
+  topicsByChapter: Map<string, UserTopic[]>;
+  coverageByChapter: Map<string, ChapterCoverage>;
+  subjectCoverageById: Map<string, SubjectCoverage>;
+  mistakeAnalysis: MistakeAnalysis;
+  practiceSummary: PracticeSummary;
+  practiceQueue: ReviewCandidate[];
+  countdowns: ExamCountdown[];
+  subjectLabels: Record<string, string>;
+  chapterTitles: Record<string, string>;
+  /** Recorded study minutes per chapter. */
+  chapterMinutes: Map<string, number>;
+  availabilityMinutesThisWeek: number;
+}
+
+export function buildPhase2View(
+  bundle: UserDataBundle,
+  view: Pick<WorkspaceView, 'today' | 'subjects' | 'chapterById'>,
+): Phase2View {
+  const topicsByChapter = new Map<string, UserTopic[]>();
+  for (const topic of bundle.topics) {
+    const list = topicsByChapter.get(topic.user_chapter_id) ?? [];
+    list.push(topic);
+    topicsByChapter.set(topic.user_chapter_id, list);
+  }
+
+  const coverageByChapter = new Map<string, ChapterCoverage>();
+  const subjectCoverageById = new Map<string, SubjectCoverage>();
+  const subjectLabels: Record<string, string> = {};
+  const chapterTitles: Record<string, string> = {};
+  const chapterMinutes = new Map<string, number>();
+
+  for (const subject of view.subjects) {
+    subjectLabels[subject.subject.id] = subject.label;
+    const coverages: (ChapterCoverage & { status: string })[] = [];
+    for (const chapterView of subject.chapters) {
+      const chapterId = chapterView.chapter.id;
+      chapterTitles[chapterId] = chapterView.title;
+      const topics = topicsByChapter.get(chapterId) ?? [];
+      const coverage = buildChapterCoverage({
+        chapter: chapterView.chapter,
+        title: chapterView.title,
+        topics,
+        checklist: chapterView.checklist,
+        lectures: chapterView.context.lectures,
+        revisions: chapterView.context.revisions,
+        sessions: chapterView.context.sessions,
+      });
+      coverageByChapter.set(chapterId, coverage);
+      coverages.push({ ...coverage, status: chapterView.chapter.status });
+      chapterMinutes.set(
+        chapterId,
+        chapterView.context.sessions.reduce((sum, session) => sum + session.duration_minutes, 0),
+      );
+    }
+    subjectCoverageById.set(
+      subject.subject.id,
+      computeSubjectCoverage({ subjectId: subject.subject.id, chapterCoverages: coverages }),
+    );
+  }
+
+  const availability = bundle.profile.study_windows ?? null;
+  const availabilityMinutesThisWeek = availability
+    ? Object.values(availability).reduce((sum, minutes) => sum + (Number(minutes) || 0), 0)
+    : 0;
+
+  return {
+    topicsByChapter,
+    coverageByChapter,
+    subjectCoverageById,
+    mistakeAnalysis: analyzeMistakes(bundle.mistakes, bundle.chapters),
+    practiceSummary: summarizePractice(bundle.practiceQuestions, bundle.practiceAttempts),
+    practiceQueue: buildPracticeQueue(bundle.practiceQuestions, bundle.practiceAttempts, 12),
+    countdowns: bundle.examTargets
+      .filter((target) => target.status !== 'cancelled')
+      .map((target) => countdownFor(target, view.today))
+      .sort((a, b) => a.daysRemaining - b.daysRemaining),
+    subjectLabels,
+    chapterTitles,
+    chapterMinutes,
+    availabilityMinutesThisWeek,
+  };
 }

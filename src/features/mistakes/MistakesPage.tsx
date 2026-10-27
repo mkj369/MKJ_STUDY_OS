@@ -36,6 +36,13 @@ function MistakesContent() {
   const { view, bundle } = data;
   const mistakes = [...bundle.mistakes].sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
   const unresolved = mistakes.filter((m) => !m.is_resolved);
+  const questionById = new Map(bundle.practiceQuestions.map((question) => [question.id, question]));
+  const questionOptions = bundle.practiceQuestions
+    .filter((question) => !question.is_archived || question.id === editing?.practice_question_id)
+    .map((question) => ({
+      value: question.id,
+      label: `${question.question_text.slice(0, 70)}${question.question_text.length > 70 ? '…' : ''}`,
+    }));
   const byCategory = MISTAKE_CATEGORIES.map((category) => ({
     category,
     count: mistakes.filter((m) => m.category === category).length,
@@ -51,10 +58,14 @@ function MistakesContent() {
           user_chapter_id: chapterId,
           category: values.category,
           question_ref: emptyToNull(values.question_ref),
+          practice_question_id: emptyToNull(values.practice_question_id),
           what_went_wrong: values.what_went_wrong,
+          attempted_answer: emptyToNull(values.attempted_answer),
           correction: emptyToNull(values.correction),
+          lesson_learned: emptyToNull(values.lesson_learned),
           occurred_at: values.occurred_at,
           is_resolved: values.is_resolved,
+          resolved_at: values.is_resolved ? new Date().toISOString() : null,
         }),
       );
       await notify('Mistake updated.');
@@ -66,10 +77,14 @@ function MistakesContent() {
           exam_result_id: null,
           category: values.category,
           question_ref: emptyToNull(values.question_ref),
+          practice_question_id: emptyToNull(values.practice_question_id),
           what_went_wrong: values.what_went_wrong,
+          attempted_answer: emptyToNull(values.attempted_answer),
           correction: emptyToNull(values.correction),
+          lesson_learned: emptyToNull(values.lesson_learned),
           occurred_at: values.occurred_at,
           is_resolved: values.is_resolved,
+          resolved_at: values.is_resolved ? new Date().toISOString() : null,
           is_demo: false,
         }),
       );
@@ -100,18 +115,23 @@ function MistakesContent() {
     <>
       <PageHeader
         title="Mistake Log"
-        description="Specific errors with the correction you learned. Categories help you see patterns — they are not a judgement."
+        description="Specific errors with the answer you gave, the correction and the lesson. A pattern is only reported when it repeats on different days; one mistake is never called a trend."
         actions={
-          <button
-            type="button"
-            className="btn btn--primary btn--sm"
-            onClick={() => {
-              setEditing(null);
-              setDialogOpen(true);
-            }}
-          >
-            <IonIcon icon={addOutline} aria-hidden="true" /> Log mistake
-          </button>
+          <>
+            <Link to="/weakness" className="btn btn--secondary btn--sm">
+              Weakness analyzer
+            </Link>
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
+              <IonIcon icon={addOutline} aria-hidden="true" /> Log mistake
+            </button>
+          </>
         }
       />
 
@@ -174,6 +194,15 @@ function MistakesContent() {
                       <span>{subject?.label ?? 'Subject removed'}</span>
                       {chapter ? <Link to={`/chapters/${chapter.chapter.id}`}>{chapter.title}</Link> : null}
                       {mistake.question_ref ? <span>{mistake.question_ref}</span> : null}
+                      {mistake.practice_question_id ? (
+                        <Link to="/practice" title={questionById.get(mistake.practice_question_id)?.question_text ?? 'Question removed'}>
+                          Practice question:{' '}
+                          {(
+                            questionById.get(mistake.practice_question_id)?.question_text ?? 'no longer available'
+                          ).slice(0, 40)}
+                          {questionById.get(mistake.practice_question_id) ? '…' : ''}
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
                   <div className="list-row__actions">
@@ -215,8 +244,11 @@ function MistakesContent() {
             user_chapter_id: editing?.user_chapter_id ?? '',
             category: editing?.category ?? 'concept_gap',
             question_ref: editing?.question_ref ?? '',
+            practice_question_id: editing?.practice_question_id ?? '',
             what_went_wrong: editing?.what_went_wrong ?? '',
+            attempted_answer: editing?.attempted_answer ?? '',
             correction: editing?.correction ?? '',
+            lesson_learned: editing?.lesson_learned ?? '',
             occurred_at: editing?.occurred_at ?? view.today,
             is_resolved: editing?.is_resolved ?? false,
           }}
@@ -241,8 +273,18 @@ function MistakesContent() {
             },
             { name: 'category', label: 'Category', type: 'select', options: CATEGORY_OPTIONS },
             { name: 'what_went_wrong', label: 'What went wrong?', type: 'textarea', rows: 3 },
+            { name: 'attempted_answer', label: 'What I answered', type: 'textarea', rows: 3, optional: true },
             { name: 'correction', label: 'Corrected idea / method', type: 'textarea', rows: 3, optional: true },
+            { name: 'lesson_learned', label: 'Lesson learned', type: 'textarea', rows: 2, optional: true },
             { name: 'question_ref', label: 'Question reference', type: 'text', optional: true, placeholder: 'Board 2023 Q4(b)' },
+            {
+              name: 'practice_question_id',
+              label: 'Practice question',
+              type: 'select',
+              optional: true,
+              placeholder: questionOptions.length === 0 ? 'No practice questions yet' : 'Not linked',
+              options: questionOptions,
+            },
             { name: 'occurred_at', label: 'Date', type: 'date' },
             { name: 'is_resolved', label: 'I have corrected this', type: 'checkbox' },
           ]}

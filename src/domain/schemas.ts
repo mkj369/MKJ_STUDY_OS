@@ -214,6 +214,7 @@ export const difficultySchema = z.object({
 export const mistakeSchema = z.object({
   user_subject_id: uuidLike,
   user_chapter_id: z.string().optional().or(z.literal('')),
+  practice_question_id: z.string().optional().or(z.literal('')),
   category: z.enum(MISTAKE_CATEGORIES),
   question_ref: optionalText(200),
   what_went_wrong: trimmedText(1000).min(1, 'Describe the mistake.'),

@@ -39,9 +39,10 @@ export type { RepositoryTable, TableMap };
  * or checklist kind are genuinely required), so defaults are scoped per table.
  */
 interface TableDefaults {
+  study_tasks: 'completed_at';
   study_sessions: 'source' | 'client_entry_id' | 'user_topic_id' | 'user_task_id';
   notes: 'kind' | 'tags' | 'is_pinned';
-  mistake_logs: 'attempted_answer' | 'lesson_learned' | 'resolved_at';
+  mistake_logs: 'attempted_answer' | 'lesson_learned' | 'resolved_at' | 'practice_question_id';
   practice_questions: 'source' | 'difficulty' | 'tags' | 'is_archived';
   practice_attempts: 'attempted_at' | 'answer_given' | 'is_correct' | 'needs_review' | 'time_spent_minutes' | 'notes';
   daily_blocks: 'source' | 'client_entry_id' | 'custom_label' | 'user_subject_id' | 'user_chapter_id' | 'started_at' | 'ended_at' | 'notes';
@@ -51,11 +52,15 @@ interface TableDefaults {
 }
 type DefaultedColumns<T extends RepositoryTable> = T extends keyof TableDefaults ? TableDefaults[T] : never;
 
-/** Fields the client may supply; server defaults cover the rest. */
+/**
+ * Fields the client may supply; server defaults cover the rest.
+ * Defaulted columns stay optional, not forbidden: a stopwatch entry needs to
+ * pass `source: 'timer'` while a manual session lets the default apply.
+ */
 export type NewRow<T extends RepositoryTable> = Omit<
   TableMap[T],
   'id' | 'user_id' | 'created_at' | 'updated_at' | DefaultedColumns<T>
-> & { id?: ID };
+> & { id?: ID } & Partial<Pick<TableMap[T], Extract<DefaultedColumns<T>, keyof TableMap[T]>>>;
 
 export interface RepositoryMode {
   kind: 'cloud' | 'local';

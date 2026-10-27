@@ -485,6 +485,47 @@ describe('phase 2 tables keep the same security model', () => {
     expect(await count(USER_A, 'practice_attempts')).toBe(0);
   });
 
+  it('links a mistake to a practice question and keeps the mistake when it is deleted', async () => {
+    // migration 0005: optional link, composite FK on (id, user_id), ON DELETE SET NULL.
+    await userExec(
+      USER_A,
+      `insert into practice_questions (id, question_text, source)
+       values ('b0000000-0000-4000-8000-0000000000aa', 'Linked question', 'user');`,
+    );
+    await userExec(
+      USER_A,
+      `insert into mistake_logs (user_subject_id, category, what_went_wrong, occurred_at, practice_question_id)
+       select id, 'concept_gap', 'Sign flipped', '2026-10-27', 'b0000000-0000-4000-8000-0000000000aa'
+         from user_subjects limit 1;`,
+    );
+    const linked = await userQuery<{ practice_question_id: string | null }>(
+      USER_A,
+      `select practice_question_id from mistake_logs where what_went_wrong = 'Sign flipped'`,
+    );
+    expect(linked[0]?.practice_question_id).toBe('b0000000-0000-4000-8000-0000000000aa');
+
+    // Another user's question is not a valid target, even though the app cannot see it.
+    await asAdmin(
+      `insert into public.practice_questions (id, user_id, question_text, source)
+       values ('b0000000-0000-4000-8000-0000000000bb', '44444444-4444-4444-8444-444444444444', 'Someone else''s question', 'user');`,
+    );
+    const foreign = await captureError(
+      USER_A,
+      `insert into mistake_logs (user_subject_id, category, what_went_wrong, occurred_at, practice_question_id)
+       select id, 'concept_gap', 'Borrowed question', '2026-10-27', 'b0000000-0000-4000-8000-0000000000bb'
+         from user_subjects limit 1;`,
+    );
+    expect(foreign).toMatch(/foreign key/i);
+
+    await userExec(USER_A, `delete from practice_questions where id = 'b0000000-0000-4000-8000-0000000000aa'`);
+    const afterDelete = await userQuery<{ practice_question_id: string | null }>(
+      USER_A,
+      `select practice_question_id from mistake_logs where what_went_wrong = 'Sign flipped'`,
+    );
+    expect(afterDelete).toHaveLength(1);
+    expect(afterDelete[0]?.practice_question_id).toBeNull();
+  });
+
   it('scopes exam targets and focus sessions to their owner', async () => {
     await userExec(
       USER_A,

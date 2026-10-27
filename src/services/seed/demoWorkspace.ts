@@ -282,6 +282,10 @@ export function buildDemoWorkspace(today: DateOnly = todayISO()): DemoWorkspaceR
       focus_rating: 3,
       result: null,
       notes: 'Demo record.',
+      source: 'manual',
+      client_entry_id: null,
+      user_topic_id: null,
+      user_task_id: null,
     },
     {
       user_subject_id: chemistry.id,
@@ -292,6 +296,10 @@ export function buildDemoWorkspace(today: DateOnly = todayISO()): DemoWorkspaceR
       focus_rating: 3,
       result: null,
       notes: 'Demo record.',
+      source: 'manual',
+      client_entry_id: null,
+      user_topic_id: null,
+      user_task_id: null,
     },
     {
       user_subject_id: physics.id,
@@ -302,6 +310,10 @@ export function buildDemoWorkspace(today: DateOnly = todayISO()): DemoWorkspaceR
       focus_rating: 4,
       result: '18/25',
       notes: 'Demo record.',
+      source: 'manual',
+      client_entry_id: null,
+      user_topic_id: null,
+      user_task_id: null,
     },
   ].map((s) => ({
     ...s,
@@ -503,6 +515,9 @@ export function buildDemoWorkspace(today: DateOnly = todayISO()): DemoWorkspaceR
       body: 'This is demo content. Replace it with your own notes.\n\n- Write the formula first\n- Then substitute values\n- Then check units',
       user_subject_id: physics.id,
       user_chapter_id: mechanics.id,
+      kind: 'note',
+      tags: ['demo', 'formula'],
+      is_pinned: false,
     },
   ].map((n) => ({ id: newId(), ...n, is_demo: true, created_at: nowIso, updated_at: nowIso }));
 

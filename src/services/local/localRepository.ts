@@ -96,6 +96,27 @@ export class LocalRepository implements Repository {
     return row;
   }
 
+  /**
+   * Mirrors the composite foreign keys that Postgres enforces but a JSON table does
+   * not: a row may only point at a record this same user owns. Today that is
+   * mistake_logs.practice_question_id (migration 0005) and practice_attempts'
+   * question reference, which the pages validate before saving.
+   */
+  private assertOwnedLinks(table: RepositoryTable, values: Record<string, unknown>): void {
+    if (table !== 'mistake_logs') return;
+    const questionId = values['practice_question_id'];
+    if (!questionId) return;
+    const question = this.db
+      .rows('practice_questions')
+      .find((row) => row['id'] === questionId && row['user_id'] === this.userId);
+    if (!question) {
+      throw new RepositoryError(
+        'That practice question no longer exists in your workspace. Link a question you own or leave it empty.',
+        'not_found',
+      );
+    }
+  }
+
   private logAudit(db: LocalDatabase, entityType: string, entityId: string, action: string, metadata: Row): void {
     db.mutate((state) => {
       const events = state.tables['audit_events'] ?? [];
@@ -126,6 +147,7 @@ export class LocalRepository implements Repository {
 
   async createMany<T extends RepositoryTable>(table: T, values: NewRow<T>[]): Promise<TableMap[T][]> {
     this.assertWritable(table);
+    for (const value of values) this.assertOwnedLinks(table, value as Record<string, unknown>);
     const rows = values.map((v) => this.stampRow(table, v as Record<string, unknown>));
     this.db.mutate((state) => {
       state.tables[table] = [...(state.tables[table] ?? []), ...rows];
@@ -136,6 +158,7 @@ export class LocalRepository implements Repository {
 
   async update<T extends RepositoryTable>(table: T, id: ID, patch: Partial<TableMap[T]>): Promise<TableMap[T]> {
     this.assertWritable(table);
+    this.assertOwnedLinks(table, patch as Record<string, unknown>);
     let updated: Row | undefined;
     this.db.mutate((state) => {
       const rows = state.tables[table] ?? [];
@@ -177,6 +200,11 @@ export class LocalRepository implements Repository {
       if (table === 'practice_questions') {
         state.tables['practice_attempts'] = (state.tables['practice_attempts'] ?? []).filter(
           (attempt) => attempt['practice_question_id'] !== id,
+        );
+        // migration 0005: `on delete set null (practice_question_id)` — the mistake
+        // history survives the question, only the link is cleared.
+        state.tables['mistake_logs'] = (state.tables['mistake_logs'] ?? []).map((mistake) =>
+          mistake['practice_question_id'] === id ? { ...mistake, practice_question_id: null } : mistake,
         );
       }
       if (table === 'user_subjects') {

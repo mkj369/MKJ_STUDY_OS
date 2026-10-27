@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { IonIcon } from '@ionic/react';
 import {
   closeOutline,
+  createOutline,
   menuOutline,
   moonOutline,
   personCircleOutline,
@@ -13,8 +14,88 @@ import {
 import { NAV_GROUPS, NAV_ITEMS, BOTTOM_NAV, findNavItem } from '@/app/nav';
 import { useAuth } from '@/app/AppProviders';
 import { useI18n } from '@/i18n';
-import { useWorkspaceView } from '@/hooks/useWorkspace';
+import { useMutate, useWorkspaceView } from '@/hooks/useWorkspace';
 import { Badge, DemoBadge } from '@/components/ui/Page';
+import { RecordDialog } from '@/components/ui/RecordDialog';
+import { useNotify } from '@/features/shared/WorkspaceGate';
+import { noteSchema, type NoteValues } from '@/domain/schemas';
+import { NOTE_KINDS } from '@/types/domain';
+import { errorMessage } from '@/utils/errors';
+
+const NOTE_KIND_LABELS: Record<string, string> = {
+  note: 'Note',
+  formula: 'Formula',
+  definition: 'Definition',
+  bookmark: 'Bookmark / useful link',
+};
+
+/**
+ * Quick capture: write a note from any screen without losing the page you were on.
+ * It is a plain `notes` row, so it appears in Notes and in the formula vault with no
+ * second copy of the data.
+ */
+function QuickCapture() {
+  const [open, setOpen] = useState(false);
+  const mutate = useMutate();
+  const notify = useNotify();
+
+  const save = async (values: NoteValues) => {
+    try {
+      await mutate((repo) =>
+        repo.create('notes', {
+          title: values.title,
+          body: values.body,
+          user_subject_id: null,
+          user_chapter_id: null,
+          kind: values.kind,
+          tags: [],
+          is_pinned: values.is_pinned,
+          is_demo: false,
+        }),
+      );
+      setOpen(false);
+      await notify('Captured. It is in Notes, ready to tag later.');
+    } catch (error) {
+      await notify(errorMessage(error), 'danger');
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn--secondary btn--sm"
+        onClick={() => setOpen(true)}
+        aria-label="Quick capture a note"
+      >
+        <IonIcon icon={createOutline} aria-hidden="true" />
+        <span className="quick-capture__label">Capture</span>
+      </button>
+      {open ? (
+        <RecordDialog<NoteValues>
+          title="Quick capture"
+          description="A thought, a formula, a doubt. You can attach it to a subject later from Notes."
+          schema={noteSchema}
+          defaultValues={{ title: '', body: '', kind: 'note', tags: '', is_pinned: false, user_subject_id: '', user_chapter_id: '' }}
+          submitLabel="Save note"
+          fields={[
+            { name: 'title', label: 'Title', type: 'text' },
+            { name: 'body', label: 'Note', type: 'textarea', rows: 4 },
+            {
+              name: 'kind',
+              label: 'Kind',
+              type: 'select',
+              options: NOTE_KINDS.map((value) => ({ value, label: NOTE_KIND_LABELS[value] ?? value })),
+            },
+            { name: 'is_pinned', label: 'Pin to the top', type: 'checkbox' },
+          ]}
+          onSubmit={save}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useI18n();
@@ -167,6 +248,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <div className="desktop-only">
             <ShellStatusBadges />
           </div>
+          <QuickCapture />
         </header>
 
         <main className="app-content" id="main-content">
