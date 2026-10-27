@@ -7,6 +7,7 @@ import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { formatDate } from '@/domain/dates';
 import type { RepositoryTable } from '@/types/domain';
 import { errorMessage } from '@/utils/errors';
+import { toCsv } from '@/utils/csv';
 
 const TABLE_LABELS: Partial<Record<RepositoryTable, string>> = {
   user_subjects: 'Subjects',
@@ -30,21 +31,6 @@ const TABLE_LABELS: Partial<Record<RepositoryTable, string>> = {
   study_resources: 'Resources',
   weekly_summaries: 'Weekly summaries',
 };
-
-function toCsv(rows: Record<string, unknown>[]): string {
-  if (rows.length === 0) return '';
-  const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
-  const escape = (value: unknown) => {
-    if (value === null || value === undefined) return '';
-    const text = Array.isArray(value)
-      ? value.join(' | ')
-      : typeof value === 'object'
-        ? JSON.stringify(value)
-        : String(value);
-    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-  };
-  return [columns.join(','), ...rows.map((row) => columns.map((column) => escape(row[column])).join(','))].join('\n');
-}
 
 function download(filename: string, content: string, type: string) {
   const blob = new Blob([content], { type });

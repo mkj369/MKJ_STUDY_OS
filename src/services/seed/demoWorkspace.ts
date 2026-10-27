@@ -524,32 +524,49 @@ export function buildDemoWorkspace(today: DateOnly = todayISO()): DemoWorkspaceR
   return { subjects, chapters, checklistItems, checklistProgress, lectures, sessions, revisions, difficulties, mistakes, tasks, exams, resources, notes };
 }
 
+/**
+ * Demo tables in **deletion order** (children first). `user_subjects` is protected by
+ * `on delete restrict` foreign keys, so the cloud removal walks this list forwards.
+ * The local repository filters rows instead, so it does not depend on the order.
+ */
 export const DEMO_WORKSPACE_TABLES = [
-  'user_subjects',
-  'user_chapters',
-  'chapter_checklist_items',
+  'practice_attempts',
+  'mistake_logs',
+  'practice_questions',
+  'daily_blocks',
+  'focus_sessions',
+  'exam_targets',
+  'user_topics',
   'chapter_checklist_progress',
-  'lecture_records',
-  'study_sessions',
+  'chapter_checklist_items',
   'revision_sessions',
   'topic_difficulties',
-  'mistake_logs',
+  'lecture_records',
+  'study_sessions',
   'study_tasks',
   'exam_results',
   'study_resources',
   'notes',
+  'user_chapters',
+  'user_subjects',
 ] as const;
 
 export const DEMO_FLAGGED_TABLES = [
   'user_subjects',
   'user_chapters',
+  'user_topics',
   'lecture_records',
   'study_sessions',
+  'daily_blocks',
+  'focus_sessions',
   'revision_sessions',
   'topic_difficulties',
   'mistake_logs',
   'study_tasks',
   'exam_results',
+  'exam_targets',
   'study_resources',
   'notes',
+  'practice_questions',
+  'practice_attempts',
 ] as const;

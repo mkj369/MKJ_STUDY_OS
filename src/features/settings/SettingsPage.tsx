@@ -12,8 +12,7 @@ import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { profileSchema } from '@/domain/schemas';
 import { TIMEZONE_OPTIONS } from '@/services/reminderDefaults';
 import { errorMessage } from '@/utils/errors';
-import type { Locale, RepositoryTable } from '@/types/domain';
-import { USER_OWNED_TABLES } from '@/types/domain';
+import type { Locale } from '@/types/domain';
 
 function SettingsContent() {
   const { data } = useWorkspaceQuery();
@@ -115,18 +114,12 @@ function SettingsContent() {
   const deleteAllRecords = async () => {
     setDeletingData(true);
     try {
-      await mutate(async (repo) => {
-        for (const table of USER_OWNED_TABLES as readonly RepositoryTable[]) {
-          if (table === 'profiles') continue;
-          const rows = await repo.list(table);
-          for (const row of rows) {
-            const id = (row as { id?: string; user_id?: string }).id ?? (row as { user_id?: string }).user_id;
-            if (id) await repo.remove(table, id);
-          }
-        }
-      });
+      const result = await mutate((repo) => repo.deleteAllUserData());
       setExportJson(null);
-      await notify('All records deleted from your workspace. Your profile and settings remain.', 'warning');
+      await notify(
+        `Deleted ${result.deleted} record(s). Your profile and reminder settings remain.`,
+        'warning',
+      );
     } catch (deleteError) {
       await notify(errorMessage(deleteError), 'danger');
     } finally {

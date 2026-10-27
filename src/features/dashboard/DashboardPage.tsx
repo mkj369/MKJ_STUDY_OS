@@ -26,6 +26,7 @@ import {
 import { ErrorState, LoadingState } from '@/components/ui/States';
 import { minutesToHuman, weekRange, addDaysISO, diffDaysISO } from '@/domain/dates';
 import { PRIORITY_WEIGHT } from '@/domain/tasks';
+import { buildTimeline, formatMinutes, summarizeTime } from '@/domain/timeTracking';
 import { errorMessage } from '@/utils/errors';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -77,6 +78,15 @@ export function DashboardPage() {
     })
     .slice(0, 3);
 
+  // Today's time comes from the same timeline as the tracker: study sessions plus
+  // non-study blocks, never a second count of the same minutes.
+  const todayTime = summarizeTime(
+    buildTimeline(
+      { sessions: bundle.sessions, blocks: bundle.dailyBlocks, subjectLabels: view.phase2.subjectLabels },
+      today,
+    ),
+  );
+  const nextExam = view.phase2.countdowns.find((countdown) => !countdown.isPast) ?? null;
   const nextAction = view.dashboardTasks[0];
   const examPercentLabel =
     view.examSummary.latestPercent !== null ? `${view.examSummary.latestPercent}%` : 'Not recorded';
@@ -194,6 +204,22 @@ export function DashboardPage() {
           value={minutesToHuman(weekMinutes)}
           hint={`${sessionsThisWeek.length} session${sessionsThisWeek.length === 1 ? '' : 's'} logged · time is not proof of learning`}
           to="/sessions"
+        />
+        <StatCard
+          label="Study time today"
+          value={todayTime.studyMinutes > 0 ? formatMinutes(todayTime.studyMinutes) : 'Not recorded'}
+          hint={
+            todayTime.otherMinutes > 0
+              ? `${formatMinutes(todayTime.otherMinutes)} of other blocks (college, sleep, breaks…)`
+              : 'From study sessions only'
+          }
+          to="/time"
+        />
+        <StatCard
+          label="Next exam"
+          value={nextExam ? `${nextExam.daysRemaining} day(s)` : 'Not recorded'}
+          hint={nextExam ? `${nextExam.title} · ${nextExam.examDate}` : 'Add an exam target to see a countdown'}
+          to="/exams/prep"
         />
         <StatCard
           label="Checklist completion"

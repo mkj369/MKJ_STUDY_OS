@@ -146,6 +146,13 @@ export interface Repository {
   seedDemoWorkspace(): Promise<DemoWorkspaceResult>;
   removeDemoData(): Promise<DemoWorkspaceResult>;
 
+  /**
+   * Remove every academic record the student owns, in dependency order, keeping
+   * the profile and reminder preferences. Subject rows carry `on delete restrict`
+   * foreign keys, so a naive table-order delete fails — this method owns the order.
+   */
+  deleteAllUserData(): Promise<{ deleted: number }>;
+
   /* ------------------------------- export ------------------------------- */
   exportAll(): Promise<{ exported_at: Timestamp; mode: 'cloud' | 'local'; tables: Partial<Record<RepositoryTable, unknown[]>> }>;
 

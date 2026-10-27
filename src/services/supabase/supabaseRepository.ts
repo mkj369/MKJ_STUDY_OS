@@ -383,6 +383,45 @@ export class SupabaseRepository implements Repository {
     return { createdSubjects: 0, createdChapters: 0, removed, removedSubjects, removedChapters };
   }
 
+  async deleteAllUserData(): Promise<{ deleted: number }> {
+    // Dependency order matters: `user_subjects` is protected by `on delete restrict`
+    // foreign keys from sessions, tasks, notes and others, so children go first.
+    // `audit_events` is append-only and is intentionally not deleted here.
+    const order: RepositoryTable[] = [
+      'practice_attempts',
+      'mistake_logs',
+      'practice_questions',
+      'daily_blocks',
+      'focus_sessions',
+      'exam_targets',
+      'user_topics',
+      'chapter_checklist_progress',
+      'chapter_checklist_items',
+      'revision_sessions',
+      'topic_difficulties',
+      'lecture_records',
+      'study_sessions',
+      'study_tasks',
+      'exam_results',
+      'study_resources',
+      'notes',
+      'weekly_summaries',
+      'reminder_events',
+      'user_chapters',
+      'user_subjects',
+    ];
+    let deleted = 0;
+    for (const table of order) {
+      const { error, count } = await this.client
+        .from(table)
+        .delete({ count: 'exact' })
+        .eq('user_id', this.userId);
+      if (error) throw friendlyError(error, `Deleting ${table}`);
+      deleted += count ?? 0;
+    }
+    return { deleted };
+  }
+
   async exportAll() {
     const tables: Partial<Record<RepositoryTable, unknown[]>> = {};
     for (const table of [...CURRICULUM_TABLES, ...ALL_USER_TABLES]) {

@@ -43,6 +43,11 @@ test('a time block can be recorded and appears on the timeline', async ({ page }
 
   await expect(page.getByText('45m').first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/College/).first()).toBeVisible();
+
+  // The dashboard reads the same records: a college block is "other" time, not study time.
+  await page.goto('/#/');
+  await expect(page.getByText('Study time today')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/45m of other blocks/)).toBeVisible();
 });
 
 test('a practice question can be created, attempted and graded', async ({ page }) => {

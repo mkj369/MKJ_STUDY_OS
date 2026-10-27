@@ -64,6 +64,7 @@ weekly report, and receive planned reminders.
 | **Exam countdown + preparation** | Exam targets, days remaining, coverage of the linked chapters, due revisions, weak areas, a draft plan. **No predicted marks or ranks.** | `/exams/prep` |
 | **Notes / formula vault / practice** | Notes with kinds (note, formula, definition, bookmark), tags, pinning, search; quick capture from any screen; practice questions with attempts, accuracy, needs-review, AI-sourced questions labelled | `/notes`, `/vault`, `/practice` |
 | **Progress insights + AI coach** | Four bands: observed → calculated → interpretation → missing, each with evidence; deterministic next steps; AI is optional and additive | `/insights`, `/reports` |
+| **Dashboard** | Today's study time (from the timeline), next exam countdown, today's tasks, revision queue, needs-attention flags, weekly facts — all from the same records as their pages | `/` |
 | **Focus mode** | Foreground focus/break timer (5–120 min focus, ≤ 30 min breaks, ≤ 8 intervals), linked to task/subject/chapter, writes exactly one study session | `/focus` |
 | **Export & academic history** | JSON backup of every table + per-table CSV, demo rows marked, subject/chapter history preserved across curriculum changes, delete flows that never silently destroy history | `/export`, `/settings` |
 
@@ -182,10 +183,10 @@ npm run android:open  # open the Android project
 ```
 npm run typecheck  → no errors
 npm run lint       → no errors, no warnings
-npm test           → 25 files, 339 tests passed
+npm test           → 27 files, 347 tests passed
                      (incl. 32 database/migration/RLS assertions in tests/db)
-npm run build      → ✓ built in 5.99 s
-npm run test:e2e   → 11 passed (22.7 s) in Chromium
+npm run build      → ✓ built in 5.58 s
+npm run test:e2e   → 11 passed (22.4 s) in Chromium
 ```
 
 Bundle after route-level code splitting (raw / gzip):
@@ -277,7 +278,7 @@ made from this repository snapshot** — there was no key available.
 | --- | --- | --- |
 | `npm run typecheck` | whole project incl. tests | pass |
 | `npm run lint` | ESLint (no warnings allowed in the result we report) | pass |
-| `npm test` | 25 files / 339 tests | pass |
+| `npm test` | 27 files / 347 tests | pass |
 | `npx vitest run tests/db` | migrations `0001`–`0005` applied to PGlite; RLS, FKs, constraints, storage policies, audit immutability | pass (32 tests) |
 | `npm run build` | production build + chunk report | pass |
 | `npx playwright test` | real Chromium, local workspace, 27 routes and 11 flows | pass (11 tests, 21 s) |
@@ -319,6 +320,41 @@ Key test files:
 | H — security | `tests/db`, `tests/integration` | cross-user reads/writes rejected in Postgres and in the repository (the browser build is single-workspace by design) |
 | I — backup/export | `journeys.spec.ts` | downloaded JSON parses, contains `user_subjects` with `user_id` and `is_demo` |
 | Mobile shell | `smoke.spec.ts` | 390×844: no horizontal overflow, drawer navigation works, main column scrolls |
+
+### Defects found and fixed during this verification pass
+
+The audit was not only additive. These were real failures reproduced in the browser or in
+tests, then fixed:
+
+1. **Content below the fold was unreachable.** Ionic renders `ion-app` as a fixed box and
+   `body { overflow: hidden }`, so on a desktop the task list could not be scrolled with a
+   wheel or by Playwright. Fixed in `theme.css` (`.app-main` scrolls); covered by the mobile
+   shell test and by the task journey.
+2. **Reloading the page signed you out of the local workspace.** A stored session used the
+   shape `{ user, createdAt }` and the reader expected a bare user, so `getSession()`
+   returned null. Fixed in `localAuth.ts` with backward compatibility, and locked down by
+   `tests/integration/localAuth.test.ts` plus the reload assertion in `smoke.spec.ts`.
+3. **Rows saved before a schema change crashed the vault.** A note without `tags`/`kind`
+   threw on `.map`. Fixed with `COLUMN_DEFAULTS` + `normaliseRow` in `LocalDatabase` and
+   defensive reads in the vault page.
+4. **A practice attempt was silently not linked to its question.** The attempt dialog's
+   defaults omitted `practice_question_id`, so accuracy stayed at “not recorded”. Fixed and
+   asserted by the practice journey (now shows 100 %).
+5. **A topic dialog omitted its chapter id**, which would have created an orphan topic.
+   Fixed in the syllabus page.
+6. **Switching to Bangla left `document.lang` at `en`.** Fixed in the provider; covered by
+   `tests/ui/i18n.test.tsx`.
+7. **Mistakes had no link to the practice question that caused them.** Added migration
+   `0005`, types, validation, local FK mirroring, repository rejection of another user's
+   question, UI select + link, and five integration tests plus a database test.
+8. **“Delete all my records” failed on a non-empty workspace.** It walked tables in
+   declaration order and hit `user_subjects` before the `on delete restrict` children, so
+   the whole operation aborted half-way (the same order bug existed in the cloud
+   repository's demo removal). Replaced with `deleteAllUserData()` in dependency order in
+   both repositories; covered by three integration tests.
+9. **CSV export allowed spreadsheet formula injection.** A note starting with `=` was
+   written verbatim. `src/utils/csv.ts` now prefixes formula-like strings and has its own
+   tests.
 
 ### Database tests without a hosted project
 

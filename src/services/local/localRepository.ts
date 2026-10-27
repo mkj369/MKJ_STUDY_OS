@@ -518,6 +518,24 @@ export class LocalRepository implements Repository {
 
   /* -------------------------------- export ------------------------------- */
 
+  async deleteAllUserData(): Promise<{ deleted: number }> {
+    let deleted = 0;
+    this.db.mutate((state) => {
+      for (const table of USER_OWNED_TABLES) {
+        // `profiles` is the account itself; `audit_events` is an append-only trail
+        // that never contains note bodies or answers.
+        if (table === 'profiles' || table === 'audit_events') continue;
+        const rows = state.tables[table] ?? [];
+        deleted += rows.filter((row) => row['user_id'] === this.userId).length;
+        state.tables[table] = rows.filter((row) => row['user_id'] !== this.userId);
+      }
+      // Local audit rows only reference ids, but drop them with the data they describe.
+      state.tables['audit_events'] = [];
+      return null;
+    });
+    return { deleted };
+  }
+
   async exportAll() {
     const tables: Partial<Record<RepositoryTable, unknown[]>> = {};
     for (const table of [...CURRICULUM_TABLES, ...USER_OWNED_TABLES, 'reminder_preferences'] as RepositoryTable[]) {
