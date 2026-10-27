@@ -52,6 +52,8 @@ create table if not exists public.profiles (
 comment on column public.profiles.study_windows is
   'Minutes available per weekday: {"0":120,...} with 0 = Sunday. Never assumed by the app.';
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists profiles_touch_updated_at on public.profiles;
 create trigger profiles_touch_updated_at
   before update on public.profiles
   for each row execute function public.touch_updated_at();
@@ -79,6 +81,8 @@ create table if not exists public.curriculum_versions (
   unique (authority, class_grade, stream, academic_year, version_label)
 );
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists curriculum_versions_touch_updated_at on public.curriculum_versions;
 create trigger curriculum_versions_touch_updated_at
   before update on public.curriculum_versions
   for each row execute function public.touch_updated_at();
@@ -144,6 +148,8 @@ create unique index if not exists user_subjects_curriculum_unique
 
 create index if not exists user_subjects_user_idx on public.user_subjects (user_id, sort_order);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists user_subjects_touch_updated_at on public.user_subjects;
 create trigger user_subjects_touch_updated_at
   before update on public.user_subjects
   for each row execute function public.touch_updated_at();
@@ -175,6 +181,8 @@ create unique index if not exists user_chapters_curriculum_unique
 create index if not exists user_chapters_subject_idx on public.user_chapters (user_subject_id);
 create index if not exists user_chapters_batch_idx on public.user_chapters (import_batch_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists user_chapters_touch_updated_at on public.user_chapters;
 create trigger user_chapters_touch_updated_at
   before update on public.user_chapters
   for each row execute function public.touch_updated_at();
@@ -203,6 +211,8 @@ create table if not exists public.chapter_checklist_items (
 
 create index if not exists checklist_items_chapter_idx on public.chapter_checklist_items (user_chapter_id, sort_order);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists checklist_items_touch_updated_at on public.chapter_checklist_items;
 create trigger checklist_items_touch_updated_at
   before update on public.chapter_checklist_items
   for each row execute function public.touch_updated_at();
@@ -223,6 +233,8 @@ create table if not exists public.chapter_checklist_progress (
 
 create index if not exists checklist_progress_item_idx on public.chapter_checklist_progress (checklist_item_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists checklist_progress_touch_updated_at on public.chapter_checklist_progress;
 create trigger checklist_progress_touch_updated_at
   before update on public.chapter_checklist_progress
   for each row execute function public.touch_updated_at();
@@ -259,6 +271,8 @@ create index if not exists lecture_records_user_date_idx on public.lecture_recor
 create index if not exists lecture_records_subject_idx on public.lecture_records (user_subject_id);
 create index if not exists lecture_records_chapter_idx on public.lecture_records (user_chapter_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists lecture_records_touch_updated_at on public.lecture_records;
 create trigger lecture_records_touch_updated_at
   before update on public.lecture_records
   for each row execute function public.touch_updated_at();
@@ -296,6 +310,8 @@ create table if not exists public.study_sessions (
 create index if not exists study_sessions_user_date_idx on public.study_sessions (user_id, session_date desc);
 create index if not exists study_sessions_chapter_idx on public.study_sessions (user_chapter_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists study_sessions_touch_updated_at on public.study_sessions;
 create trigger study_sessions_touch_updated_at
   before update on public.study_sessions
   for each row execute function public.touch_updated_at();
@@ -329,6 +345,8 @@ create table if not exists public.revision_sessions (
 create index if not exists revision_sessions_user_date_idx on public.revision_sessions (user_id, revised_at desc);
 create index if not exists revision_sessions_next_idx on public.revision_sessions (next_review_date);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists revision_sessions_touch_updated_at on public.revision_sessions;
 create trigger revision_sessions_touch_updated_at
   before update on public.revision_sessions
   for each row execute function public.touch_updated_at();
@@ -363,6 +381,8 @@ create table if not exists public.topic_difficulties (
 create index if not exists topic_difficulties_user_idx on public.topic_difficulties (user_id, status, severity);
 create index if not exists topic_difficulties_chapter_idx on public.topic_difficulties (user_chapter_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists topic_difficulties_touch_updated_at on public.topic_difficulties;
 create trigger topic_difficulties_touch_updated_at
   before update on public.topic_difficulties
   for each row execute function public.touch_updated_at();
@@ -397,6 +417,8 @@ create table if not exists public.exam_results (
 create index if not exists exam_results_user_date_idx on public.exam_results (user_id, exam_date desc);
 create index if not exists exam_results_subject_idx on public.exam_results (user_subject_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists exam_results_touch_updated_at on public.exam_results;
 create trigger exam_results_touch_updated_at
   before update on public.exam_results
   for each row execute function public.touch_updated_at();
@@ -432,6 +454,8 @@ create table if not exists public.mistake_logs (
 create index if not exists mistake_logs_user_idx on public.mistake_logs (user_id, occurred_at desc);
 create index if not exists mistake_logs_chapter_idx on public.mistake_logs (user_chapter_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists mistake_logs_touch_updated_at on public.mistake_logs;
 create trigger mistake_logs_touch_updated_at
   before update on public.mistake_logs
   for each row execute function public.touch_updated_at();
@@ -493,6 +517,8 @@ create index if not exists study_tasks_user_status_idx on public.study_tasks (us
 create index if not exists study_tasks_planned_idx on public.study_tasks (user_id, planned_date);
 create index if not exists study_tasks_chapter_idx on public.study_tasks (user_chapter_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists study_tasks_touch_updated_at on public.study_tasks;
 create trigger study_tasks_touch_updated_at
   before update on public.study_tasks
   for each row execute function public.touch_updated_at();
@@ -525,6 +551,8 @@ create table if not exists public.study_resources (
 create index if not exists study_resources_user_idx on public.study_resources (user_id);
 create index if not exists study_resources_subject_idx on public.study_resources (user_subject_id);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists study_resources_touch_updated_at on public.study_resources;
 create trigger study_resources_touch_updated_at
   before update on public.study_resources
   for each row execute function public.touch_updated_at();
@@ -547,6 +575,8 @@ create table if not exists public.notes (
 
 create index if not exists notes_user_idx on public.notes (user_id, updated_at desc);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists notes_touch_updated_at on public.notes;
 create trigger notes_touch_updated_at
   before update on public.notes
   for each row execute function public.touch_updated_at();
@@ -573,6 +603,8 @@ create table if not exists public.reminder_preferences (
   updated_at timestamptz not null default now()
 );
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists reminder_preferences_touch_updated_at on public.reminder_preferences;
 create trigger reminder_preferences_touch_updated_at
   before update on public.reminder_preferences
   for each row execute function public.touch_updated_at();
@@ -674,57 +706,80 @@ alter table public.reminder_events enable row level security;
 alter table public.audit_events enable row level security;
 
 -- Profiles: own row only
+drop policy if exists "profiles select own" on public.profiles;
 create policy "profiles select own" on public.profiles
   for select to authenticated using (id = (select auth.uid()));
+drop policy if exists "profiles insert own" on public.profiles;
 create policy "profiles insert own" on public.profiles
   for insert to authenticated with check (id = (select auth.uid()));
+drop policy if exists "profiles update own" on public.profiles;
 create policy "profiles update own" on public.profiles
   for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
+drop policy if exists "profiles delete own" on public.profiles;
 create policy "profiles delete own" on public.profiles
   for delete to authenticated using (id = (select auth.uid()));
 
 -- Curriculum: read-only reference data for signed-in users
+drop policy if exists "curriculum versions readable" on public.curriculum_versions;
 create policy "curriculum versions readable" on public.curriculum_versions
   for select to authenticated using (true);
+drop policy if exists "curriculum subjects readable" on public.curriculum_subjects;
 create policy "curriculum subjects readable" on public.curriculum_subjects
   for select to authenticated using (true);
+drop policy if exists "curriculum chapters readable" on public.curriculum_chapters;
 create policy "curriculum chapters readable" on public.curriculum_chapters
   for select to authenticated using (true);
 
 -- User-owned tables: full CRUD, always scoped to the authenticated user
+drop policy if exists "user_subjects select own" on public.user_subjects;
 create policy "user_subjects select own" on public.user_subjects
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "user_subjects insert own" on public.user_subjects;
 create policy "user_subjects insert own" on public.user_subjects
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "user_subjects update own" on public.user_subjects;
 create policy "user_subjects update own" on public.user_subjects
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "user_subjects delete own" on public.user_subjects;
 create policy "user_subjects delete own" on public.user_subjects
   for delete to authenticated using (user_id = (select auth.uid()));
 
+drop policy if exists "user_chapters select own" on public.user_chapters;
 create policy "user_chapters select own" on public.user_chapters
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "user_chapters insert own" on public.user_chapters;
 create policy "user_chapters insert own" on public.user_chapters
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "user_chapters update own" on public.user_chapters;
 create policy "user_chapters update own" on public.user_chapters
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "user_chapters delete own" on public.user_chapters;
 create policy "user_chapters delete own" on public.user_chapters
   for delete to authenticated using (user_id = (select auth.uid()));
 
+drop policy if exists "checklist items select own" on public.chapter_checklist_items;
 create policy "checklist items select own" on public.chapter_checklist_items
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "checklist items insert own" on public.chapter_checklist_items;
 create policy "checklist items insert own" on public.chapter_checklist_items
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "checklist items update own" on public.chapter_checklist_items;
 create policy "checklist items update own" on public.chapter_checklist_items
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "checklist items delete own" on public.chapter_checklist_items;
 create policy "checklist items delete own" on public.chapter_checklist_items
   for delete to authenticated using (user_id = (select auth.uid()));
 
+drop policy if exists "checklist progress select own" on public.chapter_checklist_progress;
 create policy "checklist progress select own" on public.chapter_checklist_progress
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "checklist progress insert own" on public.chapter_checklist_progress;
 create policy "checklist progress insert own" on public.chapter_checklist_progress
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "checklist progress update own" on public.chapter_checklist_progress;
 create policy "checklist progress update own" on public.chapter_checklist_progress
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "checklist progress delete own" on public.chapter_checklist_progress;
 create policy "checklist progress delete own" on public.chapter_checklist_progress
   for delete to authenticated using (user_id = (select auth.uid()));
 
@@ -738,6 +793,11 @@ begin
     'weekly_summaries', 'reminder_events'
   ]
   loop
+    -- drop first so the migration can be re-applied to an existing database
+    execute format('drop policy if exists %I on public.%I', t || ' select own', t);
+    execute format('drop policy if exists %I on public.%I', t || ' insert own', t);
+    execute format('drop policy if exists %I on public.%I', t || ' update own', t);
+    execute format('drop policy if exists %I on public.%I', t || ' delete own', t);
     execute format(
       'create policy %I on public.%I for select to authenticated using (user_id = (select auth.uid()))',
       t || ' select own', t
@@ -758,18 +818,24 @@ begin
 end;
 $$;
 
+drop policy if exists "reminder preferences select own" on public.reminder_preferences;
 create policy "reminder preferences select own" on public.reminder_preferences
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "reminder preferences insert own" on public.reminder_preferences;
 create policy "reminder preferences insert own" on public.reminder_preferences
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "reminder preferences update own" on public.reminder_preferences;
 create policy "reminder preferences update own" on public.reminder_preferences
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "reminder preferences delete own" on public.reminder_preferences;
 create policy "reminder preferences delete own" on public.reminder_preferences
   for delete to authenticated using (user_id = (select auth.uid()));
 
 -- Audit log: append-only for the client
+drop policy if exists "audit select own" on public.audit_events;
 create policy "audit select own" on public.audit_events
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "audit insert own" on public.audit_events;
 create policy "audit insert own" on public.audit_events
   for insert to authenticated with check (user_id = (select auth.uid()));
 
@@ -809,19 +875,23 @@ insert into storage.buckets (id, name, public)
 values ('study-files', 'study-files', false)
 on conflict (id) do nothing;
 
+drop policy if exists "study files read own folder" on storage.objects;
 create policy "study files read own folder" on storage.objects
   for select to authenticated
   using (bucket_id = 'study-files' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
+drop policy if exists "study files insert own folder" on storage.objects;
 create policy "study files insert own folder" on storage.objects
   for insert to authenticated
   with check (bucket_id = 'study-files' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
+drop policy if exists "study files update own folder" on storage.objects;
 create policy "study files update own folder" on storage.objects
   for update to authenticated
   using (bucket_id = 'study-files' and (storage.foldername(name))[1] = (select auth.uid())::text)
   with check (bucket_id = 'study-files' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
+drop policy if exists "study files delete own folder" on storage.objects;
 create policy "study files delete own folder" on storage.objects
   for delete to authenticated
   using (bucket_id = 'study-files' and (storage.foldername(name))[1] = (select auth.uid())::text);

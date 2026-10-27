@@ -16,7 +16,9 @@
     "android:open": "cap open android",
     "test:e2e": "playwright test",
     "test:db": "vitest run tests/db",
-    "verify": "npm run typecheck && npm run lint && npm test && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run build && npm test",
+    "verify:cloud": "node scripts/verify-cloud.mjs",
+    "android:build": "cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",

@@ -34,6 +34,7 @@ create index if not exists curriculum_topics_chapter_idx
 
 alter table public.curriculum_topics enable row level security;
 
+drop policy if exists "curriculum topics readable" on public.curriculum_topics;
 create policy "curriculum topics readable" on public.curriculum_topics
   for select to authenticated using (true);
 
@@ -65,18 +66,24 @@ create unique index if not exists user_topics_curriculum_unique
   where curriculum_topic_id is not null;
 create index if not exists user_topics_chapter_idx on public.user_topics (user_chapter_id, created_at);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists user_topics_touch_updated_at on public.user_topics;
 create trigger user_topics_touch_updated_at
   before update on public.user_topics
   for each row execute function public.touch_updated_at();
 
 alter table public.user_topics enable row level security;
 
+drop policy if exists "user topics select own" on public.user_topics;
 create policy "user topics select own" on public.user_topics
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "user topics insert own" on public.user_topics;
 create policy "user topics insert own" on public.user_topics
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "user topics update own" on public.user_topics;
 create policy "user topics update own" on public.user_topics
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "user topics delete own" on public.user_topics;
 create policy "user topics delete own" on public.user_topics
   for delete to authenticated using (user_id = (select auth.uid()));
 
@@ -174,18 +181,24 @@ create unique index if not exists daily_blocks_client_entry_unique
   on public.daily_blocks (user_id, client_entry_id)
   where client_entry_id is not null;
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists daily_blocks_touch_updated_at on public.daily_blocks;
 create trigger daily_blocks_touch_updated_at
   before update on public.daily_blocks
   for each row execute function public.touch_updated_at();
 
 alter table public.daily_blocks enable row level security;
 
+drop policy if exists "daily blocks select own" on public.daily_blocks;
 create policy "daily blocks select own" on public.daily_blocks
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "daily blocks insert own" on public.daily_blocks;
 create policy "daily blocks insert own" on public.daily_blocks
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "daily blocks update own" on public.daily_blocks;
 create policy "daily blocks update own" on public.daily_blocks
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "daily blocks delete own" on public.daily_blocks;
 create policy "daily blocks delete own" on public.daily_blocks
   for delete to authenticated using (user_id = (select auth.uid()));
 
@@ -226,12 +239,16 @@ create index if not exists focus_sessions_user_started_idx
 
 alter table public.focus_sessions enable row level security;
 
+drop policy if exists "focus sessions select own" on public.focus_sessions;
 create policy "focus sessions select own" on public.focus_sessions
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "focus sessions insert own" on public.focus_sessions;
 create policy "focus sessions insert own" on public.focus_sessions
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "focus sessions update own" on public.focus_sessions;
 create policy "focus sessions update own" on public.focus_sessions
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "focus sessions delete own" on public.focus_sessions;
 create policy "focus sessions delete own" on public.focus_sessions
   for delete to authenticated using (user_id = (select auth.uid()));
 
@@ -271,18 +288,24 @@ create table if not exists public.exam_targets (
 
 create index if not exists exam_targets_user_date_idx on public.exam_targets (user_id, exam_date);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists exam_targets_touch_updated_at on public.exam_targets;
 create trigger exam_targets_touch_updated_at
   before update on public.exam_targets
   for each row execute function public.touch_updated_at();
 
 alter table public.exam_targets enable row level security;
 
+drop policy if exists "exam targets select own" on public.exam_targets;
 create policy "exam targets select own" on public.exam_targets
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "exam targets insert own" on public.exam_targets;
 create policy "exam targets insert own" on public.exam_targets
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "exam targets update own" on public.exam_targets;
 create policy "exam targets update own" on public.exam_targets
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "exam targets delete own" on public.exam_targets;
 create policy "exam targets delete own" on public.exam_targets
   for delete to authenticated using (user_id = (select auth.uid()));
 
@@ -323,6 +346,8 @@ create table if not exists public.practice_questions (
 create index if not exists practice_questions_user_idx
   on public.practice_questions (user_id, is_archived, created_at desc);
 
+-- re-apply safe: Postgres has no "create trigger if not exists"
+drop trigger if exists practice_questions_touch_updated_at on public.practice_questions;
 create trigger practice_questions_touch_updated_at
   before update on public.practice_questions
   for each row execute function public.touch_updated_at();
@@ -351,21 +376,29 @@ create index if not exists practice_attempts_user_idx
 alter table public.practice_questions enable row level security;
 alter table public.practice_attempts enable row level security;
 
+drop policy if exists "practice questions select own" on public.practice_questions;
 create policy "practice questions select own" on public.practice_questions
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "practice questions insert own" on public.practice_questions;
 create policy "practice questions insert own" on public.practice_questions
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "practice questions update own" on public.practice_questions;
 create policy "practice questions update own" on public.practice_questions
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "practice questions delete own" on public.practice_questions;
 create policy "practice questions delete own" on public.practice_questions
   for delete to authenticated using (user_id = (select auth.uid()));
 
+drop policy if exists "practice attempts select own" on public.practice_attempts;
 create policy "practice attempts select own" on public.practice_attempts
   for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "practice attempts insert own" on public.practice_attempts;
 create policy "practice attempts insert own" on public.practice_attempts
   for insert to authenticated with check (user_id = (select auth.uid()));
+drop policy if exists "practice attempts update own" on public.practice_attempts;
 create policy "practice attempts update own" on public.practice_attempts
   for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "practice attempts delete own" on public.practice_attempts;
 create policy "practice attempts delete own" on public.practice_attempts
   for delete to authenticated using (user_id = (select auth.uid()));
 

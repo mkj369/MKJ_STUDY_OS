@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Badge, EmptyState, Notice, PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
@@ -33,6 +34,8 @@ function PracticeContent() {
   const [questionDialog, setQuestionDialog] = useState<{ editing: PracticeQuestion | null } | null>(null);
   const [attemptDialog, setAttemptDialog] = useState<PracticeQuestion | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedFromLink = useRef<string | null>(null);
 
   const questionsSource = data?.bundle.practiceQuestions;
   const attemptsSource = data?.bundle.practiceAttempts;
@@ -40,6 +43,26 @@ function PracticeContent() {
   const attempts = useMemo(() => attemptsSource ?? [], [attemptsSource]);
   const summary = useMemo(() => summarizePractice(questions, attempts), [questions, attempts]);
   const queue = useMemo(() => buildPracticeQueue(questions, attempts, 12), [questions, attempts]);
+
+  const linkedQuestionId = searchParams.get('question');
+
+  /**
+   * Arriving from the mistake book (or any other screen) with `?question=<id>`
+   * opens that question's attempt form once. The parameter is then removed, so a
+   * reload or Back does not re-open the dialog unexpectedly.
+   */
+  useEffect(() => {
+    if (!data || !linkedQuestionId || openedFromLink.current === linkedQuestionId) return;
+    const target = data.bundle.practiceQuestions.find(
+      (question) => question.id === linkedQuestionId && !question.is_archived,
+    );
+    openedFromLink.current = linkedQuestionId;
+    if (target) setAttemptDialog(target);
+    else notify('That practice question is no longer available.', 'warning');
+    const next = new URLSearchParams(searchParams);
+    next.delete('question');
+    setSearchParams(next, { replace: true });
+  }, [data, linkedQuestionId, notify, searchParams, setSearchParams]);
 
   if (!data) return null;
   const { bundle, view } = data;

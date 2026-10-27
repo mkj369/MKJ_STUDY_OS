@@ -195,7 +195,10 @@ function MistakesContent() {
                       {chapter ? <Link to={`/chapters/${chapter.chapter.id}`}>{chapter.title}</Link> : null}
                       {mistake.question_ref ? <span>{mistake.question_ref}</span> : null}
                       {mistake.practice_question_id ? (
-                        <Link to="/practice" title={questionById.get(mistake.practice_question_id)?.question_text ?? 'Question removed'}>
+                        <Link
+                          to={`/practice?question=${mistake.practice_question_id}`}
+                          title={questionById.get(mistake.practice_question_id)?.question_text ?? 'Question removed'}
+                        >
                           Practice question:{' '}
                           {(
                             questionById.get(mistake.practice_question_id)?.question_text ?? 'no longer available'

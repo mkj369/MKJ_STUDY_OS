@@ -117,7 +117,31 @@ test('journey E: a mistake links to a practice question and survives a reload', 
     timeout: 20_000,
   });
 
+  // The link is a working action, not decoration: it opens that exact question's
+  // attempt form, and it can be submitted.
+  await page.locator('.list-row', { hasText: 'E2E — wrote F = ma' }).getByRole('link', { name: /Practice question/ }).click();
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Question practice' })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText('E2E — state Newton’s second law').first()).toBeVisible();
+  // Ionic renders the form modal in a portal; scope by its accessible label.
+  const attemptDialog = page.locator('ion-modal').filter({ hasText: 'Record an attempt' });
+  await expect(attemptDialog).toBeVisible({ timeout: 20_000 });
+  await expect(attemptDialog).toContainText('E2E — state Newton’s second law');
+  await page.getByLabel('Your answer').fill('F = ma, direction follows the net force');
+  await page.getByLabel('Was it correct?').click();
+  await page.getByRole('button', { name: 'Save attempt', exact: true }).last().click();
+  await expect(page.getByText(/Attempt saved: correct/i).first()).toBeVisible({ timeout: 20_000 });
+
+  // The parameter is consumed: a reload does not re-open the dialog.
+  await page.reload();
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Question practice' })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.locator('ion-modal')).toHaveCount(0);
+
   // Unlinking is allowed too: the mistake stays, the link is cleared.
+  await page.goto('/#/mistakes');
   await page.locator('.list-row', { hasText: 'E2E — wrote F = ma' }).getByRole('button', { name: 'Edit' }).click();
   await page.getByLabel(/Practice question/).selectOption('');
   await page.getByRole('button', { name: 'Save changes', exact: true }).last().click();

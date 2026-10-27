@@ -34,13 +34,17 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
 | Screens: 27 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
-| Postgres schema + RLS (`0001`–`0005`) | **DB-tested** in PGlite; **not** applied to a hosted project |
+| Postgres schema + RLS (`0001`–`0005`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
-| AI narrative Edge Function | **Written + unit-tested** (fake provider); **not executed** — no provider key here |
-| Android (Capacitor 7) | Configured; **APK not built** (no JDK/Android SDK in this environment) |
+| AI narrative Edge Function | **Unit-tested end-to-end with a stubbed provider** (16 tests: request shape, key handling, schema + invented-number rejection, timeout/5xx/401 mapping); **no live call** — no key, provider hosts unreachable |
+| Android (Capacitor 7) | `android/` project generated, plugin synced, 8 config assertions pass; **APK not built** (no JDK/SDK), **no device test** |
 | Demo curriculum | **Placeholder**, `needs_verification`, **not** official NCTB content |
 | Export / backup | **Browser-tested** (JSON download contains real rows); restore is **not implemented** |
+| Secret handling | **Verified against the built bundle** (`tests/bundle/secrets.test.ts`): no service-role key, provider key or key header ships to the client |
+| Loading / empty / error / retry states | **Browser- and jsdom-tested** on gated pages; every page has a written empty state |
 | Production build + route splitting | **Verified**: 27 route chunks, 8 shared chunks, 4 vendor chunks (39 JS files) |
+| Android project (native config) | **Generated and config-tested**; APK build **not executed** here |
+| Hosted Supabase, real AI call, device run | **BLOCKED** — see [docs/VERIFICATION.md](docs/VERIFICATION.md) for the per-item commands |
 
 ---
 
@@ -179,8 +183,10 @@ npm run lint          # eslint .
 npm test              # vitest run — unit + integration + DB/RLS + jsdom UI
 npm run test:db       # vitest run tests/db — migrations + RLS in PGlite
 npm run test:e2e      # playwright test — real Chromium against a preview build
-npm run verify        # typecheck && lint && test && build
+npm run verify        # typecheck && lint && build && test (build first: the bundle secret scan reads dist/)
+npm run verify:cloud  # hosted Supabase + optional real AI check (see §9.1)
 npm run android:sync  # build + cap sync android
+npm run android:build # ./gradlew assembleDebug → APK (needs JDK + SDK)
 npm run android:open  # open the Android project
 ```
 
@@ -189,10 +195,11 @@ npm run android:open  # open the Android project
 ```
 npm run typecheck  → no errors
 npm run lint       → no errors, no warnings
-npm test           → 27 files, 347 tests passed
-                     (incl. 32 database/migration/RLS assertions in tests/db)
-npm run build      → ✓ built in 5.14 s
-npm run test:e2e   → 37 passed (48.1 s) in Chromium against the production preview build
+npm test           → 33 files, 386 tests passed
+                     (incl. 33 database/migration/RLS assertions in tests/db,
+                      a build-bundle secret scan and the loading/error/retry states)
+npm run build      → ✓ built in 5.88 s
+npm run test:e2e   → 37 passed (50.2 s) in Chromium against the production preview build
 ```
 
 Bundle after route-level code splitting (raw / gzip):
@@ -271,8 +278,16 @@ supabase secrets set ALLOW_ORIGIN=https://your-web-app.example
 ```
 
 With no key configured the app reports “AI not configured”, the deterministic report is
-still complete, and `/insights` works fully offline. **No real provider request has been
-made from this repository snapshot** — there was no key available.
+still complete, and `/insights` works fully offline.
+
+**What is verified without a key:** the adapter itself runs in Node against a stubbed
+provider (`tests/integration/aiFunction.test.ts`, 16 tests). It proves the key only ever
+travels in a request header, that malformed JSON, off-schema fields, invented numbers,
+401s, 5xxs and timeouts are rejected or retried as designed, and that `generated_at`,
+`provider` and `model` are stamped server-side. **What is not verified:** that a real
+provider accepts the request — no key and no outbound access to
+`generativelanguage.googleapis.com` / `api.openai.com` exist here. After setting the
+secrets, run `npm run verify:cloud -- --ai` (see §9.1).
 
 ---
 
@@ -284,10 +299,10 @@ made from this repository snapshot** — there was no key available.
 | --- | --- | --- |
 | `npm run typecheck` | whole project incl. tests | pass |
 | `npm run lint` | ESLint (no warnings allowed in the result we report) | pass |
-| `npm test` | 27 files / 347 tests | pass |
-| `npx vitest run tests/db` | migrations `0001`–`0005` applied to PGlite; RLS, FKs, constraints, storage policies, audit immutability | pass (32 tests) |
+| `npm test` | 33 files / 386 tests | pass |
+| `npx vitest run tests/db` | migrations `0001`–`0005` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability | pass (33 tests) |
 | `npm run build` | production build + chunk report | pass |
-| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep, icon rendering | pass (37 tests) |
+| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep, icon rendering | pass (37 tests, 50.2 s) |
 
 Key test files:
 
@@ -301,8 +316,14 @@ Key test files:
   shape accepted, corrupt session ignored.
 - `tests/integration/mistakePracticeLink.test.ts` — link stored, foreign question rejected,
   deleted question clears the link and keeps the mistake.
-- `tests/integration/aiClient.test.ts` — provider wiring, error mapping, malformed output
-  rejected, no key leakage.
+- `tests/integration/aiClient.test.ts` — browser-side provider wiring, error mapping,
+  malformed output rejected, no key leakage.
+- `tests/integration/aiFunction.test.ts` — the **server** adapter (`_shared/ai.ts`) executed
+  in Node with a stubbed `Deno.env` and `fetch`: key confined to headers, schema and
+  invented-number rejection, 401/5xx/timeout behaviour, retry policy, provider config.
+- `tests/android/config.test.ts` — package id parity, SDK levels, reminder permissions,
+  notification icon existence, Gradle wrapper pinning, corrected test stubs.
+- `tests/csv.test.ts` — CSV quoting plus spreadsheet-formula neutralisation.
 - `tests/ui/appBoot.test.tsx` — the real app boots in jsdom, seeds demo rows, navigates and
   renders every Phase 1 screen without a load error.
 - `tests/ui/i18n.test.tsx` + `tests/i18n.test.ts` — locale switch updates `document.lang`,
@@ -310,8 +331,46 @@ Key test files:
 - `tests/db/schema.test.ts` — two users, cross-user reads/writes denied, forged ownership
   rejected, subject delete restricted, foreign-key behaviour, RLS on every Phase 2 table.
 - `tests/db/tableSync.test.ts` — every SQL table has a TypeScript row type and vice versa.
+- `tests/db/idempotency.test.ts` — the whole migration set applied twice to one database.
+- `tests/bundle/secrets.test.ts` — scans the built bundle for service-role keys, provider
+  keys, `x-goog-api-key` and `Deno.env`.
+- `tests/ui/workspaceStates.test.tsx` — loading, real error message, and Retry recovering.
+- `tests/integration/cloudErrorMapping.test.ts` — RLS/FK/duplicate failures become plain
+  sentences, never raw SQL.
 - `tests/e2e/*` — the journeys below plus a 25-route accessibility sweep (names, labels,
   landmarks), via Chromium against the production build.
+
+### 9.0 Migrations are re-apply safe
+
+Every `create trigger`, `create policy` and `create index` is preceded by a matching
+`drop … if exists` (or is `if not exists`), so pasting `0001`–`0005` into the SQL editor
+twice, or re-running a file after a partial failure, is safe. `tests/db/idempotency.test.ts`
+applies the whole set twice to one database and compares the schema.
+
+### 9.1 Hosted verification (one command)
+
+Everything the local suite cannot prove is collected in one script:
+
+```bash
+export SUPABASE_URL="https://YOUR_TEST_PROJECT.supabase.co"
+export SUPABASE_ANON_KEY="..."           # dashboard → Settings → API
+export SUPABASE_SERVICE_ROLE_KEY="..."   # server-side only, used to create/delete test users
+
+node scripts/verify-cloud.mjs --dry-run   # config check, prints the plan, writes nothing
+node scripts/verify-cloud.mjs --apply-migrations --ai
+```
+
+It applies `0001`–`0005`, creates two throwaway users, asserts that B cannot read, forge,
+update or delete A's rows, that B cannot attach records to A's practice question, that
+`0005` clears the mistake link on question delete while keeping the mistake, that the
+function rejects unauthenticated calls, optionally makes **one real AI request** and checks
+the server-stamped fields, then deletes both users and confirms no rows remain. It refuses
+URLs containing `prod` and never prints a key.
+
+The guard paths (missing env → exit 2, malformed URL → exit 2, production URL → refused,
+dry run → exit 0) were executed here. The live path has not been run — this sandbox has no
+project and cannot reach `supabase.com`. Per-item commands and the current result of every
+check are in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
 ### Journeys covered in the browser
 
@@ -387,21 +446,29 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests
 
 Prerequisites: Node 20+, JDK 17+, Android Studio with an SDK, and a device or emulator.
 
+The native project is committed, so building is two commands on a machine with the SDK:
+
 ```bash
-npm run build
-npx cap add android      # first time only — creates android/
-npm run android:sync
-npx cap run android      # or open in Android Studio and press Run
+npm run android:sync      # vite build + cap sync android
+npm run android:build     # → android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+# or: npm run android:open   (Android Studio)
 ```
 
-Configured in `capacitor.config.ts` (`appId com.mkjstudyos.app`, `webDir dist`,
-`androidScheme https`, local-notification icon/colour). Reminder scheduling uses
-`@capacitor/local-notifications` and asks for permission at runtime; on the web it says
-plainly that device notifications are unavailable.
+What is in the repository: `appId com.mkjstudyos.app`, `minSdk 23 / target 35`,
+`androidScheme https`, the `@capacitor/local-notifications@7.0.7` plugin registered by
+`cap sync`, its permissions merged into the manifest
+(`POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`), and a real status-bar icon
+(`res/drawable/ic_stat_studyos.xml`) — the template pointed at a drawable that did not
+exist. `tests/android/config.test.ts` re-checks package id, SDK levels, permissions and the
+icon on every run, and the template test stubs were fixed so `./gradlew test` does not fail
+on the renamed package.
 
-**Status in this snapshot: BLOCKED — NOT VERIFIED.** No JDK or Android SDK is installed
-here, so no APK was built and no notification was delivered to a device. Everything up to
-`cap sync` is written and builds.
+**Status in this snapshot: configuration PASS, APK and device BLOCKED.** No JDK or Android
+SDK is installed and `dl.google.com` is unreachable, so nothing was compiled and no
+notification was delivered. Reminders use inexact alarms unless the user grants exact-alarm
+access — untested on hardware. See [docs/VERIFICATION.md](docs/VERIFICATION.md) §2.3 for the
+device checklist.
 
 ---
 
@@ -429,11 +496,14 @@ Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_
 ## 12. Known limitations
 
 1. **Cloud mode has never been executed.** Migrations and RLS are DB-tested in PGlite, but
-   no hosted Supabase project was available. Run §4 and the `psql` RLS script before
-   trusting cloud mode with real data.
-2. **No real AI call.** The function and adapter are unit-tested with a fake provider; the
-   provider itself was never contacted. Set secrets and press “Generate AI narrative”.
-3. **No Android build.** APK and device notifications are unverified (no JDK/SDK).
+   no hosted Supabase project was available. Run §4, `supabase/tests/rls.test.sql` and
+   `node scripts/verify-cloud.mjs` before trusting cloud mode with real data.
+2. **No real AI call.** The adapter is unit-tested against a stubbed provider (16 tests) but
+   no provider was ever contacted. Set the secrets and run
+   `node scripts/verify-cloud.mjs --ai`.
+3. **No Android build or device run.** The native project, manifest, permissions and icon
+   are committed and config-tested; nothing was compiled or installed (no JDK/SDK, no
+   device). Run `npm run android:build` on a machine with the SDK.
 4. **Demo curriculum only.** No official NCTB data is bundled; `needs_verification` stays
    until a real, sourced import replaces it.
 5. **No restore from backup.** Export works (JSON + CSV); importing a JSON workspace is
@@ -458,12 +528,14 @@ Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_
 
 ## 13. Sensible next steps
 
-1. Run `0001`–`0005` against a staging Supabase project, execute `supabase/tests/rls.test.sql`,
-   then spot-check the app in cloud mode with two accounts.
+1. Run `0001`–`0005` against a staging Supabase project, execute
+   `supabase/tests/rls.test.sql`, then `node scripts/verify-cloud.mjs` for the
+   application-level checks and spot-check cloud mode with two accounts.
 2. Deploy the Edge Functions with a real provider key, generate one AI narrative, and
    confirm it is stored, labelled and rate-limited.
-3. `npx cap add android`, build a debug APK, and verify notification permission,
-   scheduling, time zones and dedupe on a device.
+3. Run `npm run android:build`, install the APK, and verify notification permission,
+   scheduling, time zones, dedupe and reboot-restore on a device (checklist in
+   `docs/VERIFICATION.md` §2.3).
 4. Import a verified curriculum with `authority`, `source_url` and `academic_year`, then
    flip `verification_status` to `verified` only for the reviewed rows.
 5. Add JSON workspace restore (with a version check and a dry-run preview) on top of the
@@ -488,18 +560,21 @@ src/
                   AI client, notifications, seed data
   styles/         design tokens and layout CSS
   types/          domain types
+android/          generated Capacitor project (SDK 35, notifications plugin, status icon)
 supabase/
   migrations/     0001 schema+RLS · 0002 demo curriculum · 0003 phase 2 ·
                   0004 demo topics · 0005 mistake→question link
   functions/      weekly-summary, delete-account, shared CORS + provider adapter
   tests/          rls.test.sql (for a real Supabase instance)
+scripts/          playwright browser resolver, hosted verification harness
 tests/
   domain/         deterministic unit tests
   integration/    local repository, auth, mistake link, AI client
   db/             migration + RLS execution (PGlite) and schema/type sync
   ui/             jsdom app boot + component tests
-  e2e/            Playwright journeys
-docs/             progress rules and thresholds
+  e2e/            Playwright journeys, accessibility sweep
+  android/        native configuration guard (no SDK required)
+docs/             progress rules, verification record
 ```
 
 ---
