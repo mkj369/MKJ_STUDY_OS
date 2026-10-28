@@ -92,36 +92,37 @@ function ExportContent() {
   if (!data) return null;
   const { bundle, view } = data;
   const tables = Object.keys(TABLE_LABELS) as RepositoryTable[];
+  // Every exportable table is already loaded in the bundle, so the page can
+  // show a real row count for all of them. It used to say "rows vary" for nine
+  // of the twenty tables, which read like a placeholder.
+  const rowCounts: Record<string, number> = {
+    user_subjects: bundle.subjects.length,
+    user_chapters: bundle.chapters.length,
+    user_topics: bundle.topics.length,
+    chapter_checklist_items: bundle.checklistItems.length,
+    chapter_checklist_progress: bundle.checklistProgress.length,
+    lecture_records: bundle.lectures.length,
+    study_sessions: bundle.sessions.length,
+    daily_blocks: bundle.dailyBlocks.length,
+    focus_sessions: bundle.focusSessions.length,
+    revision_sessions: bundle.revisions.length,
+    topic_difficulties: bundle.difficulties.length,
+    mistake_logs: bundle.mistakes.length,
+    study_tasks: bundle.tasks.length,
+    exam_results: bundle.exams.length,
+    exam_targets: bundle.examTargets.length,
+    practice_questions: bundle.practiceQuestions.length,
+    practice_attempts: bundle.practiceAttempts.length,
+    notes: bundle.notes.length,
+    study_resources: bundle.resources.length,
+    weekly_summaries: bundle.summaries.length,
+  };
   const counts = tables.map((table) => ({
     table,
     label: TABLE_LABELS[table] ?? table,
-    count:
-      table === 'user_subjects'
-        ? bundle.subjects.length
-        : table === 'user_chapters'
-          ? bundle.chapters.length
-          : table === 'user_topics'
-            ? bundle.topics.length
-            : table === 'study_sessions'
-              ? bundle.sessions.length
-              : table === 'daily_blocks'
-                ? bundle.dailyBlocks.length
-                : table === 'focus_sessions'
-                  ? bundle.focusSessions.length
-                  : table === 'practice_questions'
-                    ? bundle.practiceQuestions.length
-                    : table === 'practice_attempts'
-                      ? bundle.practiceAttempts.length
-                      : table === 'exam_targets'
-                        ? bundle.examTargets.length
-                        : table === 'notes'
-                          ? bundle.notes.length
-                          : table === 'study_resources'
-                            ? bundle.resources.length
-                            : table === 'weekly_summaries'
-                              ? bundle.summaries.length
-                              : null,
+    count: rowCounts[table] ?? null,
   }));
+  const totalRows = counts.reduce((sum, entry) => sum + (entry.count ?? 0), 0);
 
   const exportJson = async () => {
     setBusy('json');
@@ -166,7 +167,11 @@ function ExportContent() {
         <StatCard label="Exam results" value={bundle.exams.length} hint={`${bundle.examTargets.length} upcoming target(s)`} />
       </div>
 
-      <SectionCard title="Export" hint="Exports run against your repository; in cloud mode the export is filtered by the same row-level policies as the app.">
+      <SectionCard
+        title="Export"
+        hint="Exports run against your repository; in cloud mode the export is filtered by the same row-level policies as the app."
+        action={<Badge tone="neutral">{totalRows} row(s) in total</Badge>}
+      >
         <div className="row">
           <button type="button" className="btn btn--primary" disabled={busy === 'json'} onClick={() => void exportJson()}>
             {busy === 'json' ? 'Preparing…' : 'Download full JSON backup'}
@@ -182,15 +187,13 @@ function ExportContent() {
             {busy === 'csv' ? 'Preparing…' : 'Download CSV'}
           </button>
         </div>
-        <ul className="list">
+        <ul className="list counts-list">
           {counts.map((entry) => (
-            <li key={entry.table} className="list-row">
-              <div className="list-row__main">
-                <div className="list-row__title">{entry.label}</div>
-              </div>
-              <div className="list-row__actions">
-                <span className="mono-num tiny">{entry.count === null ? 'rows vary' : `${entry.count} row(s)`}</span>
-              </div>
+            <li key={entry.table} className="counts-list__row">
+              <span>{entry.label}</span>
+              <span className="mono-num tiny muted">
+                {entry.count === null ? 'not counted' : `${entry.count} row(s)`}
+              </span>
             </li>
           ))}
         </ul>

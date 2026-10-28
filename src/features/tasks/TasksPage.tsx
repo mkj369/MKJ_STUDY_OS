@@ -530,10 +530,14 @@ function TasksContent() {
             {draft.days.map((day) => {
               const isToday = day.date === today;
               const past = day.date < today;
+              const restWithoutWork = day.isRestDay && day.planned.length === 0;
               return (
                 <div
                   key={day.date}
-                  className={`day-card ${day.isRestDay ? 'day-card--rest' : ''} ${isToday ? 'day-card--today' : ''}`}
+                  // A zero-capacity day that nevertheless carries a task is not
+                  // a rest day in practice: styling it as one made the card say
+                  // "Rest day" and "No study planned" above a listed task.
+                  className={`day-card ${restWithoutWork ? 'day-card--rest' : ''} ${isToday ? 'day-card--today' : ''}`}
                   style={past ? { opacity: 0.62 } : undefined}
                 >
                   <div className="day-card__head">
@@ -542,7 +546,11 @@ function TasksContent() {
                       <span className="tiny muted">{day.date}</span>
                     </div>
                     <span className="tiny muted">
-                      {day.isRestDay ? 'Rest day' : `${day.usedMinutes}/${day.capacityMinutes} min`}
+                      {day.isRestDay
+                        ? day.planned.length > 0
+                          ? `Rest day · ${day.usedMinutes} min for you`
+                          : 'Rest day'
+                        : `${day.usedMinutes}/${day.capacityMinutes} min`}
                     </span>
                   </div>
                   {day.planned.length === 0 ? (

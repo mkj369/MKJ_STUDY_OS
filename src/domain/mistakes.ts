@@ -5,8 +5,9 @@
  * category on the same chapter, on at least two different dates. One mistake is
  * never called a "pattern".
  */
-import type { DateOnly, MistakeCategory, MistakeLog, UserChapter } from '@/types/domain';
+import type { CurriculumChapter, DateOnly, MistakeCategory, MistakeLog, UserChapter } from '@/types/domain';
 import { safePercent } from '@/domain/progress';
+import { chapterDisplayTitle } from '@/features/shared/selectors';
 
 export const MISTAKE_CATEGORY_LABELS: Record<MistakeCategory, string> = {
   concept_gap: 'Concept gap',
@@ -52,11 +53,28 @@ export interface MistakeAnalysis {
   lessons: { lesson: string; date: DateOnly }[];
 }
 
+/**
+ * `chapters` should be the user's chapters, and `curriculumChapters` the
+ * curriculum rows they point at. Without the second argument every chapter that
+ * came from the curriculum (which has `custom_title = null`) would resolve to
+ * the literal word "Chapter" — the same bug that made the weekly report label
+ * every row "— Chapter".
+ */
 export function analyzeMistakes(
   mistakes: MistakeLog[],
-  chapters: Pick<UserChapter, 'id' | 'custom_title'>[] = [],
+  chapters: Pick<UserChapter, 'id' | 'custom_title' | 'curriculum_chapter_id'>[] = [],
+  curriculumChapters: Pick<CurriculumChapter, 'id' | 'title'>[] = [],
 ): MistakeAnalysis {
-  const chapterTitles = new Map(chapters.map((c) => [c.id, c.custom_title ?? 'Chapter']));
+  const curriculumById = new Map(curriculumChapters.map((c) => [c.id, c]));
+  const chapterTitles = new Map(
+    chapters.map((c) => [
+      c.id,
+      chapterDisplayTitle(
+        c as UserChapter,
+        c.curriculum_chapter_id ? (curriculumById.get(c.curriculum_chapter_id) as CurriculumChapter) ?? null : null,
+      ),
+    ]),
+  );
   const unresolved = mistakes.filter((m) => !m.is_resolved).length;
   const byCategory: MistakeCategoryCount[] = (Object.keys(MISTAKE_CATEGORY_LABELS) as MistakeCategory[])
     .map((category) => ({

@@ -74,6 +74,30 @@ describe('mistake analysis', () => {
     expect(analysis.weakChapters[1]).toMatchObject({ chapterTitle: 'Optics', unresolved: 1 });
   });
 
+  it('names a curriculum-backed chapter instead of calling it "Chapter"', () => {
+    // Curriculum chapters have custom_title = null; the title lives on the
+    // curriculum row. Regression: the Weakness analyzer listed every such
+    // chapter as the literal word "Chapter".
+    const chapters = [makeChapter({ id: 'c1', custom_title: null, curriculum_chapter_id: 'cc1' })];
+    const analysis = analyzeMistakes(
+      [
+        makeMistake({ user_chapter_id: 'c1', occurred_at: day(-1) }),
+        makeMistake({ user_chapter_id: 'c1', occurred_at: day(-3) }),
+      ],
+      chapters,
+      [{ id: 'cc1', title: 'Current electricity' } as never],
+    );
+    expect(analysis.weakChapters[0]?.chapterTitle).toBe('Current electricity');
+    expect(analysis.recurring[0]?.chapterTitle).toBe('Current electricity');
+    expect(JSON.stringify(analysis)).not.toMatch(/"(Chapter|Untitled chapter)"/);
+  });
+
+  it('falls back to a stable label when the curriculum row is missing', () => {
+    const chapters = [makeChapter({ id: 'c1', custom_title: null, curriculum_chapter_id: 'gone' })];
+    const analysis = analyzeMistakes([makeMistake({ user_chapter_id: 'c1' })], chapters, []);
+    expect(analysis.weakChapters[0]?.chapterTitle).toBe('Untitled chapter');
+  });
+
   it('collects the latest lessons only', () => {
     const analysis = analyzeMistakes([
       makeMistake({ occurred_at: day(-9), lesson_learned: 'Old lesson' }),

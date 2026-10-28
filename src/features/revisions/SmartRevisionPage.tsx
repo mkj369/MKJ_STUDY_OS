@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, EmptyState, Notice, PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
+import { Badge, EmptyState, FilterBar, Notice, PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { ConfirmDeleteButton } from '@/components/ui/ConfirmDeleteButton';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
@@ -142,21 +142,20 @@ function SmartRevisionContent() {
       <SectionCard
         title="Revision due today"
         hint="Only chapters with a recorded next review date appear here. A chapter with no revision is not overdue."
-        action={
-          <div className="row">
-            {(['all', 'overdue', 'today', 'this_week', 'later'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={`btn btn--sm ${bucket === value ? 'btn--primary' : 'btn--ghost'}`}
-                onClick={() => setBucket(value)}
-              >
-                {value === 'all' ? 'All' : BUCKET_LABELS[value]}
-              </button>
-            ))}
-          </div>
-        }
       >
+        <FilterBar label="Filter revisions by bucket">
+          {(['all', 'overdue', 'today', 'this_week', 'later'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              className={`btn btn--sm ${bucket === value ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={bucket === value}
+              onClick={() => setBucket(value)}
+            >
+              {value === 'all' ? 'All' : BUCKET_LABELS[value]}
+            </button>
+          ))}
+        </FilterBar>
         {visible.length === 0 ? (
           <EmptyState
             title="Nothing in this bucket"
@@ -203,8 +202,15 @@ function SmartRevisionContent() {
                     >
                       Log revision
                     </button>
-                    <Link to={`/chapters/${entry.userChapterId}`} className="btn btn--ghost btn--sm">
-                      Chapter
+                    {/* Was labelled just "Chapter"; two different labels for
+                        the same destination inside one page read like different
+                        features. The link is now named after what it opens. */}
+                    <Link
+                      to={`/chapters/${entry.userChapterId}`}
+                      className="btn btn--ghost btn--sm"
+                      aria-label={`Open chapter ${entry.chapterTitle}`}
+                    >
+                      Open chapter
                     </Link>
                   </div>
                 </li>
@@ -229,7 +235,7 @@ function SmartRevisionContent() {
                   <div className="list-row__title">{item.title}</div>
                   <div className="list-row__meta">
                     <span>{item.reason}</span>
-                    {item.chapterId ? <span>{view.phase2.chapterTitles[item.chapterId] ?? 'Chapter'}</span> : null}
+                    {item.chapterId ? <span>{view.phase2.chapterTitles[item.chapterId] ?? 'Chapter not in your workspace'}</span> : null}
                     <Badge tone={item.severity === 'high' ? 'danger' : item.severity === 'low' ? 'neutral' : 'warn'}>
                       {item.severity}
                     </Badge>

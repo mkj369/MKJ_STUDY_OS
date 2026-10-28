@@ -337,7 +337,7 @@ export function buildPhase2View(
     topicsByChapter,
     coverageByChapter,
     subjectCoverageById,
-    mistakeAnalysis: analyzeMistakes(bundle.mistakes, bundle.chapters),
+    mistakeAnalysis: analyzeMistakes(bundle.mistakes, bundle.chapters, bundle.curriculum.chapters),
     practiceSummary: summarizePractice(bundle.practiceQuestions, bundle.practiceAttempts),
     practiceQueue: buildPracticeQueue(bundle.practiceQuestions, bundle.practiceAttempts, 12),
     countdowns: bundle.examTargets

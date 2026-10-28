@@ -799,6 +799,37 @@ a.stat:active {
   flex-shrink: 0;
 }
 
+/* On a phone the action cluster (Demo badge + Edit + Delete) is wider than the
+   title column, which squeezed real titles into three lines. Below 560px the
+   row stacks: text first, actions on their own line, right-aligned. */
+@media (max-width: 560px) {
+  .list-row {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  /* Any leading control (checkbox, colour bar) stays on the title line: it
+     takes only its own width and the text column fills the rest. */
+  .list-row > :not(.list-row__main):not(.list-row__actions) {
+    flex: 0 0 auto;
+    align-self: flex-start;
+  }
+  .list-row__main {
+    flex: 1 1 0;
+    min-width: 0;
+    order: 2;
+  }
+  /* Actions move to their own full-width line, right-aligned. */
+  .list-row__actions {
+    order: 3;
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .list-row__title {
+    font-size: 0.95rem;
+  }
+}
+
 .empty {
   text-align: center;
   padding: 22px 16px;
@@ -885,6 +916,37 @@ a.stat:active {
   .filters--grid select {
     width: 100%;
   }
+}
+
+/* --- compact count table (export) ------------------------------------- */
+
+/* Twenty tables read better as a two-column list than as twenty full-width
+   rows with a divider each, which made the card two screens tall. */
+.counts-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 24px;
+  margin: var(--mkj-space-2) 0 var(--mkj-space-3);
+}
+
+@media (min-width: 640px) {
+  .counts-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.counts-list__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--mkj-line);
+  font-size: 0.84rem;
+}
+
+.counts-list__row span:last-child {
+  white-space: nowrap;
 }
 
 /* --- row overflow menu ------------------------------------------------ */
@@ -1230,6 +1292,16 @@ a.stat:active {
   align-items: baseline;
   margin-bottom: 8px;
   gap: 8px;
+}
+
+/* At 390px the label ("Rest day · 45 min for you") squeezed the date onto two
+   lines. Stack them instead of hyphenating a date. */
+@media (max-width: 480px) {
+  .day-card__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
 }
 
 .mini-task {

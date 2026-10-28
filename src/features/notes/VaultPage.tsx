@@ -146,7 +146,7 @@ function VaultContent() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Results" hint={`${results.length} item(s) match`}>
+      <SectionCard title="Results" hint={`${results.length} of ${notes.length} saved item(s) match`}>
         {results.length === 0 ? (
           <EmptyState
             title={notes.length === 0 ? 'The vault is empty' : 'No item matches this search'}
@@ -173,7 +173,7 @@ function VaultContent() {
                     <div className="list-row__meta">
                       {subject ? <span>{subject.label}</span> : <span>No subject</span>}
                       {note.user_chapter_id ? (
-                        <span>{view.phase2.chapterTitles[note.user_chapter_id] ?? 'Chapter'}</span>
+                        <span>{view.phase2.chapterTitles[note.user_chapter_id] ?? 'Chapter not in your workspace'}</span>
                       ) : null}
                       {(note.tags ?? []).map((tag) => (
                         <span key={tag}>#{tag}</span>
@@ -194,11 +194,12 @@ function VaultContent() {
             })}
           </ul>
         )}
-        <Notice tone="neutral">
-          The vault searches only what you saved. It does not read your textbook, and it never presents AI-generated
-          content as a formula you should trust without checking.
-        </Notice>
       </SectionCard>
+
+      <Notice tone="neutral">
+        The vault searches only what you saved. It does not read your textbook, and it never presents AI-generated
+        content as a formula you should trust without checking.
+      </Notice>
 
       <SectionCard title="Vault items by subject" hint="Counts only — no ranking of importance.">
         {bundle.notes.length === 0 ? (

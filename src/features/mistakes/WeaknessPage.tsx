@@ -130,7 +130,10 @@ function WeaknessContent() {
 
       <SectionCard title="Suggested follow-ups" hint="Derived from unresolved recurring errors only. Nothing is created until you press the button.">
         {followUps.length === 0 ? (
-          <p className="small muted">No follow-up is supported right now.</p>
+          <EmptyState
+            title="No follow-up is supported yet"
+            message="Follow-ups come from recurring errors only — the same category in the same chapter on two different days. Logging one more mistake of the same kind is what turns this on."
+          />
         ) : (
           <ul className="list">
             {followUps.map((followUp) => (
