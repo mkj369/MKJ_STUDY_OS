@@ -424,6 +424,25 @@ ion-app {
   margin-bottom: 12px;
 }
 
+/* Without this the title block is a flex item that can be squeezed to a
+   sliver by a long action (a badge, a pair of buttons), which turns the
+   heading and hint into a narrow column on a phone. */
+.card__header > div:first-child {
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .card__header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  /* The action drops onto its own line instead of competing for width. */
+  .card__header > div:first-child {
+    flex: 1 1 100%;
+  }
+}
+
 .card__title {
   font-size: 0.98rem;
   font-weight: 650;

@@ -139,13 +139,15 @@ export class SupabaseRepository implements Repository {
   }
 
   async listCurriculum() {
-    const [versions, subjects, chapters, topics] = await Promise.all([
+    const [versions, subjects, chapters, topics, sources, requirements] = await Promise.all([
       this.list('curriculum_versions'),
       this.list('curriculum_subjects'),
       this.list('curriculum_chapters'),
       this.list('curriculum_topics'),
+      this.list('curriculum_sources'),
+      this.list('curriculum_pending_requirements'),
     ]);
-    return { versions, subjects, chapters, topics };
+    return { versions, subjects, chapters, topics, sources, requirements };
   }
 
   async adoptCurriculumSubject(versionId: ID, subjectId: ID): Promise<TableMap['user_subjects']> {

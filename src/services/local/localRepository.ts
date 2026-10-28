@@ -302,7 +302,9 @@ export class LocalRepository implements Repository {
     const subjects = await this.list('curriculum_subjects');
     const chapters = await this.list('curriculum_chapters');
     const topics = await this.list('curriculum_topics');
-    return { versions, subjects, chapters, topics };
+    const sources = await this.list('curriculum_sources');
+    const requirements = await this.list('curriculum_pending_requirements');
+    return { versions, subjects, chapters, topics, sources, requirements };
   }
 
   async adoptCurriculumSubject(versionId: ID, subjectId: ID): Promise<TableMap['user_subjects']> {

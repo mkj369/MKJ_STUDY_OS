@@ -18,22 +18,22 @@ Last run: **2026-10-28**, Node v22.22.3, npm 10.9.8, Vite 6.4.5, Linux sandbox.
 npm ci                      # 397 packages, lockfile respected
 npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
-npm run build               # tsc -b && vite build    -> built in 5.7s
-npx vitest run              # 38 files, 435 tests passed
+npm run build               # tsc -b && vite build    -> built in 5.3s
+npx vitest run              # 41 files, 473 tests passed
 npx playwright test         # 39 tests passed (Chromium, production bundle)
 ```
 
 `npm run verify` runs typecheck → lint → build → `vitest run`. Build before tests
 matters: `tests/bundle/secrets.test.ts` skips four assertions when `dist/` is absent,
 because it greps the real bundle for leaked keys. Without a build you get
-`431 passed | 4 skipped` — not a failure, but it has not checked the secrets.
+`469 passed | 4 skipped` — not a failure, but it has not checked the secrets.
 
-### Test suite composition (435)
+### Test suite composition (473)
 
 | Area | Files | What it proves |
 | --- | --- | --- |
-| `tests/domain` | 17 | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, AI payload keys |
-| `tests/db` | 4 | Migrations `0001`–`0007` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin, a student chapter keeps its link through a reseed |
+| `tests/domain` | 19 | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, per-level/group coverage maths, official-import validation and idempotency planning, AI payload keys |
+| `tests/db` | 5 | Migrations `0001`–`0009` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin, a student chapter keeps its link through a reseed, and the import guarantees hold: duplicate chapter numbers rejected, `verified` without a source rejected, progress preserved across two re-imports |
 | `tests/integration` | — | Local repository behaviour: per-user isolation, history-safe deletes, curriculum seed reruns leaving progress and notes untouched |
 | `tests/ui` | — | jsdom rendering of shared components and pages, single `<h1>` per route |
 | `tests/bundle` | 1 | No service-role key or AI provider key in the built assets |
@@ -110,16 +110,37 @@ The project (`android/`, minSdk 23, target 35, `com.mkjstudyos.app`) is generate
 config-tested; the APK has **not** been built, installed or run. See
 [docs/ANDROID_APK.md](ANDROID_APK.md).
 
-### 2.4 nctb.gov.bd
+### 2.4 NCTB textbook PDFs
 
-The site is a JS-rendered Payload CMS. `fetch` of `/pages/static-pages/<id>`,
-`/pages/files/<id>` and `/api/pages` returns navigation boilerplate or an error page,
-and `curl` cannot reach the host at all. Only search-engine snippets expose content.
+**Corrected 2026-10-28.** The earlier note here said the site was unreachable and that
+only search-engine snippets exposed its content. That was wrong, and acting on it would
+have blocked the curriculum work unnecessarily.
 
-Consequence, recorded in [docs/CURRICULUM.md](CURRICULUM.md): subject names and group
-structure are seeded and sourced; **chapter titles are not**, because they live inside
-PDFs that could not be read here. They must be added by a human from the official
-textbook, not inferred.
+What is actually true:
+
+- `nctb.gov.bd` is a client-rendered Payload CMS. Fetching `/pages/static-pages/<id>`
+  or `/api/...` directly returns navigation boilerplate or an error page.
+- Reading the same URL through a rendering proxy — `https://r.jina.ai/<url>` — returns
+  the real page body. The 2025 SSC textbook list and both National Curriculum 2012 PDFs
+  were read this way.
+- Some pages still render nothing: the 2026 SSC list is a `পাতা` sub-page widget that
+  never resolves, so it yields only navigation.
+- The remaining hard blocker is the **textbook PDFs**, not the site. They are hosted on
+  Google Drive and `drive.egovcloud.gov.bd`; Drive serves a virus-scan interstitial for
+  files over ~100 MB, the egovcloud mirror returns HTTP 500 on `/download`, and this
+  sandbox cannot reach either host (`curl` → `000`). `pdftotext` and `pypdf` are also
+  absent here.
+
+Consequence, recorded in [docs/CURRICULUM.md](CURRICULUM.md): 82 subject rows are seeded
+and sourced; **0 chapter rows exist**, because chapter titles live inside those PDFs.
+They must be transcribed by a human from the official সূচিপত্র page, and
+[CURRICULUM_IMPORT.md](CURRICULUM_IMPORT.md) gives the validated path for doing so.
+
+```bash
+# unblock: fetch any NCTB textbook PDF somewhere with normal internet access
+curl -L -o physics-class-9-10.pdf 'https://drive.google.com/uc?export=download&id=<ID>'
+pdftotext -f 1 -l 12 physics-class-9-10.pdf - | head -100   # the সূচিপত্র page
+```
 
 ---
 

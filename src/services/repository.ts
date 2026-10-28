@@ -8,18 +8,19 @@
  */
 import type {
   ChapterChecklistItem,
+  ChapterChecklistProgress,
+  CurriculumChapter,
+  CurriculumPendingRequirement,
+  CurriculumSource,
+  CurriculumSubject,
   CurriculumTopic,
+  CurriculumVersion,
   DailyBlock,
   ExamTarget,
   FocusSession,
+  ID,
   PracticeAttempt,
   PracticeQuestion,
-  UserTopic,
-  ChapterChecklistProgress,
-  CurriculumChapter,
-  CurriculumSubject,
-  CurriculumVersion,
-  ID,
   Profile,
   ReminderEvent,
   ReminderPreferences,
@@ -28,6 +29,7 @@ import type {
   Timestamp,
   UserChapter,
   UserSubject,
+  UserTopic,
   WeeklySummary,
 } from '@/types/domain';
 
@@ -186,6 +188,10 @@ export interface UserDataBundle {
     subjects: CurriculumSubject[];
     chapters: CurriculumChapter[];
     topics: CurriculumTopic[];
+    /** Official documents the inventory was built from, with what came out of each. */
+    sources: CurriculumSource[];
+    /** Known gaps — what is missing and whether it is published at all. */
+    requirements: CurriculumPendingRequirement[];
   };
   profile: Profile;
   reminderPreferences: ReminderPreferences;

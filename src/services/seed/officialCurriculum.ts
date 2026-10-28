@@ -29,7 +29,7 @@
  *   the chapters with `source_url` set and flip `verification_status` to
  *   'verified' only for the rows that actually matched. See docs/CURRICULUM.md.
  */
-import type { CurriculumSubject, CurriculumVersion } from '@/types/domain';
+import type { CurriculumSubject, CurriculumVersion, VerificationStatus } from '@/types/domain';
 
 const SSC_SOURCE = 'https://nctb.gov.bd/pages/static-pages/6922e0c0933eb65569e28767';
 const SSC_STRUCTURE_SOURCE = 'https://nctb.gov.bd/pages/static-pages/6922df50933eb65569e21292';
@@ -45,12 +45,17 @@ interface SubjectSeed {
   name: string;
   name_bn: string;
   compulsory: boolean;
+  /**
+   * '1st Paper' / '2nd Paper' where NCTB publishes the subject as two separate
+   * books. Bangla and English are the two every student takes in both levels.
+   */
+  paper?: '1st Paper' | '2nd Paper';
 }
 
 /** Subjects every group takes. Confirmed in the official 2025 textbook list. */
 const SSC_COMMON: SubjectSeed[] = [
-  { name: 'Bangla', name_bn: 'বাংলা', compulsory: true },
-  { name: 'English', name_bn: 'ইংরেজি', compulsory: true },
+  { name: 'Bangla', name_bn: 'বাংলা', compulsory: true, paper: '1st Paper' },
+  { name: 'English', name_bn: 'ইংরেজি', compulsory: true, paper: '1st Paper' },
   { name: 'Mathematics', name_bn: 'গণিত', compulsory: true },
   { name: 'Information & Communication Technology', name_bn: 'তথ্য ও যোগাযোগ প্রযুক্তি', compulsory: true },
   { name: 'Career Education', name_bn: 'ক্যারিয়ার শিক্ষা', compulsory: true },
@@ -86,8 +91,8 @@ const SSC_GROUPS: Record<Group, SubjectSeed[]> = {
 };
 
 const HSC_COMMON: SubjectSeed[] = [
-  { name: 'Bangla', name_bn: 'বাংলা', compulsory: true },
-  { name: 'English', name_bn: 'ইংরেজি', compulsory: true },
+  { name: 'Bangla', name_bn: 'বাংলা', compulsory: true, paper: '1st Paper' },
+  { name: 'English', name_bn: 'ইংরেজি', compulsory: true, paper: '1st Paper' },
   { name: 'Information & Communication Technology', name_bn: 'তথ্য ও যোগাযোগ প্রযুক্তি', compulsory: true },
 ];
 
@@ -115,6 +120,27 @@ const HSC_GROUPS: Record<Group, SubjectSeed[]> = {
     { name: 'Finance, Banking & Insurance', name_bn: 'ফিন্যান্স, ব্যাংকিং ও বিমা', compulsory: false },
     { name: 'Production Management & Marketing', name_bn: 'উৎপাদন ব্যবস্থাপনা ও বিপণন', compulsory: false },
   ],
+};
+
+/**
+ * Second-paper companions for Bangla and English, appended after each group's
+ * own subjects rather than inserted next to their first paper.
+ *
+ * Appending is deliberate. Subject ids are derived from array position, so
+ * inserting in the middle would renumber every later subject and change its
+ * primary key — which would orphan every `user_subjects` and `user_chapters`
+ * row that points at it. A student's progress outranks a tidy sort order.
+ */
+const PAPER_TWO: SubjectSeed[] = [
+  { name: 'Bangla', name_bn: 'বাংলা', compulsory: true, paper: '2nd Paper' },
+  { name: 'English', name_bn: 'ইংরেজি', compulsory: true, paper: '2nd Paper' },
+];
+
+/** Named artefacts recorded in `source_document` for the paper-split rows. */
+const SSC_BOOK_LIST_DOC = 'NCTB ২০২৫ শিক্ষাবর্ষের নবম-দশম শ্রেণির পাঠ্যপুস্তক তালিকা';
+const SSC_PAPER_TWO_DOC: Record<string, string> = {
+  Bangla: `${SSC_BOOK_LIST_DOC} — বাংলা ভাষার ব্যাকরণ ও নির্মিতি`,
+  English: `${SSC_BOOK_LIST_DOC} — English Grammar and Composition`,
 };
 
 /** Deterministic ids keep local mode and the SQL seed byte-identical. */
@@ -183,20 +209,35 @@ export const OFFICIAL_VERSIONS: CurriculumVersion[] = (['SSC', 'HSC'] as Level[]
 
 export const OFFICIAL_SUBJECTS: CurriculumSubject[] = (['SSC', 'HSC'] as Level[]).flatMap((level) =>
   GROUPS.flatMap((group) => {
-    const seeds = [...(level === 'SSC' ? SSC_COMMON : HSC_COMMON), ...(level === 'SSC' ? SSC_GROUPS : HSC_GROUPS)[group]];
-    return seeds.map((seed, index) => ({
-      id: subjectId(level, group, index + 1),
-      curriculum_version_id: versionId(level, group),
-      name: seed.name,
-      name_bn: seed.name_bn,
-      code: null,
-      paper_label: null,
-      is_compulsory: seed.compulsory,
-      sort_order: index + 1,
-      verification_status: 'needs_verification' as const,
-      source_url: level === 'SSC' ? SSC_STRUCTURE_SOURCE : HSC_SOURCE,
-      created_at: NOW,
-    }));
+    const seeds = [
+      ...(level === 'SSC' ? SSC_COMMON : HSC_COMMON),
+      ...(level === 'SSC' ? SSC_GROUPS : HSC_GROUPS)[group],
+      ...PAPER_TWO,
+    ];
+    return seeds.map((seed, index) => {
+      const isPaperTwo = seed.paper === '2nd Paper';
+      // SSC paper-two rows are checked against the rendered 2025 textbook list,
+      // which publishes both books. The paper *number* is inferred from which
+      // book it is, hence partially_verified rather than verified. HSC has no
+      // rendered book list here, so those rows stay needs_verification.
+      const ssc = level === 'SSC';
+      return {
+        id: subjectId(level, group, index + 1),
+        curriculum_version_id: versionId(level, group),
+        name: seed.name,
+        name_bn: seed.name_bn,
+        code: null,
+        paper_label: seed.paper ?? null,
+        is_compulsory: seed.compulsory,
+        sort_order: index + 1,
+        verification_status: (isPaperTwo && ssc ? 'partially_verified' : 'needs_verification') as VerificationStatus,
+        source_url: isPaperTwo ? (ssc ? SSC_SOURCE : HSC_SOURCE) : ssc ? SSC_STRUCTURE_SOURCE : HSC_SOURCE,
+        source_document: isPaperTwo
+          ? (ssc ? SSC_PAPER_TWO_DOC[seed.name] ?? null : null)
+          : (ssc && seed.paper === '1st Paper' ? SSC_BOOK_LIST_DOC : null),
+        created_at: NOW,
+      };
+    });
   }),
 );
 

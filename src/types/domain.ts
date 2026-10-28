@@ -102,7 +102,18 @@ export type ExamType = (typeof EXAM_TYPES)[number];
 export const RESOURCE_TYPES = ['book', 'pdf', 'video', 'link', 'coaching', 'other'] as const;
 export type ResourceType = (typeof RESOURCE_TYPES)[number];
 
-export const VERIFICATION_STATUSES = ['draft', 'needs_verification', 'verified', 'retired'] as const;
+// `partially_verified` sits deliberately between "we looked but could not
+// confirm" and "confirmed against the cited source": the row exists in an
+// official document, but part of its detail (a paper number, a chapter count)
+// was inferred rather than read. Collapsing it into either neighbour would
+// either overstate or understate what was actually checked.
+export const VERIFICATION_STATUSES = [
+  'draft',
+  'needs_verification',
+  'partially_verified',
+  'verified',
+  'retired',
+] as const;
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 
 export const REMINDER_TYPES = [
@@ -179,6 +190,8 @@ export interface CurriculumSubject {
   sort_order: number;
   verification_status: VerificationStatus;
   source_url: string | null;
+  /** Named artefact the row was transcribed from, e.g. "NCTB 2025 textbook list". */
+  source_document?: string | null;
   created_at: Timestamp;
 }
 
@@ -191,6 +204,8 @@ export interface CurriculumChapter {
   chapter_number: string | null;
   sort_order: number;
   source_url: string | null;
+  source_document?: string | null;
+  source_checked_at?: string | null;
   verification_status: VerificationStatus;
   is_demo: boolean;
   created_at: Timestamp;
@@ -451,6 +466,72 @@ export interface CurriculumTopic {
   created_at: Timestamp;
 }
 
+/**
+ * An official document the curriculum inventory was built from.
+ *
+ * `access_state` records what this environment could actually get out of the
+ * document — not how good the document is. A 105 MB NCTB textbook is an
+ * excellent source and still `blocked` here, and the difference matters when
+ * someone later asks why a chapter list is empty.
+ */
+export const CURRICULUM_ACCESS_STATES = ['rendered', 'partial', 'blocked', 'unreachable', 'not_attempted'] as const;
+export type CurriculumAccessState = (typeof CURRICULUM_ACCESS_STATES)[number];
+
+export const CURRICULUM_DOCUMENT_TYPES = [
+  'textbook',
+  'textbook_list',
+  'curriculum',
+  'exam_syllabus',
+  'subject_structure',
+  'notice',
+  'other',
+] as const;
+export type CurriculumDocumentType = (typeof CURRICULUM_DOCUMENT_TYPES)[number];
+
+export interface CurriculumSource {
+  id: ID;
+  url: string;
+  title: string;
+  authority: string;
+  document_type: CurriculumDocumentType;
+  education_level: string | null;
+  academic_year: string | null;
+  access_state: CurriculumAccessState;
+  checked_at: string | null;
+  note: string | null;
+  created_at: Timestamp;
+}
+
+/**
+ * One concrete, checkable gap in the inventory.
+ *
+ * The distinction between `awaiting_publication` and `source_blocked` is the
+ * whole point: the first means NCTB has not released the document, the second
+ * means it is published and we could not read it. They need different actions
+ * from whoever picks this up next.
+ */
+export const CURRICULUM_REQUIREMENT_STATUSES = [
+  'awaiting_publication',
+  'awaiting_source',
+  'source_blocked',
+  'source_identified',
+] as const;
+export type CurriculumRequirementStatus = (typeof CURRICULUM_REQUIREMENT_STATUSES)[number];
+
+export interface CurriculumPendingRequirement {
+  id: ID;
+  education_level: 'SSC' | 'HSC';
+  stream: string;
+  academic_year: string;
+  curriculum_version_id: ID | null;
+  curriculum_subject_id: ID | null;
+  requirement: string;
+  status: CurriculumRequirementStatus;
+  source_url: string | null;
+  note: string | null;
+  created_at: Timestamp;
+}
+
 /** The student's own topic, adopted from the curriculum or typed by hand. */
 export interface UserTopic {
   id: ID;
@@ -637,6 +718,8 @@ export interface TableMap {
   curriculum_subjects: CurriculumSubject;
   curriculum_chapters: CurriculumChapter;
   curriculum_topics: CurriculumTopic;
+  curriculum_sources: CurriculumSource;
+  curriculum_pending_requirements: CurriculumPendingRequirement;
   user_subjects: UserSubject;
   user_chapters: UserChapter;
   user_topics: UserTopic;
@@ -697,6 +780,8 @@ export const CURRICULUM_TABLES = [
   'curriculum_subjects',
   'curriculum_chapters',
   'curriculum_topics',
+  'curriculum_sources',
+  'curriculum_pending_requirements',
 ] as const satisfies readonly TableName[];
 
 export const REPOSITORY_TABLES = [

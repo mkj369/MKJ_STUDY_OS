@@ -11,7 +11,7 @@ import {
   summariseCurriculum,
   yearOptions,
 } from '@/domain/curriculum';
-import { OFFICIAL_SUBJECTS, OFFICIAL_VERSIONS } from '@/services/seed/officialCurriculum';
+import { OFFICIAL_CURRICULUM, OFFICIAL_SUBJECTS, OFFICIAL_VERSIONS } from '@/services/seed/officialCurriculum';
 import type { CurriculumChapter, CurriculumSubject, CurriculumVersion } from '@/types/domain';
 
 const version = (over: Partial<CurriculumVersion> = {}): CurriculumVersion => ({
@@ -166,7 +166,38 @@ describe('shipped official data holds the line on verification', () => {
   it('marks no official version verified and ships no chapter rows', () => {
     expect(OFFICIAL_VERSIONS.every((v) => v.verification_status === 'needs_verification')).toBe(true);
     expect(OFFICIAL_VERSIONS.every((v) => v.scope === 'subject_structure')).toBe(true);
-    expect(OFFICIAL_SUBJECTS.every((s) => s.verification_status === 'needs_verification')).toBe(true);
+    expect(OFFICIAL_CURRICULUM.chapters).toHaveLength(0);
+  });
+
+  it('allows only needs_verification or partially_verified for shipped subjects', () => {
+    // Narrowed in migration 0008: a subject may be `partially_verified` when an
+    // official document confirms it but a detail (the paper number) is inferred.
+    // `verified` stays out of reach until a human compares the chapter list.
+    for (const subject of OFFICIAL_SUBJECTS) {
+      expect(['needs_verification', 'partially_verified']).toContain(subject.verification_status);
+    }
+    expect(OFFICIAL_SUBJECTS.some((s) => s.verification_status === 'verified')).toBe(false);
+  });
+
+  it('never claims partial verification without naming the document', () => {
+    for (const subject of OFFICIAL_SUBJECTS.filter((s) => s.verification_status === 'partially_verified')) {
+      expect(subject.source_url).toBeTruthy();
+      expect(subject.source_document).toBeTruthy();
+    }
+  });
+
+  it('splits Bangla and English into two papers for every version', () => {
+    for (const version of OFFICIAL_VERSIONS) {
+      const papers = OFFICIAL_SUBJECTS.filter(
+        (s) => s.curriculum_version_id === version.id && (s.name === 'Bangla' || s.name === 'English'),
+      );
+      expect(papers.map((s) => s.paper_label).sort()).toEqual([
+        '1st Paper',
+        '1st Paper',
+        '2nd Paper',
+        '2nd Paper',
+      ]);
+    }
   });
 
   it('covers SSC and HSC for all three groups with unique deterministic ids', () => {

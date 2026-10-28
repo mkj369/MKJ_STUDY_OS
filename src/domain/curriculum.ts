@@ -138,6 +138,7 @@ export const VERIFICATION_LABEL: Record<
   { text: string; tone: 'good' | 'warn' | 'neutral' | 'danger' }
 > = {
   verified: { text: 'Verified source', tone: 'good' },
+  partially_verified: { text: 'Partly verified', tone: 'neutral' },
   needs_verification: { text: 'Needs verification', tone: 'warn' },
   draft: { text: 'Draft', tone: 'neutral' },
   retired: { text: 'Retired', tone: 'danger' },

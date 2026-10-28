@@ -3,6 +3,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { OFFICIAL_SUBJECTS, OFFICIAL_VERSIONS } from '@/services/seed/officialCurriculum';
+import { CURRICULUM_SOURCES, PENDING_REQUIREMENTS } from '@/services/seed/curriculumReadiness';
 
 /**
  * The curriculum reference data exists twice on purpose: as TypeScript (local
@@ -21,6 +22,7 @@ const MIGRATIONS_DIR = join(process.cwd(), 'supabase', 'migrations');
 const BOOTSTRAP = join(process.cwd(), 'tests', 'db', 'bootstrap.sql');
 
 const SEED_FILE = '0007_official_subject_structure.sql';
+const READINESS_FILE = '0009_curriculum_inventory.sql';
 
 let db: PGlite;
 
@@ -196,6 +198,85 @@ describe('official curriculum seed', () => {
     );
     expect(progress?.status).toBe('complete');
     expect(progress?.curriculum_chapter_id).toBe(chapter!.id);
+  });
+
+  it('records the paper split for Bangla and English without renumbering ids', async () => {
+    const papers = await rows<{
+      education_level: string;
+      stream: string;
+      name: string;
+      paper_label: string | null;
+      sort_order: number;
+      verification_status: string;
+    }>(
+      `select v.education_level, v.stream, s.name, s.paper_label, s.sort_order, s.verification_status
+         from curriculum_subjects s
+         join curriculum_versions v on v.id = s.curriculum_version_id
+        where not v.is_demo and s.name in ('Bangla', 'English')
+        order by v.education_level, v.stream, s.name, s.paper_label`,
+    );
+
+    // Six versions x two subjects x two papers.
+    expect(papers).toHaveLength(24);
+    for (const row of papers) {
+      expect(row.paper_label === '1st Paper' || row.paper_label === '2nd Paper').toBe(true);
+    }
+    // Paper 1 keeps the low sort order, so an existing student record that
+    // pointed at "Bangla" still resolves to the same subject row.
+    const firstPapers = papers.filter((row) => row.paper_label === '1st Paper');
+    expect(firstPapers.every((row) => row.sort_order <= 3)).toBe(true);
+  });
+
+  it('keeps the source registry and outstanding requirements in sync with SQL', async () => {
+    const sources = await rows<{ url: string; document_type: string; access_state: string; checked_at: string | null }>(
+      `select url, document_type, access_state, checked_at::text from curriculum_sources order by url, document_type`,
+    );
+    const expectedSources = [...CURRICULUM_SOURCES]
+      .map((s) => ({
+        url: s.url,
+        document_type: s.document_type,
+        access_state: s.access_state,
+        checked_at: s.checked_at,
+      }))
+      .sort((a, b) => a.url.localeCompare(b.url) || a.document_type.localeCompare(b.document_type));
+    expect(sources).toEqual(expectedSources);
+
+    const requirements = await rows<{ education_level: string; academic_year: string; stream: string; requirement: string; status: string }>(
+      `select education_level, academic_year, stream, requirement, status
+         from curriculum_pending_requirements
+        order by education_level, academic_year, stream, requirement`,
+    );
+    const expectedRequirements = [...PENDING_REQUIREMENTS]
+      .map((r) => ({
+        education_level: r.education_level,
+        academic_year: r.academic_year,
+        stream: r.stream,
+        requirement: r.requirement,
+        status: r.status,
+      }))
+      .sort(
+        (a, b) =>
+          a.education_level.localeCompare(b.education_level) ||
+          a.academic_year.localeCompare(b.academic_year) ||
+          a.stream.localeCompare(b.stream) ||
+          a.requirement.localeCompare(b.requirement),
+      );
+    expect(requirements).toEqual(expectedRequirements);
+  });
+
+  it('is idempotent: re-running the inventory migration creates no duplicates', async () => {
+    const counts = async () => {
+      const [s] = await rows<{ n: number }>('select count(*)::int as n from curriculum_subjects');
+      const [src] = await rows<{ n: number }>('select count(*)::int as n from curriculum_sources');
+      const [req] = await rows<{ n: number }>('select count(*)::int as n from curriculum_pending_requirements');
+      return { subjects: s.n, sources: src.n, requirements: req.n };
+    };
+
+    const before = await counts();
+    const inventory = readFileSync(join(MIGRATIONS_DIR, READINESS_FILE), 'utf8');
+    await db.exec(inventory);
+    await db.exec(inventory);
+    expect(await counts()).toEqual(before);
   });
 
   it('is idempotent: re-running the seed creates no duplicates', async () => {

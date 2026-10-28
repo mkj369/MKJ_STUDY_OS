@@ -6,6 +6,7 @@ import {
 } from '@/types/domain';
 import { DEMO_CURRICULUM } from '@/services/seed/demoCurriculum';
 import { OFFICIAL_CURRICULUM } from '@/services/seed/officialCurriculum';
+import { CURRICULUM_SOURCES, PENDING_REQUIREMENTS } from '@/services/seed/curriculumReadiness';
 import type { KeyValueStorage } from './storage';
 import { STORAGE_PREFIX } from './storage';
 
@@ -101,6 +102,38 @@ export class LocalDatabase {
     const chapters = db.tables['curriculum_chapters'] as unknown as TableMap['curriculum_chapters'][];
     for (const chapter of DEMO_CURRICULUM.chapters) {
       if (!chapters.some((c) => c.id === chapter.id)) chapters.push({ ...chapter });
+    }
+    this.mergeReadiness(db);
+  }
+
+  /**
+   * Source registry and outstanding requirements, merged by natural key so a
+   * later release can correct a note or flip `access_state` once a document
+   * becomes readable without duplicating the row.
+   */
+  private mergeReadiness(db: DatabaseShape): void {
+    const sources = db.tables['curriculum_sources'] as unknown as TableMap['curriculum_sources'][];
+    for (const source of CURRICULUM_SOURCES) {
+      const index = sources.findIndex(
+        (s) => s.url === source.url && s.document_type === source.document_type,
+      );
+      if (index >= 0) sources[index] = { ...sources[index], ...source, id: sources[index]!.id };
+      else sources.push({ ...source });
+    }
+
+    const requirements = db.tables[
+      'curriculum_pending_requirements'
+    ] as unknown as TableMap['curriculum_pending_requirements'][];
+    for (const requirement of PENDING_REQUIREMENTS) {
+      const index = requirements.findIndex(
+        (r) =>
+          r.education_level === requirement.education_level &&
+          r.academic_year === requirement.academic_year &&
+          r.stream === requirement.stream &&
+          r.requirement === requirement.requirement,
+      );
+      if (index >= 0) requirements[index] = { ...requirements[index], ...requirement, id: requirements[index]!.id };
+      else requirements.push({ ...requirement });
     }
   }
 

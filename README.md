@@ -34,12 +34,14 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
 | Screens: 28 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
-| Postgres schema + RLS (`0001`–`0007`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
+| Postgres schema + RLS (`0001`–`0009`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
 | AI narrative Edge Function | **Unit-tested end-to-end with a stubbed provider** (16 tests: request shape, key handling, schema + invented-number rejection, timeout/5xx/401 mapping); **no live call** — no key, provider hosts unreachable |
 | Android (Capacitor 7) | `android/` project generated, plugin synced, 8 config assertions pass; **APK not built** (no JDK/SDK), **no device test** |
 | Demo curriculum | **Placeholder**, `needs_verification`, **not** official NCTB content |
-| Official SSC/HSC subject structure | **Sourced and seeded** (NCTB, 6 versions, 70 subjects, bilingual names), every row `needs_verification`; chapters **absent**, not invented — see [docs/CURRICULUM.md](docs/CURRICULUM.md) |
+| Official SSC/HSC subject structure | **Sourced and seeded** (NCTB, 6 versions, **82 subjects**, bilingual names, Bangla/English split into 1st & 2nd Paper). Versions `needs_verification`; SSC paper rows `partially_verified`; HSC paper rows `needs_verification`. Chapters and topics **absent — 0 rows**, not invented — see [docs/CURRICULUM.md](docs/CURRICULUM.md) |
+| Curriculum coverage reporting | **Unit- and DB-tested**: per level / group / year / subject counts from `curriculum_coverage` + `src/domain/curriculumCoverage.ts`, shown on `/curriculum`. Reports **incomplete** because 0 chapters exist — by design, it cannot report complete while chapter data is missing |
+| Curriculum import tooling | **Unit-tested** validator + idempotency planner (`src/domain/curriculumImport.ts`), and the SQL upsert is **DB-tested** against PGlite including progress preservation and `verified`-requires-source. **No official chapter data imported** — source blocked, see [docs/CURRICULUM_IMPORT.md](docs/CURRICULUM_IMPORT.md) |
 | Curriculum progress safety | **Integration- and DB-tested**: a reseed created no duplicates and left chapter status, checklist ticks, notes and curriculum links intact |
 | Export / backup | **Browser-tested** (JSON download contains real rows); restore is **not implemented** |
 | Secret handling | **Verified against the built bundle** (`tests/bundle/secrets.test.ts`): no service-role key, provider key or key header ships to the client |
@@ -131,6 +133,9 @@ structural placeholder (`needs_verification`), **not official NCTB content**.
    | `0004_demo_topics.sql` | demo topics for the demo curriculum |
    | `0005_mistake_practice_link.sql` | optional mistake → practice question link with a composite `(id, user_id)` FK |
    | `0006_curriculum_provenance.sql` | curriculum `scope` (textbook / exam syllabus / subject structure), `source_checked_at`, `source_note`, per-subject verification status |
+   | `0007_official_subject_structure.sql` | 6 versions + 70 official SSC/HSC subjects (bilingual) |
+   | `0008_curriculum_coverage.sql` | `partially_verified` status, chapter/topic natural keys for idempotent imports, `verified`-requires-source constraints, source registry, outstanding requirements, `curriculum_coverage` view |
+   | `0009_curriculum_inventory.sql` | Bangla/English 1st & 2nd Paper split (12 rows), source registry, 9 outstanding requirements |
    | `0007_official_subject_structure.sql` | SSC + HSC subject lists for Science, Humanities and Business Studies from NCTB — **subject names only, no chapters**, all `needs_verification` |
 
    `0005` uses `on delete set null (practice_question_id)`, which needs Postgres 15+

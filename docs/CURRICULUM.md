@@ -1,125 +1,119 @@
 # Curriculum data: what is verified, what is not
 
 This file records the exact state of the curriculum reference data shipped in
-`supabase/migrations/0007_official_subject_structure.sql` and
-`src/services/seed/officialCurriculum.ts` (the two are kept identical by
+`supabase/migrations/0007_official_subject_structure.sql`,
+`0009_curriculum_inventory.sql` and their TypeScript twins in
+`src/services/seed/` (the two sides are kept identical by
 `tests/db/curriculumParity.test.ts`).
 
 Last reviewed: **2026-10-28**.
 
 ## Summary
 
-| Level | Group | Academic year | Subjects seeded | Chapters seeded | Verification status |
-| --- | --- | --- | --- | --- | --- |
-| SSC | Science | 2025 | 15 | **0** | `needs_verification` |
-| SSC | Humanities | 2025 | 15 | **0** | `needs_verification` |
-| SSC | Business Studies | 2025 | 14 | **0** | `needs_verification` |
-| HSC | Science | 2026–2027 | 7 | **0** | `needs_verification` |
-| HSC | Humanities | 2026–2027 | 12 | **0** | `needs_verification` |
-| HSC | Business Studies | 2026–2027 | 7 | **0** | `needs_verification` |
+| Level | Group | Academic year | Subjects | Chapters | Topics | Verification status |
+| --- | --- | --- | --- | --- | --- | --- |
+| SSC | Science | 2025 | 17 | **0** | **0** | `needs_verification` |
+| SSC | Humanities | 2025 | 17 | **0** | **0** | `needs_verification` |
+| SSC | Business Studies | 2025 | 16 | **0** | **0** | `needs_verification` |
+| HSC | Science | 2026–2027 | 9 | **0** | **0** | `needs_verification` |
+| HSC | Humanities | 2026–2027 | 14 | **0** | **0** | `needs_verification` |
+| HSC | Business Studies | 2026–2027 | 9 | **0** | **0** | `needs_verification` |
 
-All 70 subject rows carry `scope = 'subject_structure'`. That is a deliberate,
-narrow claim: *these are the subjects a student in this group studies, with
-their official names in English and Bangla*. It is **not** a claim that the
-chapter list, topic list or mark distribution is known.
+**82 subjects, 0 chapters, 0 topics.** Every subject row carries
+`scope = 'subject_structure'`, which is a deliberately narrow claim: *these are
+the subjects a student in this group studies, with their official names in
+English and Bangla*. It is **not** a claim that the chapter list, topic list or
+mark distribution is known.
 
-## Sources
+The curriculum is therefore **incomplete**, and the app says so on screen
+rather than in a footnote. `docs/` and the UI both refuse to call any level,
+group or year complete while chapter data is missing.
 
-| Purpose | URL |
+## What changed in this pass
+
+| Change | Why |
 | --- | --- |
-| SSC Class 9–10 textbook list, 2025 | https://nctb.gov.bd/pages/static-pages/6922e0c0933eb65569e28767 |
-| SSC subject structure / marks, National Curriculum 2012 | https://nctb.gov.bd/pages/static-pages/6922df50933eb65569e21292 |
-| HSC notices — ২০২৬-২৭ শিক্ষাবর্ষের উচ্চ মাধ্যমিক পাঠ্যসূচি | https://nctb.gov.bd/pages/notices/ |
-| HSC Class 11–12 textbook list | https://nctb.gov.bd/pages/static-pages/6922de2b933eb65569e18bdf |
+| `partially_verified` added as a status | The four-state model forced a subject whose existence is confirmed but whose detail is not into either "verified" (a lie) or "needs_verification" (understates real work). |
+| Bangla and English split into 1st / 2nd Paper for all six versions | NCTB does not publish either subject as a single book. The official 2025 Class 9–10 list carries বাংলা সাহিত্য + বাংলা সহপাঠ + বাংলা ভাষার ব্যাকরণ ও নির্মিতি, and English for Today + English Grammar and Composition. Tracking them as one subject meant two examined papers shared one chapter list. |
+| Source registry (`curriculum_sources`) | Records what was opened and what came out of it, so "0 chapters" can be traced to a specific blocker. |
+| Outstanding requirements (`curriculum_pending_requirements`) | Separates *NCTB has not published it* from *it is published and we could not read it*. Only the second is a failure on our side. |
+| Coverage view (`curriculum_coverage`) and screen panel | Per level / group / year / subject breakdown instead of a single percentage. |
 
-Supporting (not official; used only to corroborate, never as the recorded source):
+Paper rows: SSC 2nd-paper rows are `partially_verified` (the book is confirmed
+in the rendered 2025 list; the paper number printed on the cover was not read
+independently). HSC 2nd-paper rows are `needs_verification` because no HSC
+textbook list could be rendered here.
 
-- Prothom Alo, 9 Sept 2025 — NCTB published the revised Class 11–12 subject
-  structure under National Curriculum 2012: compulsory Bangla, English and ICT;
-  Science takes Physics, Chemistry, Biology *or* Higher Mathematics; Humanities
-  takes three from History *or* Islamic History & Culture, Civics & Good
-  Governance, Economics, Sociology *or* Social Work, Geography, Logic, plus one
-  optional; Business Studies takes three from Accounting, Business Organization
-  & Management, Finance Banking & Insurance, Production Management & Marketing.
-- Board/college subject-code lists corroborating the HSC Humanities codes
-  (109/110 Economics, 117/118 Sociology, 121/122 Logic, 125/126 Geography,
-  267/268 Islamic History, 269/270 Civics, 271/272 Social Work).
+## Sources accessed
 
-### Copyright / reproduction
+| Document | URL | What came out |
+| --- | --- | --- |
+| SSC Class 9–10 textbook list, 2025 | https://nctb.gov.bd/pages/static-pages/6922e0c0933eb65569e28767 | **Read in full.** 33 books, Bangla and English, each with two download links. Authority for the SSC inventory. |
+| SSC Class 9–10 textbook list, 2026 | https://nctb.gov.bd/pages/static-pages/695b99afc4774958d7b70612 | **Blocked.** Page exists; the content block is a `পাতা` sub-page widget that never resolves. Only navigation, a share bar and the accessibility menu render. |
+| SSC Physics textbook, 2025 (Bangla) | https://drive.google.com/file/d/121GCSD2909n-ETowJfdtzqOoVcdAe9Fx/view | **Blocked.** 105 MB; Google serves a virus-scan interstitial, and the egovcloud mirror returns HTTP 500. The সূচিপত্র inside this file is the only legitimate source for SSC Physics chapter titles. |
+| Government Cloud Drive mirror | https://drive.egovcloud.gov.bd/index.php/s/QciQ1yYNg2c6Jmf | **Blocked.** Share page renders and confirms the same 104.9 MB file; `/download` returns HTTP 500. |
+| National Curriculum 2012 — secondary | https://nctb.gov.bd/pages/files/6922db5b933eb65569e09a2c | **Partly readable.** 93-page PDF extracts, but in legacy Bijoy/ANSI single-byte encoding; unusable without a converter. |
+| National Curriculum 2012 — higher secondary | https://nctb.gov.bd/pages/files/6922dbc6933eb65569e0c702 | **Partly readable.** 43-page PDF, same encoding problem. |
+| SSC/HSC subject structure and marks | https://nctb.gov.bd/pages/static-pages/6922df50933eb65569e21292 | Cited by 0007. Not re-opened in this pass. |
+| HSC notices, 2026–27 syllabus | https://nctb.gov.bd/pages/notices/ | Cited by 0007. Not re-opened in this pass. |
 
-Every source is linked, never copied. No chapter text, question or table of
-contents is reproduced here.
+### How the site became reachable
 
-## What is genuinely confirmed
+`nctb.gov.bd` is a client-rendered Payload CMS. A direct fetch returns
+navigation boilerplate only. Reading the same URL through a rendering proxy
+(`https://r.jina.ai/<url>`) returns the real page body — which is how the 2025
+list and both curriculum PDFs were read.
 
-1. **The group structure is real.** SSC/Class 9–10 and HSC/Class 11–12 both
-   divide into Science, Humanities and Business Studies, and both continue to
-   run under National Curriculum 2012 for the academic years recorded above.
-2. **The compulsory subjects are real.** Bangla, English, ICT (SSC adds
-   Mathematics, plus one religion paper, Career Education, and Physical
-   Education/Health/Sports; HSC does not examine Mathematics as a compulsory
-   paper).
-3. **The group-specific subject names are real.** Physics/Chemistry/Biology/
-   Higher Mathematics/BGS for SSC Science; History, Geography, Economics,
-   Civics, Sociology, Social Work, Logic for HSC Humanities, and so on.
-4. **The Bangla names match the names printed on the NCTB book covers.**
+The limitation that remains is the documents themselves, not the site: large
+Drive-hosted textbook PDFs are gated behind an interstitial, and the sandbox
+cannot reach `drive.google.com` or `drive.egovcloud.gov.bd` at all.
 
-## What is NOT confirmed — do not treat as done
+### Rejected sources
 
-1. **Every chapter list.** Absent by design. NCTB publishes tables of contents
-   inside 300+ page PDFs; direct fetches of `nctb.gov.bd` returned only
-   JS-rendered navigation shells, so no chapter title was ever read. Inventing
-   them would corrupt every downstream progress record.
-2. **Per-subject paper splits** (`paper_label`). SSC subjects are commonly split
-   into 1st/2nd paper for some subjects and not others; this is not recorded, so
-   `paper_label` is `null` everywhere, not guessed.
-3. **Subject codes** (`code`). Not stored. The codes above are from
-   board/college listings, not from the NCTB document itself.
-4. **Marks distribution and period allocation.** Deliberately not stored; the
-   schema has no field for it.
-5. **The six HSC streams.** NCTB lists six (adds Islamic Studies, Home Science,
-   Music). Only the three requested groups are seeded; the other three are
-   missing, not empty by choice.
-6. **2026 SSC revision.** NCTB published revised Class 9–10 subject structure
-   and 2026 SSC syllabuses. The SSC rows here reflect the **2025** textbook list.
-   They have not been compared with the 2026 revision.
+Third-party sites publish SSC Physics chapter lists that disagree with each
+other — 13 chapters on one, 14 on another, with different titles for the last
+chapter. A district school's SSC-2028 syllabus PDF is readable but is an
+exam syllabus for a different exam year, OCR-damaged, and its wording already
+differs from the textbook. None of these were used. A list that cannot be
+reproduced from the official book is indistinguishable from a guess.
 
-## How to finish the job (human step, per subject)
+## Outstanding requirements
 
-1. Open the official textbook PDF or the per-stream curriculum PDF for one
-   subject.
-2. Copy the chapter titles (English and Bangla) and chapter numbers.
-3. Add them in a **new** migration numbered above the highest existing one:
+The machine-readable version of this list is
+`curriculum_pending_requirements` (migration 0009) and it is shown on the
+Curriculum screen.
 
-   ```sql
-   insert into public.curriculum_chapters
-     (id, curriculum_subject_id, title, title_bn, chapter_number, sort_order,
-      source_url, verification_status, is_demo)
-   values
-     (gen_random_uuid(), '<subject-uuid>', 'Chapter 1 …', '১ম অধ্যায় …', '1', 1,
-      '<exact source url>', 'needs_verification', false)
-   on conflict do nothing;
-   ```
+| Level | Year | Requirement | Status |
+| --- | --- | --- | --- |
+| SSC | 2025 | Chapter and topic lists for every subject | `source_blocked` — textbook PDFs unreadable |
+| SSC | 2025 | Group applicability of optional subjects (Arts & Crafts, Music, Arabic, Sanskrit, Pali) | `awaiting_source` — book list is group-agnostic |
+| SSC | 2026 | Complete subject inventory | `source_blocked` — list page does not render |
+| SSC | 2027 | Complete subject inventory | `awaiting_publication` |
+| SSC | 2028 | Complete subject inventory | `awaiting_publication` |
+| SSC | 2029 | Complete subject inventory | `awaiting_publication` |
+| HSC | 2026–27 | Chapter and topic lists | `source_blocked` |
+| HSC | 2026–27 | Elective and optional subject lists per stream | `awaiting_source` — curriculum PDF is Bijoy-encoded |
+| HSC | 2026–27 | Paper split for electives | `awaiting_source` |
 
-   Use `needs_verification` first. Only after a second person or a second source
-   agrees, update that row to `verified` — and update the parent subject and
-   version too, because `src/domain/curriculum.ts` refuses to show a version as
-   "Chapter list verified" while the version itself is unverified.
-4. Re-run `npx vitest run tests/db` — the parity test will fail until
-   `src/services/seed/officialCurriculum.ts` matches the SQL, which is the point.
+Years 2027–2029 are listed because they were explicitly asked for. NCTB had
+published no Class 9–10 list for them as of 2026-10-28, so no rows exist. An
+empty, labelled column is the honest representation; inventing a plausible
+2028 syllabus is not.
 
-Never edit `0001`–`0007` after they have been applied anywhere. Add a new file.
+## What is still needed
 
-## Data-safety guarantees
+To finish the chapter data for a single subject, one artefact is enough:
 
-- Re-running the seed is a no-op: every row has a deterministic UUID and is
-  written with `on conflict (id) do update`.
-- `curriculum_subjects` has `unique (curriculum_version_id, name, paper_label)`,
-  which **cannot** dedupe these rows: Postgres treats `NULL`s as distinct and
-  every seeded subject has `paper_label = null`. The seed therefore keys on `id`.
-- No student table is written by the seed. `user_subjects`, `user_chapters`,
-  `chapter_checklist_progress`, notes, revisions and sessions keep their ids, so
-  progress survives a metadata refresh. Proven by
-  `tests/integration/curriculumProgress.test.ts` (local mode, re-runs the seed on
-  restart) and `tests/db/curriculumParity.test.ts` (SQL, re-applies the
-  migration twice with a linked `user_chapters` row present).
+1. The **সূচিপত্র (table of contents) page** of that subject's NCTB textbook —
+   a screenshot or a PDF of those one or two pages, not the whole 100 MB book.
+2. A note of which academic year the edition is.
+
+Then follow [CURRICULUM_IMPORT.md](CURRICULUM_IMPORT.md): validate the file,
+review the plan, apply the upsert. Re-running is a no-op, and student progress
+survives because chapters are updated in place and never deleted.
+
+## Related
+
+- [CURRICULUM_IMPORT.md](CURRICULUM_IMPORT.md) — import format, validation and
+  the exact SQL.
+- [VERIFICATION.md](VERIFICATION.md) §2.4 — what was executed here.

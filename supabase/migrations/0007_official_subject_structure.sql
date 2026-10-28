@@ -146,7 +146,13 @@ on conflict (id) do update set
   name                  = excluded.name,
   name_bn               = excluded.name_bn,
   code                  = excluded.code,
-  paper_label           = excluded.paper_label,
+  -- Migration 0009 adds the 1st/2nd Paper split that this seed does not know
+  -- about. A NULL in the seed must therefore mean "leave the stored value
+  -- alone", not "reset to NULL": re-running this file alone (a repair, which
+  -- `db push` skips but the README's paste-in-order path does not) would
+  -- otherwise silently drop the paper labels and, with them, the distinction
+  -- between two subjects a student tracks separately.
+  paper_label           = coalesce(excluded.paper_label, public.curriculum_subjects.paper_label),
   is_compulsory         = excluded.is_compulsory,
   sort_order            = excluded.sort_order,
   verification_status   = excluded.verification_status,

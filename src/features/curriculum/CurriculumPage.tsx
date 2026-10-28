@@ -7,6 +7,7 @@ import { useWorkspaceQuery } from '@/hooks/useWorkspace';
 import { useAuth } from '@/app/AppProviders';
 import { Badge, DemoBadge, EmptyState, Notice, PageHeader, SectionCard } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
+import { CoveragePanel } from '@/features/curriculum/CoveragePanel';
 import { FormError } from '@/components/ui/Form';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { userSubjectSchema, type SubjectFormValues } from '@/domain/schemas';
@@ -268,6 +269,8 @@ function CurriculumContent() {
         added, and chapter titles are never invented to fill the gap. The demo version is placeholder
         structure only. Add chapters from your own textbook, or import a list you trust.
       </Notice>
+
+      <CoveragePanel curriculum={bundle.curriculum} />
 
       {summary ? (
         <SectionCard title="What is actually loaded" hint="Counted from your database, not estimated">
