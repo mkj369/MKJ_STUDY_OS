@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { IonIcon } from '@ionic/react';
 import { addOutline, schoolOutline } from 'ionicons/icons';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
@@ -177,19 +176,15 @@ function ExamsContent() {
             })}
           </div>
         )}
-      </SectionCard>
-
-      {bestExam ? (
-        <>
-          <div style={{ height: 12 }} />
-          <p className="tiny muted">
-            Best recorded result:{' '}
-            <Link to="/exams">
-              {bestExam.exam_name} ({examPercent(bestExam)}%)
-            </Link>
+        {/* Belongs to this list, so it stays inside the card instead of
+            floating below it as an orphaned line. */}
+        {bestExam ? (
+          <p className="tiny muted" style={{ marginTop: 'var(--mkj-space-3)' }}>
+            Highest recorded result: {bestExam.exam_name} ({examPercent(bestExam)}%). A single result is a
+            data point, not a rank.
           </p>
-        </>
-      ) : null}
+        ) : null}
+      </SectionCard>
 
       {dialogOpen ? (
         <RecordDialog<ExamValues>

@@ -159,10 +159,12 @@ function RemindersContent() {
       <PageHeader
         title="Reminders"
         description="Supportive reminders you control: no shame messaging, no duplicate spam, quiet hours respected."
-        actions={
-          <button type="button" className="btn btn--primary btn--sm" onClick={() => void save()} disabled={saving}>
-            {saving ? 'Saving…' : 'Save preferences'}
-          </button>
+        meta={
+          <>
+            <span className="hero__chip">{prefs.reminders_enabled ? 'Reminders on' : 'Reminders off'}</span>
+            <span className="hero__chip">{prefs.timezone}</span>
+            {draft ? <span className="hero__chip">unsaved changes</span> : null}
+          </>
         }
       />
 
@@ -293,8 +295,10 @@ function RemindersContent() {
             </label>
             <FormError message={error} />
             <div className="row">
-              <button type="button" className="btn btn--secondary" onClick={() => void save()} disabled={saving}>
-                Save preferences
+              {/* The only save control: it sits next to the fields it saves,
+                  instead of also appearing in the header far from the form. */}
+              <button type="button" className="btn btn--primary btn--sm" onClick={() => void save()} disabled={saving}>
+                {saving ? 'Saving…' : 'Save preferences'}
               </button>
               <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDraft(null)} disabled={!draft}>
                 Discard changes

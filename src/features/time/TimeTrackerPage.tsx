@@ -356,6 +356,11 @@ function TimeTrackerContent() {
           <EmptyState
             title="Nothing recorded for this day"
             message="An empty day is missing information, not proof that nothing happened. Log study time, or add a block for college, class, sleep or rest."
+            action={
+              <button type="button" className="btn btn--primary btn--sm" onClick={() => setSessionDialog({ editing: null })}>
+                Log study time
+              </button>
+            }
           />
         ) : (
           <div className="timeline">
@@ -419,9 +424,18 @@ function TimeTrackerContent() {
         )}
 
         <SectionCard title="End of day" hint="A plain-language summary of the records above.">
-          <p>
-            <strong>{daySummary.headline}</strong>
-          </p>
+          {/* When the day is empty the card above already said so; repeating the
+              same sentence here reads like two failures instead of one. */}
+          {daySummary.hasAnyRecord ? (
+            <p>
+              <strong>{daySummary.headline}</strong>
+            </p>
+          ) : (
+            <p className="small muted">
+              No summary to write yet. Once this day has a session or a block, this card explains where the
+              minutes went.
+            </p>
+          )}
           <ul className="list">
             {daySummary.details.map((detail) => (
               <li key={detail} className="small muted">

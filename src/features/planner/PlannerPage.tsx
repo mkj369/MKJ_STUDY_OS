@@ -173,7 +173,7 @@ function PlannerContent() {
                     <div className="list-row__meta">
                       <span>{suggestion.reason}</span>
                       <span>{suggestion.minutes} min</span>
-                      {suggestion.alreadyPlanned ? <span>Already in your tasks</span> : null}
+                      {suggestion.alreadyPlanned ? <span>already in your tasks — accepting is disabled</span> : null}
                     </div>
                     <details>
                       <summary className="tiny muted">Evidence</summary>
@@ -187,14 +187,23 @@ function PlannerContent() {
                     </details>
                   </div>
                   <div className="list-row__actions">
-                    <button
-                      type="button"
-                      className="btn btn--primary btn--sm"
-                      disabled={busyKey === suggestion.key || isAccepted}
-                      onClick={() => void accept(suggestion.key)}
-                    >
-                      {isAccepted ? 'Accepted' : busyKey === suggestion.key ? 'Adding…' : 'Accept'}
-                    </button>
+                    {/* Accepting a suggestion that is already in the task list
+                        would create a second copy of the same task, so the
+                        action is replaced by the reason it is unavailable. */}
+                    {suggestion.alreadyPlanned ? (
+                      <Link to="/tasks" className="btn btn--secondary btn--sm">
+                        Open in tasks
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn--primary btn--sm"
+                        disabled={busyKey === suggestion.key || isAccepted}
+                        onClick={() => void accept(suggestion.key)}
+                      >
+                        {isAccepted ? 'Accepted' : busyKey === suggestion.key ? 'Adding…' : 'Accept'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="btn btn--ghost btn--sm"
