@@ -266,9 +266,14 @@ describe('official curriculum seed', () => {
   });
 
   it('keeps the source registry and outstanding requirements in sync with SQL', async () => {
-    const sources = await rows<{ url: string; document_type: string; access_state: string; checked_at: string | null }>(
-      `select url, document_type, access_state, checked_at::text from curriculum_sources order by url, document_type`,
-    );
+    // Sort both sides the same way. Postgres `order by url` uses byte order, which
+    // puts the Bengali page slugs somewhere different from ICU collation — an
+    // ordering artefact, not a data difference, so the comparison sorts in JS.
+    const sources = (
+      await rows<{ url: string; document_type: string; access_state: string; checked_at: string | null }>(
+        `select url, document_type, access_state, checked_at::text from curriculum_sources`,
+      )
+    ).sort((a, b) => a.url.localeCompare(b.url) || a.document_type.localeCompare(b.document_type));
     const expectedSources = [...CURRICULUM_SOURCES]
       .map((s) => ({
         url: s.url,

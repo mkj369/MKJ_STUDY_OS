@@ -411,3 +411,43 @@ describe('topic import groundwork (migration 0014)', () => {
     await exec(`delete from public.curriculum_topics where topic_number = '9.9'`);
   });
 });
+
+describe('2026 HSC textbook pages (migration 0015)', () => {
+  it('records both 2026 pages as published-but-empty rather than missing', async () => {
+    const rows2026 = await rows<{ title: string; access_state: string; note: string }>(
+      `select title, access_state, note
+         from public.curriculum_sources
+        where url like '%nctb.gov.bd/pages/static-pages/%%'
+          and (title like '২০২৬-%' or title like '২০২৬ শিক্ষাবর্ষের মাধ্যমিক%')
+          and document_type = 'textbook_list'
+        order by title`,
+    );
+    expect(rows2026.length).toBeGreaterThanOrEqual(2);
+    expect(rows2026.every((row) => row.access_state === 'blocked')).toBe(true);
+    expect(rows2026.every((row) => /পাতা|empty/.test(row.note))).toBe(true);
+  });
+
+  it('no longer repeats the false claim that the ২০২৫-২৬ page did not render', async () => {
+    const [requirement] = await rows<{ note: string }>(
+      `select note from public.curriculum_pending_requirements
+        where requirement = 'Physics 1st Paper, Chemistry, Biology and Higher Mathematics chapter lists'`,
+    );
+    expect(requirement?.note).not.toMatch(/renders as an unresolved পাতা widget/);
+    expect(requirement?.note).toMatch(/CORRECTED 2026-10-28/);
+  });
+
+  it('still has no official chapter for the science papers that were searched', async () => {
+    const [row] = await rows<{ chapters: number }>(
+      `select count(*)::int as chapters
+         from public.curriculum_chapters c
+         join public.curriculum_subjects s on s.id = c.curriculum_subject_id
+         join public.curriculum_versions v on v.id = s.curriculum_version_id
+        where c.is_demo = false
+          and v.education_level = 'HSC'
+          and (s.name like 'Physics%' or s.name like 'Chemistry%'
+               or s.name like 'Biology%' or s.name like 'Higher Mathematics%')`,
+    );
+    // Only Physics 2nd Paper has a read contents page; everything else is 0.
+    expect(row?.chapters).toBe(15);
+  });
+});

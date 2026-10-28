@@ -140,6 +140,27 @@ per-item result. Consequently the HSC elective lists seeded from the curriculum
 notice stay unverified, and HSC Humanities and Business Studies still have **no**
 official inventory at all beyond the seed.
 
+## The ২০২৬-২৭ HSC textbook page exists and is empty
+
+Round 5 closed with the sentence "no accessible official document enumerates
+the HSC subjects". That is still true, but the reason changed on the last day
+of it: NCTB published the page — **২০২৬-২৭ শিক্ষাবর্ষের উচ্চ মাধ্যমিক স্তরের
+একাদশ-দ্বাদশ শ্রেণির পাঠ্যপুস্তক**, last updated ২৭ অক্টোবর ২০২৬ ১২:১০ PM — and
+the page has no rows in it yet.
+
+Read through the same rendering proxy that returns the ২০২৫-২৬ page's five-row
+table, it renders as:
+
+> ## ২০২৬-২৭ শিক্ষাবর্ষের উচ্চ মাধ্যমিক স্তরের একাদশ-দ্বাদশ শ্রেণির পাঠ্যপুস্তক
+> কন্টেন্ট: পাতা
+> *(share bar)*
+
+The combined ২০২৬ list (*মাধ্যমিক স্তর ও উচ্চ মাধ্যমিক স্তরের পাঠ্যপুস্তকের
+তালিকা*, updated the same day) is empty in exactly the same way. So the honest
+status of requirement 16 is "published, not yet filled" — a document to watch,
+not a document to hunt for, and not a document we failed to read. The seeded
+১৩/১৪/৯ subject lists are still unconfirmed and remain `needs_verification`.
+
 ## An exam syllabus is not a contents page
 
 Three ২০২৬-২৭ HSC exam syllabi were recovered this round as born-digital PDFs
