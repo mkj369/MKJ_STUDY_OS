@@ -20,7 +20,7 @@ npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
 npm run build               # tsc -b && vite build    -> built in 5.49s
 npx vitest run              # 43 files, 512 tests passed
-npx playwright test         # 41 tests passed (Chromium, production bundle)
+npx playwright test         # 43 tests passed (Chromium, production bundle)
 ```
 
 `npm run verify` runs typecheck → lint → build → `vitest run`. Build before tests
@@ -39,7 +39,7 @@ because it greps the real bundle for leaked keys. Without a build you get
 | `tests/bundle` | 1 | No service-role key or AI provider key in the built assets |
 | `tests/functions`, `tests/android` | — | Weekly-summary function with a stubbed provider (no live call), Capacitor config assertions |
 
-### Browser suite (41)
+### Browser suite (43)
 
 `npx playwright test` runs against `npm run build && npm run preview --port 4173`
 (baseURL `http://127.0.0.1:4173`), one worker, real localStorage. Covers:
@@ -53,6 +53,8 @@ because it greps the real bundle for leaked keys. Without a build you get
   focus session writing a study session;
 - accessibility: named controls and landmarks on every route, exactly one `<h1>`,
   icons rendered from inline SVG (no runtime font fetch).
+
+Journey C5/C6 (finalization) assert the one-click adopt path and the honest empty-subject state: adopting from the version list attaches the 15 real chapters and lands on `0/15 chapters complete`, while a subject with no recovered list says "no chapter list yet" rather than looking empty.
 
 Journey C now asserts the imported data end-to-end: filtering SSC/Science by `পদার্থ`
 surfaces Physics with "Chapter list partly recorded", "14 chapter row(s)", and the page

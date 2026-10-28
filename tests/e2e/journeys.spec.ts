@@ -327,3 +327,42 @@ test('journey C4: the syllabus labels a partly verified chapter list instead of 
   await expect(main.getByText(/printed English title/i).first()).toBeVisible();
   await expect(main.getByRole('link', { name: /Electrostatics or Static Electricity/ }).first()).toBeVisible();
 });
+
+test('journey C5: one click on a version row leaves a subject with its real chapters', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // The version list is the other way in, and it must not leave a subject that
+  // looks empty. The button names the chapter count it will attach.
+  const row = page.getByRole('main').locator('.list-row').filter({ hasText: '15 chapter row(s)' }).first();
+  const addButton = row.getByRole('button', { name: /Add subject \+ 15 chapter\(s\)/ });
+  await expect(addButton).toBeVisible();
+  await addButton.click();
+
+  await expect(row.getByText('All chapters added')).toBeVisible({ timeout: 20_000 });
+
+  // And the syllabus shows the chapters without a second visit to this page.
+  await page.goto('/#/syllabus');
+  const main = page.getByRole('main');
+  await expect(main.getByText('0/15 chapters complete').first()).toBeVisible({ timeout: 20_000 });
+  await expect(main.getByRole('link', { name: /Electrostatics or Static Electricity/ }).first()).toBeVisible();
+});
+
+test('journey C6: a subject with no recovered chapter list says so instead of looking empty', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  const row = page.getByRole('main').locator('.list-row').filter({ hasText: 'no chapter list yet' }).first();
+  await expect(row.getByRole('button', { name: /^Add subject$/ })).toBeVisible();
+  await row.getByRole('button', { name: /^Add subject$/ }).click();
+
+  // Adopted, but honest about why nothing came with it.
+  await expect(row.getByText('Track chapters you add yourself')).toBeVisible({ timeout: 20_000 });
+  await expect(row.getByText(/no chapter list yet/)).toBeVisible();
+});

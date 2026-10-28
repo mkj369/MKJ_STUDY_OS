@@ -17,9 +17,11 @@ import { ConfirmDeleteButton } from '@/components/ui/ConfirmDeleteButton';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { checklistItemSchema, userChapterSchema, type ChapterFormValues } from '@/domain/schemas';
 import { chapterStatusLabel } from '@/domain/progress';
+import { formatDate } from '@/domain/dates';
 import { CHECKLIST_KIND_LABELS } from '@/services/seed/checklistDefaults';
 import { errorMessage } from '@/utils/errors';
 import type { ChapterChecklistItem, ChecklistKind } from '@/types/domain';
+import type { DateOnly } from '@/types/domain';
 
 const STATUS_OPTIONS = [
   { value: 'not_recorded', label: 'Not recorded (let the app derive it)' },
@@ -227,7 +229,10 @@ function ChapterContent() {
                   <span className={`checklist-item__label ${entry.progress?.is_done ? 'is-done' : ''}`}>
                     {entry.item.label}
                     {entry.progress?.completed_at ? (
-                      <span className="tiny muted"> · {entry.progress.completed_at.slice(0, 10)}</span>
+                      <span className="tiny muted">
+                        {' · '}done{' '}
+                        {formatDate(entry.progress.completed_at.slice(0, 10) as DateOnly)}
+                      </span>
                     ) : null}
                   </span>
                   <button

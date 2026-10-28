@@ -228,7 +228,7 @@ npm test           → 43 files, 512 tests passed
                       24 Android config + preflight assertions,
                       a build-bundle secret scan and the loading/error/retry states)
 npm run build      → ✓ built in 5.88 s
-npm run test:e2e   → 41 passed (58.0 s) in Chromium against the production preview build
+npm run test:e2e   → 43 passed (60.0 s) in Chromium against the production preview build
 ```
 
 Bundle after route-level code splitting (raw / gzip):
@@ -331,7 +331,7 @@ secrets, run `npm run verify:cloud -- --ai` (see §9.1).
 | `npm test` | 43 files / 512 tests | pass |
 | `npx vitest run tests/db` | migrations `0001`–`0014` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability, curriculum parity, `0014` topic columns | pass (72 tests) |
 | `npm run build` | production build + chunk report | pass |
-| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep, icon rendering | pass (41 tests, 58.0 s) |
+| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 13 flows, 25-route accessibility sweep, icon rendering | pass (43 tests, 60.0 s) |
 
 Key test files:
 

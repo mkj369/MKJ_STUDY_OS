@@ -130,11 +130,28 @@ function CurriculumContent() {
     bundle.chapters.map((c) => c.curriculum_chapter_id).filter((id): id is string => Boolean(id)),
   );
 
+  /**
+   * One click must leave a usable subject. Adopting a subject on its own gives
+   * you a card with 0 chapters in the syllabus tracker, which reads like the
+   * curriculum is empty — so the chapters that exist are attached in the same
+   * action. A subject with no chapter list is still adoptable; it just says so.
+   */
   const adoptSubject = async (versionId: string, subjectId: string, subjectName: string) => {
     setBusyKey(subjectId);
     try {
       await mutate((repo) => repo.adoptCurriculumSubject(versionId, subjectId));
-      await notify(`${subjectName} added. Add its chapters next.`);
+      const chapterIds = bundle.curriculum.chapters
+        .filter((c) => c.curriculum_subject_id === subjectId && !userChaptersByCurriculumChapter.has(c.id))
+        .map((c) => c.id);
+      if (chapterIds.length === 0) {
+        await notify(
+          `${subjectName} added. NCTB's chapter list for this subject has not been recovered yet, so it starts with no chapters.`,
+          'warning',
+        );
+        return;
+      }
+      const result = await mutate((repo) => repo.addChaptersFromCurriculum(versionId, subjectId, chapterIds));
+      await notify(`${subjectName} added with ${result.created} chapter(s).`);
     } catch (error) {
       await notify(errorMessage(error), 'danger');
     } finally {
@@ -536,7 +553,11 @@ function CurriculumContent() {
                               disabled={busyKey === subject.id}
                               onClick={() => void adoptSubject(version.id, subject.id, subject.name)}
                             >
-                              {busyKey === subject.id ? 'Adding…' : 'Add subject'}
+                              {busyKey === subject.id
+                                ? 'Adding…'
+                                : chapters.length === 0
+                                  ? 'Add subject'
+                                  : `Add subject + ${chapters.length} chapter(s)`}
                             </button>
                           ) : missingChapters === 0 ? (
                             <span className="tiny muted">
