@@ -20,7 +20,7 @@ npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
 npm run build               # tsc -b && vite build    -> built in 5.49s
 npx vitest run              # 42 files, 490 tests passed
-npx playwright test         # 40 tests passed (Chromium, production bundle)
+npx playwright test         # 41 tests passed (Chromium, production bundle)
 ```
 
 `npm run verify` runs typecheck → lint → build → `vitest run`. Build before tests
@@ -62,6 +62,12 @@ Journey C3 asserts the HSC-first ordering and the paper split: the Level filter 
 `All levels, HSC, SSC` in that order, the group table starts with HSC and carries the
 VERIFIED / PARTLY / NO CHAPTERS columns, and per-subject coverage shows
 `Physics · 2nd Paper · 15` beside `Physics · 1st Paper · No chapter list yet`.
+
+Journey C4 adopts HSC Physics 2nd Paper and checks that `/syllabus` labels the list
+`Chapter list partly verified`, states that some rows show only the book's printed English
+title, and renders the imported chapters (Electrostatics …). The three badge states —
+verified / partly verified / unverified — each carry a different sentence, so an
+unsourced list can never read like a checked one.
 
 A separate scripted session (Chromium, local workspace, not part of CI) walked the new
 coverage → syllabus path: add SSC Physics from the coverage table, land on Subjects &

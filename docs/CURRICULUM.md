@@ -281,6 +281,9 @@ survives because chapters are updated in place and never deleted.
 
 - [CURRICULUM_SOURCES.md](CURRICULUM_SOURCES.md) — the per-document source
   matrix: what was opened, what came back, and what is still needed.
+- `/syllabus` shows the chapter-list status per subject (verified / partly
+  verified / unverified) with a sentence explaining what that status means, so
+  an OCR-sourced list is never presented as a checked one.
 - [CURRICULUM_IMPORT.md](CURRICULUM_IMPORT.md) — import format, validation and
   the exact SQL.
 - [VERIFICATION.md](VERIFICATION.md) §2.4 — what was executed here.

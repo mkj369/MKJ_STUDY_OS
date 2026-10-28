@@ -294,6 +294,21 @@ function SyllabusContent() {
         subjects.map((subject) => {
           const coverage = phase2.subjectCoverageById.get(subject.subject.id);
           const chapters = visibleChapters(subject.chapters);
+          // What the *curriculum* rows claim, as opposed to what the student has
+          // done with them. These two are different facts and the screen keeps
+          // them apart: "8/14 chapters complete" is the student, "partly
+          // verified" is the book.
+          const chapterRows = subject.chapters
+            .map((row) => row.curriculumChapter)
+            .filter((chapter): chapter is NonNullable<typeof chapter> => chapter !== null);
+          const anyPartiallyVerified = chapterRows.some(
+            (chapter) => chapter.verification_status === 'partially_verified',
+          );
+          const everyChapterVerified =
+            chapterRows.length > 0 && chapterRows.every((chapter) => chapter.verification_status === 'verified');
+          const englishTitleOnly = chapterRows.some(
+            (chapter) => chapter.verification_status === 'partially_verified' && !chapter.title_bn,
+          );
           return (
             <SectionCard
               key={subject.subject.id}
@@ -305,6 +320,30 @@ function SyllabusContent() {
                 </button>
               }
             >
+              {chapterRows.length > 0 ? (
+                <div className="row" style={{ marginBottom: 8 }}>
+                  <Badge tone={everyChapterVerified ? 'good' : anyPartiallyVerified ? 'warn' : 'neutral'}>
+                    {everyChapterVerified
+                      ? 'Chapter list verified'
+                      : anyPartiallyVerified
+                        ? 'Chapter list partly verified'
+                        : 'Chapter list unverified'}
+                  </Badge>
+                  <span className="tiny muted">
+                    {everyChapterVerified
+                      ? 'Every title was checked against the official book.'
+                      : anyPartiallyVerified
+                        ? 'Titles come from a real copy of the official book, but not the exact edition you sit — see the source note above.'
+                        : 'These titles have not been checked against an official book yet — treat them as a list to confirm, not as fact.'}
+                  </span>
+                </div>
+              ) : null}
+              {englishTitleOnly ? (
+                <p className="tiny muted" style={{ marginBottom: 8 }}>
+                  Some rows show only the book&rsquo;s printed English title: the Bengali title did not survive the scan
+                  and was not reconstructed.
+                </p>
+              ) : null}
               <div className="grid grid--2">
                 <ProgressBar
                   percent={coverage?.chapterPercent ?? null}

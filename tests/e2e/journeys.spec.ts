@@ -302,3 +302,28 @@ test('journey C3: HSC leads, and the coverage report counts papers separately', 
   await expect(physicsRows.filter({ hasText: '2nd Paper' }).first()).toContainText('15');
   await expect(physicsRows.filter({ hasText: '1st Paper' }).first()).toContainText('No chapter list yet');
 });
+
+test('journey C4: the syllabus labels a partly verified chapter list instead of hiding it', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // Adopt the one HSC subject-paper that has a real chapter list.
+  await page.getByRole('button', { name: /show per-subject coverage/i }).click();
+  const secondPaper = page
+    .getByRole('main')
+    .locator('tbody tr')
+    .filter({ hasText: 'Physics' })
+    .filter({ hasText: '2nd Paper' })
+    .first();
+  await secondPaper.getByRole('button', { name: /add to my subjects/i }).click();
+
+  await page.goto('/#/syllabus');
+  const main = page.getByRole('main');
+  await expect(main.getByText('Chapter list partly verified').first()).toBeVisible({ timeout: 20_000 });
+  // The English-only caveat is the whole point of the 0011 import.
+  await expect(main.getByText(/printed English title/i).first()).toBeVisible();
+  await expect(main.getByRole('link', { name: /Electrostatics or Static Electricity/ }).first()).toBeVisible();
+});
