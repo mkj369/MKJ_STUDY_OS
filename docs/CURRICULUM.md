@@ -2,9 +2,14 @@
 
 This file records the exact state of the curriculum reference data shipped in
 `supabase/migrations/0007_official_subject_structure.sql`,
-`0009_curriculum_inventory.sql`, `0010_ssc_physics_chemistry_chapters.sql` and
-their TypeScript twins in `src/services/seed/` (the two sides are kept identical
-by `tests/db/curriculumParity.test.ts`).
+`0009_curriculum_inventory.sql`, `0010_ssc_physics_chemistry_chapters.sql`,
+`0011_hsc_two_paper_split_and_physics_2.sql` and their TypeScript twins in
+`src/services/seed/` (the two sides are kept identical by
+`tests/db/curriculumParity.test.ts`).
+
+The source-hunt audit — which documents were opened, which were readable, and
+what each one yielded — lives in [CURRICULUM_SOURCES.md](CURRICULUM_SOURCES.md).
+This file is the resulting state of the data.
 
 Last reviewed: **2026-10-28**.
 
@@ -12,16 +17,19 @@ Last reviewed: **2026-10-28**.
 
 | Level | Group | Academic year | Subjects | Chapters | Topics | Verification status |
 | --- | --- | --- | --- | --- | --- | --- |
+| HSC | Science | 2026–2027 | 13 | **15** (Physics 2nd Paper) | **0** | 1 subject-paper `partially_verified`, 12 `needs_verification` |
+| HSC | Humanities | 2026–2027 | 14 | **0** | **0** | `needs_verification` |
+| HSC | Business Studies | 2026–2027 | 9 | **0** | **0** | `needs_verification` |
 | SSC | Science | 2025 | 17 | **26** (Physics 14, Chemistry 12) | **0** | 2 subjects `partially_verified`, 15 `needs_verification` |
 | SSC | Humanities | 2025 | 17 | **0** | **0** | `needs_verification` |
 | SSC | Business Studies | 2025 | 16 | **0** | **0** | `needs_verification` |
-| HSC | Science | 2026–2027 | 9 | **0** | **0** | `needs_verification` |
-| HSC | Humanities | 2026–2027 | 14 | **0** | **0** | `needs_verification` |
-| HSC | Business Studies | 2026–2027 | 9 | **0** | **0** | `needs_verification` |
 
-**82 subjects, 26 chapters, 0 topics.** Two of the 82 subjects have a chapter
-list, both read from the printed সূচিপত্র of the official textbook; the other 80
-have none. No subject and no version is `verified`.
+HSC is listed first because it is the strategic priority, not because it is
+more complete — it has fewer chapters than SSC.
+
+**86 subjects, 41 chapters, 0 topics.** Three of the 86 subject-papers have a
+chapter list, each read from the printed সূচিপত্র of an official textbook; the
+other 83 have none. No subject and no version is `verified`.
 
 Every subject row carries
 `scope = 'subject_structure'`, which is a deliberately narrow claim: *these are
@@ -33,15 +41,45 @@ The curriculum is therefore **incomplete**, and the app says so on screen
 rather than in a footnote. `docs/` and the UI both refuse to call any level,
 group or year complete while chapter data is missing.
 
-## The chapter data that exists (migration 0010)
+## The chapter data that exists (migrations 0010 and 0011)
 
 | Subject | Chapters | Evidence | Status |
 | --- | --- | --- | --- |
 | SSC Science / Physics (পদার্থবিজ্ঞান) | 14 | [archive.org/details/physics-class-9-10-com-opt](https://archive.org/details/physics-class-9-10-com-opt) — scan of the printed NCTB book, Bengali OCR layer | `partially_verified` |
 | SSC Science / Chemistry (রসায়ন) | 12 | [archive.org/details/chemistry-class-9-10-com-opt](https://archive.org/details/chemistry-class-9-10-com-opt) — same imprint, same OCR pipeline | `partially_verified` |
+| HSC Science / Physics 2nd Paper | 15 | [archive.org/details/hsc-nctb-book-physics-2nd-part](https://archive.org/details/hsc-nctb-book-physics-2nd-part) — 151-page scan, ABBYY text layer, **English gloss only** | `partially_verified` |
 
-**Imprint of both scans:** প্রথম প্রকাশ সেপ্টেম্বর ২০১২ · পরিমার্জিত সংস্করণ
+**Imprint of the two SSC scans:** প্রথম প্রকাশ সেপ্টেম্বর ২০১২ · পরিমার্জিত সংস্করণ
 সেপ্টেম্বর ২০১৭ · পুনঃমুদ্রণ ২০২২.
+
+**Imprint of the HSC Physics 2nd Paper scan: unknown.** There is no legible
+imprint or copyright page in the text layer, so the edition cannot be recorded
+— which is one of the reasons that subject stays `partially_verified` rather
+than `verified`, and the reason `curriculum_sources.academic_year` reads
+`edition unknown` for it.
+
+**HSC Physics 2nd Paper chapters, exactly as stored** (the printed English gloss
+is kept in `title_en`; `title_bn` is `null` because the Bengali half of each
+title did not survive OCR and was not reconstructed):
+
+1. Electrostatics or Static Electricity
+2. Electric Current and Circuit
+3. Heating & Chemical Effect of Electric Current
+4. Magnetic Effect of Electric Current
+5. Magnetic Material Terrestrial Magnetism
+6. Electromagnetic Induction and Alternating Current
+7. Electromagnetic Wave
+8. Reflection Of light
+9. Refraction of Light
+10. Optical Instrument
+11. Wave Theory Of Light
+12. Electron And Photon
+13. Atom
+14. Electronics
+15. Theory Of Relativity And Astro Physics
+
+The chapter *numbers* and the English titles are what the book prints next to
+them; the capitalisation is the scan's, not a style guide's.
 
 **Why not `verified`.** Three reasons, each of which a person can clear:
 
@@ -59,19 +97,26 @@ group or year complete while chapter data is missing.
    | শন্তি | শক্তি | Chemistry ch. 8 |
    | বন্তুর | বস্তুর | Physics ch. 6 |
 
-**What is still missing for these two subjects:** every topic. The section
-headings (১.১, ১.২ …) live in the body of each book, not on the contents page, so
-extracting them means reading ~400 pages of OCR — a different job from this one,
-and a half-extracted topic list would be worse than an empty one.
+**What is still missing for these three subject-papers:** every topic and every
+Bengali title for HSC Physics 2nd Paper. The section headings (১.১, ১.২ …) live
+in the body of each book, not on the contents page, so extracting them means
+reading ~400 pages of OCR — a different job from this one, and a
+half-extracted topic list would be worse than an empty one.
 
 ## Subjects still awaiting a contents page
 
-78 of 80. The two that are done are listed above. The remaining SSC subjects and
-**every HSC subject** need the same single artefact: the সূচিপত্র page of the
-official book, plus its edition. The HSC gap is the harder one — no HSC Physics,
-Chemistry, Biology or elective textbook exists on the Internet Archive in a form
-this environment could read, so the HSC elective lists seeded from the curriculum
-notice stay unverified.
+**83 of 86.** The three that are done are listed above. Every remaining SSC and
+HSC subject needs the same single artefact: the সূচিপত্র page of the official
+book, plus its edition.
+
+The HSC gap is the harder one. Ten HSC Science books were searched for on the
+Internet Archive and NCTB; six items were inspected, one contents page was
+recoverable (Physics 2nd Paper). The other HSC science items are either empty
+`emptyfiles` stubs or legacy-font scans whose contents pages OCR to mojibake with
+no English gloss — see [CURRICULUM_SOURCES.md](CURRICULUM_SOURCES.md) §3 for the
+per-item result. Consequently the HSC elective lists seeded from the curriculum
+notice stay unverified, and HSC Humanities and Business Studies still have **no**
+official inventory at all beyond the seed.
 
 ## What changed in this pass
 
@@ -82,11 +127,17 @@ notice stay unverified.
 | Source registry (`curriculum_sources`) | Records what was opened and what came out of it, so "0 chapters" can be traced to a specific blocker. |
 | Outstanding requirements (`curriculum_pending_requirements`) | Separates *NCTB has not published it* from *it is published and we could not read it*. Only the second is a failure on our side. |
 | Coverage view (`curriculum_coverage`) and screen panel | Per level / group / year / subject breakdown instead of a single percentage. |
+| HSC Physics / Chemistry / Biology / Higher Mathematics split into 1st / 2nd Paper (`0011`) | HSC Science is examined as two books; a student revising ২য় পত্র could not see half of their syllabus under one flat subject. Append-only: the four existing rows keep their ids and gain `paper_label = '1st Paper'`. |
+| HSC Physics 2nd Paper chapters (`0011`) | The one HSC contents page that survived OCR. English gloss verbatim; Bengali `null`. |
+| HSC first in navigation and coverage sort (`levelRank`) | The user is an HSC student. This is presentation order only — SSC stays visible and is not filtered away. |
+| Group coverage split into verified / partly / no chapters | "0 chapters" and "chapters we could not verify" were being read as the same fact. |
 
 Paper rows: SSC 2nd-paper rows are `partially_verified` (the book is confirmed
 in the rendered 2025 list; the paper number printed on the cover was not read
-independently). HSC 2nd-paper rows are `needs_verification` because no HSC
-textbook list could be rendered here.
+independently). HSC 2nd-paper rows are `needs_verification` except Physics 2nd
+Paper, which is `partially_verified` because its contents page was read — a
+subject's paper split being inferred does not upgrade the *subject* row's
+evidence, but the row that actually has a read source says so.
 
 ## Sources accessed
 
@@ -102,6 +153,11 @@ textbook list could be rendered here.
 | National Curriculum 2012 — higher secondary | https://nctb.gov.bd/pages/files/6922dbc6933eb65569e0c702 | **Partly readable.** 43-page PDF, same encoding problem. |
 | SSC/HSC subject structure and marks | https://nctb.gov.bd/pages/static-pages/6922df50933eb65569e21292 | Cited by 0007. Not re-opened in this pass. |
 | HSC notices, 2026–27 syllabus | https://nctb.gov.bd/pages/notices/ | Cited by 0007. Not re-opened in this pass. |
+| HSC ২০২৫-২৬ textbook list | https://nctb.gov.bd/pages/static-pages/6922e145933eb65569e2b37b | **Blocked.** Table renders as an unresolved পাতা widget — navigation only. This is the document that would settle the HSC Humanities and Business Studies inventories. |
+| HSC Physics 2nd Paper textbook, printed scan | https://archive.org/details/hsc-nctb-book-physics-2nd-part | **Read.** 151 pages, ABBYY layer over a legacy font. The সূচিপত্র yields 15 numbered chapters with English glosses; Bengali titles and the imprint page are unreadable. Source of migration `0011`. |
+| HSC Biology 1st Paper textbook, printed scan | https://archive.org/details/hsc-nctb-book-biology | **Blocked.** Same legacy-font problem, no English gloss in the chapter headings; nothing imported. |
+| HSC ICT textbook, printed scan | https://archive.org/details/hsc-nctb-book-ict | **Blocked.** Legacy font, no contents page in the text layer. |
+| `hsc-nctb-book-physics` (four uploads) | https://archive.org/details/hsc-nctb-book-physics | **Unreachable.** The items contain no files at all (`emptyfiles` collection). |
 
 ### How the site became reachable
 
@@ -125,11 +181,11 @@ that would be reconstructing a page, not reading one, so those three subjects
 stay at zero chapters and need the screenshot/PDF route in
 [CURRICULUM_IMPORT.md](CURRICULUM_IMPORT.md) §6.
 
-### The Bijoy/ANSI problem (not solved, and not faked)
+### The Bijoy/ANSI problem (attempted, rejected, still not faked)
 
 Both National Curriculum PDFs are single-byte legacy encodings: the bytes are not
-Unicode, so `pdftotext` (absent here anyway) would return mojibake. The safe path,
-if someone picks this up:
+Unicode, so `pdftotext` (absent here anyway) would return mojibake. The safe path
+was:
 
 1. Convert with an off-the-shelf Bijoy→Unicode mapper, or a documented
    per-glyph mapping table — never by eyeballing the mojibake.
@@ -137,11 +193,17 @@ if someone picks this up:
    independently known (the SSC/HSC subject tables already in
    `curriculum_subjects`), and require an exact match before trusting any page
    that feeds an import.
-3. Only then read the elective tables. Until step 2 passes, the HSC elective
-   lists stay `needs_verification`, exactly as they are now.
+3. Only then read the elective tables.
 
-This was **not** attempted in this pass. The HSC elective lists are still the
-unverified 7/12/7 seed.
+**Step 1 was attempted** with the `bijoy2unicode` package. It works on clean
+Bijoy input, but on the OCR output of these scans it returns wrong words — it
+turned `c`v_©weÁvb` into পদাথির্বজ্ঞান instead of পদার্থবিজ্ঞান. Since it fails
+step 2 (no exact match against known subject names), it was **rejected as an
+evidence path** and nothing was imported through it. The Physics 2nd Paper
+migration keeps the printed English gloss and a `null` Bengali title rather than
+a guessed one. Recorded in [CURRICULUM_SOURCES.md](CURRICULUM_SOURCES.md) §4.
+
+The HSC elective lists are still the unverified seeded lists.
 
 ### Rejected sources
 
@@ -166,8 +228,9 @@ Curriculum screen.
 | SSC | 2027 | Complete subject inventory | `awaiting_publication` |
 | SSC | 2028 | Complete subject inventory | `awaiting_publication` |
 | SSC | 2029 | Complete subject inventory | `awaiting_publication` |
-| HSC | 2026–27 | Chapter and topic lists | `source_blocked` |
-| HSC | 2026–27 | Elective and optional subject lists per stream | `awaiting_source` — curriculum PDF is Bijoy-encoded |
+| HSC | 2026–27 | Chapter and topic lists (Physics 1st Paper, Chemistry, Biology, Higher Mathematics) | `source_blocked` — no readable HSC science scan |
+| HSC | 2026–27 | Bengali titles for the 15 Physics 2nd Paper chapters | `source_blocked` — legacy-font OCR, converter rejected |
+| HSC | 2026–27 | Elective and optional subject lists per stream | `source_blocked` — ২০২৫-২৬ HSC list page renders as an empty পাতা widget |
 | HSC | 2026–27 | Paper split for electives | `awaiting_source` |
 
 Years 2027–2029 are listed because they were explicitly asked for. NCTB had
@@ -189,6 +252,8 @@ survives because chapters are updated in place and never deleted.
 
 ## Related
 
+- [CURRICULUM_SOURCES.md](CURRICULUM_SOURCES.md) — the per-document source
+  matrix: what was opened, what came back, and what is still needed.
 - [CURRICULUM_IMPORT.md](CURRICULUM_IMPORT.md) — import format, validation and
   the exact SQL.
 - [VERIFICATION.md](VERIFICATION.md) §2.4 — what was executed here.

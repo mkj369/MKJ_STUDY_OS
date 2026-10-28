@@ -187,16 +187,27 @@ An OCR text layer on a scanned page is not a transcript. Four rules:
    on gaps; a gap almost always means a missed line, and it is the cheapest
    signal that the transcription is wrong.
 
-### Worked example (the two imports that exist today)
+### Worked example (the three imports that exist today)
 
 | Subject | Chapters | Source | Status |
 | --- | --- | --- | --- |
 | SSC Science / Physics | 14 | `archive.org/details/physics-class-9-10-com-opt` — 2017 revised edition, 2022 reprint | `partially_verified` |
 | SSC Science / Chemistry | 12 | `archive.org/details/chemistry-class-9-10-com-opt` — same imprint | `partially_verified` |
+| HSC Science / Physics 2nd Paper | 15 | `archive.org/details/hsc-nctb-book-physics-2nd-part` — English gloss only, edition unknown | `partially_verified` |
 
-Neither is `verified`: the scan is a 2022 reprint, the app's SSC version is
-2025, and no one has yet placed the two contents pages side by side. That
+None is `verified`: the two SSC scans are 2022 reprints of the 2017 revision
+while the app's SSC version is 2025, and nobody has yet placed the two contents
+pages side by side; the HSC scan has no legible imprint page at all. That
 comparison is the whole difference — see §5.
+
+The HSC row shows how to handle a partial read: the printed English gloss goes
+into `title`, `title_bn` stays `null`, and the row's `source_document` says why.
+Writing a Bengali title from memory would have made the import look complete
+and made the data unverifiable.
+
+Which documents were tried for the rows that are still empty is recorded per
+file in [CURRICULUM_SOURCES.md](CURRICULUM_SOURCES.md) — check it before
+re-searching for a book, so a known-dead item is not chased twice.
 
 ### Two mistakes this pipeline has already made, so you do not repeat them
 

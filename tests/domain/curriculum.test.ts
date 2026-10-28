@@ -167,15 +167,15 @@ describe('shipped official data holds the line on verification', () => {
     expect(OFFICIAL_VERSIONS.every((v) => v.verification_status === 'needs_verification')).toBe(true);
     expect(OFFICIAL_VERSIONS.every((v) => v.scope === 'subject_structure')).toBe(true);
 
-    // Two subjects have a chapter list, read from the printed contents page of
-    // the official textbook. Nothing else may appear out of nowhere.
-    expect(OFFICIAL_CURRICULUM.chapters).toHaveLength(26);
+    // Three subjects have a chapter list, each read from the printed contents
+    // page of the official textbook. Nothing else may appear out of nowhere.
+    expect(OFFICIAL_CURRICULUM.chapters).toHaveLength(41);
     for (const chapter of OFFICIAL_CURRICULUM.chapters) {
       expect(chapter.source_url).toBeTruthy();
       expect(chapter.source_document).toContain('সূচিপত্র');
       expect(chapter.verification_status).not.toBe('verified');
     }
-    expect(new Set(OFFICIAL_CURRICULUM.chapters.map((c) => c.curriculum_subject_id)).size).toBe(2);
+    expect(new Set(OFFICIAL_CURRICULUM.chapters.map((c) => c.curriculum_subject_id)).size).toBe(3);
   });
 
   it('allows only needs_verification or partially_verified for shipped subjects', () => {
@@ -237,6 +237,11 @@ describe('shipped official data holds the line on verification', () => {
       expect(url).toMatch(allowed);
     }
     const scanned = OFFICIAL_SUBJECTS.filter((s) => s.source_url?.startsWith('https://archive.org/'));
-    expect(scanned.map((s) => s.name).sort()).toEqual(['Chemistry', 'Physics']);
+    // SSC Chemistry, SSC Physics, and HSC Physics 2nd Paper.
+    expect(scanned.map((s) => `${s.name} ${s.paper_label ?? ''}`.trim()).sort()).toEqual([
+      'Chemistry',
+      'Physics',
+      'Physics 2nd Paper',
+    ]);
   });
 });

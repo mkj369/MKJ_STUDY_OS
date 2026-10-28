@@ -174,6 +174,28 @@ describe('groupCoverage', () => {
     expect(groups[0]?.subjects).toBe(0);
   });
 
+  it('splits the subject count into verified / partly / none without losing anyone', () => {
+    const versions = [version()];
+    const subjects = [
+      subject('Physics', 'v1'),
+      subject('Chemistry', 'v1'),
+      subject('Biology', 'v1'),
+    ];
+    const chapters = [
+      chapter('c1', 'Physics', 'verified'),
+      chapter('c2', 'Chemistry', 'partially_verified'),
+    ];
+    const groups = groupCoverage(versions, subjectCoverage(versions, subjects, chapters));
+    const row = groups[0];
+    expect(row?.verified_subjects).toBe(1);
+    expect(row?.partial_subjects).toBe(1);
+    expect(row?.missing_subjects).toBe(1);
+    // The three columns the UI shows must always account for every subject.
+    expect(
+      (row?.verified_subjects ?? 0) + (row?.partial_subjects ?? 0) + (row?.missing_subjects ?? 0),
+    ).toBe(row?.subjects);
+  });
+
   it('reports partial while any subject still has no chapters', () => {
     const versions = [version()];
     const subjects = [subject('Physics', 'v1'), subject('Chemistry', 'v1')];

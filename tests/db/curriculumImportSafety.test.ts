@@ -188,7 +188,7 @@ describe('curriculum import safety', () => {
     // covers two subjects out of 80 and the report says so rather than rounding
     // the gap away.
     expect(row!.subjects).toBeGreaterThan(70);
-    expect(row!.with_chapters).toBe(2);
-    expect(row!.chapters).toBe(26);
+    expect(row!.with_chapters).toBe(3);
+    expect(row!.chapters).toBe(41);
   });
 });

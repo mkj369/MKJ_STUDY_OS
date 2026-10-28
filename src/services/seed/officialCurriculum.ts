@@ -98,10 +98,10 @@ const HSC_COMMON: SubjectSeed[] = [
 
 const HSC_GROUPS: Record<Group, SubjectSeed[]> = {
   Science: [
-    { name: 'Physics', name_bn: 'পদার্থবিজ্ঞান', compulsory: false },
-    { name: 'Chemistry', name_bn: 'রসায়ন', compulsory: false },
-    { name: 'Biology', name_bn: 'জীববিজ্ঞান', compulsory: false },
-    { name: 'Higher Mathematics', name_bn: 'উচ্চতর গণিত', compulsory: false },
+    { name: 'Physics', name_bn: 'পদার্থবিজ্ঞান', compulsory: false, paper: '1st Paper' },
+    { name: 'Chemistry', name_bn: 'রসায়ন', compulsory: false, paper: '1st Paper' },
+    { name: 'Biology', name_bn: 'জীববিজ্ঞান', compulsory: false, paper: '1st Paper' },
+    { name: 'Higher Mathematics', name_bn: 'উচ্চতর গণিত', compulsory: false, paper: '1st Paper' },
   ],
   Humanities: [
     { name: 'History', name_bn: 'ইতিহাস', compulsory: false },
@@ -134,6 +134,19 @@ const HSC_GROUPS: Record<Group, SubjectSeed[]> = {
 const PAPER_TWO: SubjectSeed[] = [
   { name: 'Bangla', name_bn: 'বাংলা', compulsory: true, paper: '2nd Paper' },
   { name: 'English', name_bn: 'ইংরেজি', compulsory: true, paper: '2nd Paper' },
+];
+
+/**
+ * HSC Science is examined as two books per subject — ১ম পত্র and ২য় পত্র — so a
+ * single flat "Physics" row hid half the syllabus from the student this app is
+ * for. Appended rather than inserted, for the same reason as `PAPER_TWO`: the
+ * four existing rows keep their ids and only gain `paper_label`.
+ */
+const HSC_PAPER_TWO: SubjectSeed[] = [
+  { name: 'Physics', name_bn: 'পদার্থবিজ্ঞান', compulsory: false, paper: '2nd Paper' },
+  { name: 'Chemistry', name_bn: 'রসায়ন', compulsory: false, paper: '2nd Paper' },
+  { name: 'Biology', name_bn: 'জীববিজ্ঞান', compulsory: false, paper: '2nd Paper' },
+  { name: 'Higher Mathematics', name_bn: 'উচ্চতর গণিত', compulsory: false, paper: '2nd Paper' },
 ];
 
 /** Named artefacts recorded in `source_document` for the paper-split rows. */
@@ -229,6 +242,32 @@ const CHAPTER_SOURCES: Record<string, ChapterSource> = {
       'জীবন বাঁচাতে পদার্থবিজ্ঞান',
     ],
   },
+  'HSC/Physics 2nd Paper': {
+    prefix: 3,
+    url: 'https://archive.org/details/hsc-nctb-book-physics-2nd-part',
+    document:
+      'NCTB HSC পদার্থবিজ্ঞান ২য় পত্র — সূচিপত্র (OCR; Bengali glyphs unreadable, printed English gloss recorded)',
+    // Reproduced exactly as the printed contents page reads, including its
+    // own capitalisation and its missing "and" in chapter 5. The Bengali half
+    // of each title is not recoverable from this scan and is left null.
+    titles: [
+      'Electrostatics or Static Electricity',
+      'Electric Current and Circuit',
+      'Heating & Chemical Effect of Electric Current',
+      'Magnetic Effect of Electric Current',
+      'Magnetic Material Terrestrial Magnetism',
+      'Electromagnetic Induction and Alternating Current',
+      'Electromagnetic Wave',
+      'Reflection Of light',
+      'Refraction of Light',
+      'Optical Instrument',
+      'Wave Theory Of Light',
+      'Electron And Photon',
+      'Atom',
+      'Electronics',
+      'Theory Of Relativity And Astro Physics',
+    ],
+  },
   'SSC/Chemistry': {
     prefix: 2,
     url: 'https://archive.org/details/chemistry-class-9-10-com-opt',
@@ -286,6 +325,7 @@ export const OFFICIAL_SUBJECTS: CurriculumSubject[] = (['SSC', 'HSC'] as Level[]
       ...(level === 'SSC' ? SSC_COMMON : HSC_COMMON),
       ...(level === 'SSC' ? SSC_GROUPS : HSC_GROUPS)[group],
       ...PAPER_TWO,
+      ...(level === 'HSC' && group === 'Science' ? HSC_PAPER_TWO : []),
     ];
     return seeds.map((seed, index) => {
       const isPaperTwo = seed.paper === '2nd Paper';

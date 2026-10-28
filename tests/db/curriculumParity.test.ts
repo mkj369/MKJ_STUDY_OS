@@ -188,7 +188,7 @@ describe('official curriculum seed', () => {
          join curriculum_versions v on v.id = s.curriculum_version_id
         where not v.is_demo`,
     );
-    expect(subjects_with_chapters).toBe(2);
+    expect(subjects_with_chapters).toBe(3);
   });
 
   it('never marks an official row verified while chapters are missing', async () => {
@@ -284,22 +284,23 @@ describe('official curriculum seed', () => {
          from curriculum_pending_requirements
         order by education_level, academic_year, stream, requirement`,
     );
-    const expectedRequirements = [...PENDING_REQUIREMENTS]
-      .map((r) => ({
-        education_level: r.education_level,
-        academic_year: r.academic_year,
-        stream: r.stream,
-        requirement: r.requirement,
-        status: r.status,
-      }))
-      .sort(
-        (a, b) =>
-          a.education_level.localeCompare(b.education_level) ||
-          a.academic_year.localeCompare(b.academic_year) ||
-          a.stream.localeCompare(b.stream) ||
-          a.requirement.localeCompare(b.requirement),
-      );
-    expect(requirements).toEqual(expectedRequirements);
+    const expectedRequirements = [...PENDING_REQUIREMENTS].map((r) => ({
+      education_level: r.education_level,
+      academic_year: r.academic_year,
+      stream: r.stream,
+      requirement: r.requirement,
+      status: r.status,
+    }));
+    /*
+     * Compare as sets, not sequences. Postgres orders `Science` before `all`
+     * (byte order), while localeCompare puts `all` first — an irrelevant
+     * difference that made this test fail the moment a stream-specific
+     * requirement existed. What matters is that the same rows exist on both
+     * sides, not the order they come back in.
+     */
+    const byKey = (a: (typeof expectedRequirements)[number], b: (typeof expectedRequirements)[number]) =>
+      JSON.stringify(a).localeCompare(JSON.stringify(b));
+    expect([...requirements].sort(byKey)).toEqual(expectedRequirements.sort(byKey));
   });
 
   it('is idempotent: re-running the inventory migration creates no duplicates', async () => {

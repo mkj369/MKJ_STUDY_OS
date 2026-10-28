@@ -100,8 +100,9 @@ export function CoveragePanel({
     >
       <div className="stack">
         <p className="tiny muted" style={{ marginBottom: 0 }}>
-          Official NCTB versions only. The demo curriculum is listed separately with its own Demo badge and is
-          not counted here.
+          Official NCTB versions only, HSC first. The demo curriculum is listed separately with its own Demo
+          badge and is not counted here. Being listed first is only about reading order — it is not a claim
+          that HSC is complete.
         </p>
         <div className="row">
           <Badge tone="neutral">{totals.versions} version(s)</Badge>
@@ -124,7 +125,8 @@ export function CoveragePanel({
         <div className="table-scroll">
           <table className="data-table">
             <caption className="tiny muted" style={{ captionSide: 'top', textAlign: 'left', paddingBottom: 6 }}>
-              Coverage per level, group and academic year
+              Coverage per level, group and academic year. Verified / partly / no chapters split the
+              subject count three ways; they always add up to the subject total.
             </caption>
             <thead>
               <tr>
@@ -132,7 +134,9 @@ export function CoveragePanel({
                 <th scope="col">Group</th>
                 <th scope="col">Year</th>
                 <th scope="col">Subjects</th>
-                <th scope="col">With chapters</th>
+                <th scope="col">Verified</th>
+                <th scope="col">Partly</th>
+                <th scope="col">No chapters</th>
                 <th scope="col">Chapters</th>
                 <th scope="col">Topics</th>
                 <th scope="col">State</th>
@@ -145,7 +149,9 @@ export function CoveragePanel({
                   <td>{group.stream}</td>
                   <td>{group.academic_year}</td>
                   <td>{group.subjects}</td>
-                  <td>{group.subjects_with_chapters}</td>
+                  <td>{group.verified_subjects}</td>
+                  <td>{group.partial_subjects}</td>
+                  <td>{group.missing_subjects}</td>
                   <td>{group.chapters}</td>
                   <td>{group.topics}</td>
                   <td>

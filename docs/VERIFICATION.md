@@ -19,21 +19,21 @@ npm ci                      # 397 packages, lockfile respected
 npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
 npm run build               # tsc -b && vite build    -> built in 5.49s
-npx vitest run              # 42 files, 480 tests passed
-npx playwright test         # 39 tests passed (Chromium, production bundle)
+npx vitest run              # 42 files, 486 tests passed
+npx playwright test         # 40 tests passed (Chromium, production bundle)
 ```
 
 `npm run verify` runs typecheck → lint → build → `vitest run`. Build before tests
 matters: `tests/bundle/secrets.test.ts` skips four assertions when `dist/` is absent,
 because it greps the real bundle for leaked keys. Without a build you get
-`469 passed | 4 skipped` — not a failure, but it has not checked the secrets.
+`481 passed | 4 skipped` — not a failure, but it has not checked the secrets.
 
-### Test suite composition (480)
+### Test suite composition (486)
 
 | Area | Files | What it proves |
 | --- | --- | --- |
-| `tests/domain` | 19 | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, per-level/group coverage maths, official-import validation and idempotency planning, AI payload keys, and the shipped chapter rows (26, every one sourced, none `verified`) |
-| `tests/db` | 6 | Migrations `0001`–`0010` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin **chapter for chapter**, a student chapter keeps its link through a reseed, the import guarantees hold (duplicate chapter numbers rejected, `verified` without a source rejected, progress preserved across two re-imports), and the real import is asserted: 14 Physics + 12 Chemistry chapters, numbering 1…n with no gaps, `partially_verified`, source named, zero topics invented |
+| `tests/domain` | 19 | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, per-level/group coverage maths, official-import validation and idempotency planning, AI payload keys, and the shipped chapter rows (41, every one sourced, none `verified`) |
+| `tests/db` | 6 | Migrations `0001`–`0011` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin **chapter for chapter**, a student chapter keeps its link through a reseed, the import guarantees hold (duplicate chapter numbers rejected, `verified` without a source rejected, progress preserved across two re-imports), and the real imports are asserted: 14 SSC Physics + 12 SSC Chemistry + 15 HSC Physics 2nd Paper chapters, numbering 1…n with no gaps, `partially_verified`, source named, `title_bn` null where the scan could not supply it, zero topics invented |
 | `tests/integration` | — | Local repository behaviour: per-user isolation, history-safe deletes, curriculum seed reruns leaving progress and notes untouched |
 | `tests/ui` | — | jsdom rendering of shared components and pages, single `<h1>` per route |
 | `tests/bundle` | 1 | No service-role key or AI provider key in the built assets |
@@ -56,7 +56,12 @@ because it greps the real bundle for leaked keys. Without a build you get
 
 Journey C now asserts the imported data end-to-end: filtering SSC/Science by `পদার্থ`
 surfaces Physics with "Chapter list partly recorded", "14 chapter row(s)", and the page
-reports 26 chapters of which 0 are verified.
+reports 41 chapters of which 0 are verified.
+
+Journey C3 asserts the HSC-first ordering and the paper split: the Level filter offers
+`All levels, HSC, SSC` in that order, the group table starts with HSC and carries the
+VERIFIED / PARTLY / NO CHAPTERS columns, and per-subject coverage shows
+`Physics · 2nd Paper · 15` beside `Physics · 1st Paper · No chapter list yet`.
 
 A separate scripted session (Chromium, local workspace, not part of CI) walked the new
 coverage → syllabus path: add SSC Physics from the coverage table, land on Subjects &
@@ -146,11 +151,18 @@ with a Tesseract Bengali OCR text layer, and their সূচিপত্র page
 imported (migration `0010`): SSC Physics, 14 chapters, and SSC Chemistry, 12 chapters,
 both `partially_verified` from 2022 reprints of the 2017-revised books.
 
-The remaining blocker is narrower than before but still real: 80 of 82 subjects have no
-readable contents page here, **no HSC textbook** exists on the Internet Archive in a
-readable form, and nothing at all exists for topic-level breakdowns. The scanned books
-are photographed editions, not the 2025 files, which is exactly why the two imports stop
-at `partially_verified`.
+**Superseded again, same day.** One HSC contents page was recoverable — Physics 2nd
+Paper, 15 chapters, English gloss only (migration `0011`). Six HSC archive.org items were
+inspected in total: one readable, two legacy-font scans with no English gloss, three
+empty or unreachable. The HSC ২০২৫-২৬ textbook list, which is the authority for the HSC
+inventory and electives, renders as an unresolved পাতা widget over both a direct fetch
+and a rendering proxy.
+
+The remaining blocker is narrower than before but still real: 83 of 86 subjects have no
+readable contents page here, no readable HSC Physics 1st Paper / Chemistry / Biology /
+Higher Mathematics textbook exists on the Internet Archive, and nothing at all exists
+for topic-level breakdowns. The scanned books are photographed editions, not the 2025
+files, which is exactly why every import stops at `partially_verified`.
 
 ```bash
 # what did work: read the OCR text layer of a scanned printed copy

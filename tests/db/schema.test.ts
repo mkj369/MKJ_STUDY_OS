@@ -186,8 +186,8 @@ describe('migrations apply cleanly', () => {
          join curriculum_versions v on v.id = s.curriculum_version_id
         where not v.is_demo`,
     );
-    expect(officialChapters[0]?.n).toBe(26);
-    expect(officialChapters[0]?.sourced).toBe(26);
+    expect(officialChapters[0]?.n).toBe(41);
+    expect(officialChapters[0]?.sourced).toBe(41);
     // OCR scans of 2022 reprints are evidence, not confirmation.
     expect(officialChapters[0]?.verified).toBe(0);
   });

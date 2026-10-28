@@ -193,3 +193,105 @@ describe('re-running the import', () => {
     await exec(`select set_config('request.jwt.claim.sub', '', false)`);
   });
 });
+
+/**
+ * HSC first. The person using this app is an HSC student, so the HSC Science
+ * split and the one HSC contents page that survived get their own assertions.
+ *
+ * The Physics 2nd Paper titles are English glosses transcribed from the printed
+ * সূচিপত্র of the official book. Its Bengali half is unrecoverable — the scan
+ * was OCRed over a legacy single-byte font — so `title_bn` must stay null.
+ * A test that quietly filled those in would be inventing a syllabus.
+ */
+const HSC_SCIENCE_VERSION = 'a0000000-0000-4000-8000-000000000021';
+const HSC_PHYSICS_2 = 'a0000000-0000-4000-8000-000000002110';
+
+describe('HSC Science two-paper structure', () => {
+  it('splits every HSC Science subject into 1st and 2nd Paper', async () => {
+    const papers = await rows<{ name: string; paper_label: string | null }>(
+      `select name, paper_label from public.curriculum_subjects
+        where curriculum_version_id = '${HSC_SCIENCE_VERSION}'
+          and name in ('Physics', 'Chemistry', 'Biology', 'Higher Mathematics')
+        order by name, paper_label`,
+    );
+
+    expect(papers.map((p) => `${p.name}:${p.paper_label}`)).toEqual([
+      'Biology:1st Paper',
+      'Biology:2nd Paper',
+      'Chemistry:1st Paper',
+      'Chemistry:2nd Paper',
+      'Higher Mathematics:1st Paper',
+      'Higher Mathematics:2nd Paper',
+      'Physics:1st Paper',
+      'Physics:2nd Paper',
+    ]);
+  });
+
+  it('keeps the original four subject ids so adopted subjects are not orphaned', async () => {
+    // These ids existed before the split and must still resolve to the same
+    // subject; migration 0011 only adds a paper label to them.
+    const originals = await rows<{ id: string; paper_label: string | null }>(
+      `select id, paper_label from public.curriculum_subjects
+        where id in ('a0000000-0000-4000-8000-000000002104',
+                     'a0000000-0000-4000-8000-000000002105',
+                     'a0000000-0000-4000-8000-000000002106',
+                     'a0000000-0000-4000-8000-000000002107')
+        order by id`,
+    );
+    expect(originals).toHaveLength(4);
+    expect(originals.every((row) => row.paper_label === '1st Paper')).toBe(true);
+  });
+});
+
+describe('HSC Physics 2nd Paper chapters', () => {
+  it('stores the 15 chapters exactly as the printed contents page reads', async () => {
+    const chapters = await rows<{ chapter_number: string; title: string; title_bn: string | null }>(
+      `select chapter_number, title, title_bn from public.curriculum_chapters
+        where curriculum_subject_id = '${HSC_PHYSICS_2}'
+        order by sort_order`,
+    );
+
+    expect(chapters.map((c) => c.chapter_number)).toEqual(
+      Array.from({ length: 15 }, (_, i) => String(i + 1)),
+    );
+    expect(chapters[0]?.title).toBe('Electrostatics or Static Electricity');
+    expect(chapters[6]?.title).toBe('Electromagnetic Wave');
+    expect(chapters[14]?.title).toBe('Theory Of Relativity And Astro Physics');
+    // Not one Bengali title was invented to fill the gap.
+    expect(chapters.every((c) => c.title_bn === null)).toBe(true);
+  });
+
+  it('is partially_verified with its OCR limitation recorded, never verified', async () => {
+    const chapters = await rows<{ verification_status: string; source_document: string }>(
+      `select verification_status, source_document from public.curriculum_chapters
+        where curriculum_subject_id = '${HSC_PHYSICS_2}'`,
+    );
+    expect(chapters).toHaveLength(15);
+    for (const chapter of chapters) {
+      expect(chapter.verification_status).toBe('partially_verified');
+      expect(chapter.source_document).toMatch(/সূচিপত্র/);
+    }
+
+    const [subject] = await rows<{ verification_status: string }>(
+      `select verification_status from public.curriculum_subjects where id = '${HSC_PHYSICS_2}'`,
+    );
+    expect(subject?.verification_status).toBe('partially_verified');
+  });
+
+  it('leaves the three unsourced HSC Science second papers empty', async () => {
+    const empty = await rows<{ name: string; chapters: number }>(
+      `select s.name, count(c.id)::int as chapters
+         from public.curriculum_subjects s
+         left join public.curriculum_chapters c on c.curriculum_subject_id = s.id
+        where s.id in ('a0000000-0000-4000-8000-000000002111',
+                       'a0000000-0000-4000-8000-000000002112',
+                       'a0000000-0000-4000-8000-000000002113')
+        group by s.name order by s.name`,
+    );
+    expect(empty.map((row) => `${row.name}:${row.chapters}`)).toEqual([
+      'Biology:0',
+      'Chemistry:0',
+      'Higher Mathematics:0',
+    ]);
+  });
+});

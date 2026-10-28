@@ -9,6 +9,7 @@ import { userChapterSchema, userTopicSchema, type ChapterFormValues, type UserTo
 import { TOPIC_STATUS_LABELS, estimateCompletion } from '@/domain/syllabus';
 import { TOPIC_STATUSES, type TopicStatus, type UserTopic } from '@/types/domain';
 import { levelOptions, yearOptions } from '@/domain/curriculum';
+import { levelRank } from '@/domain/curriculumCoverage';
 import { errorMessage } from '@/utils/errors';
 
 function statusTone(status: TopicStatus) {
@@ -174,8 +175,8 @@ function SyllabusContent() {
                 setVersionId('');
               }}
             >
-              <option value="">SSC and HSC</option>
-              {levels.map((value) => (
+              <option value="">HSC and SSC</option>
+              {[...levels].sort((a, b) => levelRank(a) - levelRank(b)).map((value) => (
                 <option key={value} value={value}>
                   {value}
                 </option>

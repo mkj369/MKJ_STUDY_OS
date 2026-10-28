@@ -7,6 +7,7 @@
  * how an unverified subject structure ends up looking like a finished syllabus.
  */
 import type { CurriculumChapter, CurriculumScope, CurriculumSubject, CurriculumVersion } from '@/types/domain';
+import { levelRank } from '@/domain/curriculumCoverage';
 
 export interface CurriculumFilters {
   level: string;
@@ -22,8 +23,15 @@ function sortedUnique(values: Array<string | null>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value)))].sort();
 }
 
+/**
+ * HSC first. This app's owner sits HSC, and an alphabetical sort buried the
+ * level they are examined on underneath one they have finished. SSC is still
+ * listed — second, not hidden.
+ */
 export function levelOptions(versions: CurriculumVersion[]): string[] {
-  return sortedUnique(versions.map((version) => version.education_level));
+  return sortedUnique(versions.map((version) => version.education_level)).sort(
+    (a, b) => levelRank(a) - levelRank(b) || a.localeCompare(b),
+  );
 }
 
 export function yearOptions(versions: CurriculumVersion[], level = ''): string[] {

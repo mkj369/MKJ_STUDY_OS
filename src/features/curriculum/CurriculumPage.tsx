@@ -8,6 +8,7 @@ import { useAuth } from '@/app/AppProviders';
 import { Badge, DemoBadge, EmptyState, Notice, PageHeader, SectionCard } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { CoveragePanel } from '@/features/curriculum/CoveragePanel';
+import { levelRank } from '@/domain/curriculumCoverage';
 import { FormError } from '@/components/ui/Form';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { userSubjectSchema, type SubjectFormValues } from '@/domain/schemas';
@@ -59,10 +60,12 @@ function CurriculumContent() {
 
   const versions = useMemo(() => {
     if (!bundle) return [];
+    // Demo versions last, then HSC before SSC — this student sits HSC, and the
+    // level they are examined on should not be below a level they finished.
     return [...bundle.curriculum.versions].sort(
       (a, b) =>
         Number(a.is_demo) - Number(b.is_demo) ||
-        a.education_level.localeCompare(b.education_level) ||
+        levelRank(a.education_level) - levelRank(b.education_level) ||
         (a.stream ?? '').localeCompare(b.stream ?? ''),
     );
   }, [bundle]);
@@ -91,6 +94,34 @@ function CurriculumContent() {
   );
 
   if (!bundle || !view) return null;
+
+  /*
+   * Official (non-demo) subjects that actually carry a chapter list, plus the
+   * official subject total. Plain values, not `useMemo`: this sits after an
+   * early return, and a hook here would run in a different order on the first
+   * render than on later ones.
+   */
+  const demoVersionIds = new Set(
+    bundle.curriculum.versions.filter((version) => version.is_demo).map((version) => version.id),
+  );
+  const officialSubjects = bundle.curriculum.subjects.filter(
+    (subject) => !demoVersionIds.has(subject.curriculum_version_id),
+  );
+  const chaptersBySubject = new Map<string, number>();
+  for (const chapter of bundle.curriculum.chapters) {
+    chaptersBySubject.set(
+      chapter.curriculum_subject_id,
+      (chaptersBySubject.get(chapter.curriculum_subject_id) ?? 0) + 1,
+    );
+  }
+  const sourcedSubjects = officialSubjects
+    .filter((subject) => (chaptersBySubject.get(subject.id) ?? 0) > 0)
+    .map((subject) => ({
+      label: `${subject.name}${subject.paper_label ? ` ${subject.paper_label}` : ''}`,
+      chapters: chaptersBySubject.get(subject.id) ?? 0,
+    }))
+    .sort((a, b) => b.chapters - a.chapters);
+  const officialSubjectCount = officialSubjects.length;
 
   const adoptedCurriculumSubjectIds = new Set(
     bundle.subjects.map((s) => s.curriculum_subject_id).filter((id): id is string => Boolean(id)),
@@ -292,14 +323,23 @@ function CurriculumContent() {
         }
       />
 
+      {/*
+        The numbers in this notice are computed from the loaded data, not typed
+        into the sentence. Two earlier versions of this copy went stale the
+        moment an import landed — a warning that overstates (or understates) the
+        gap is exactly the failure it exists to prevent.
+      */}
       <Notice tone="warn" title="No fabricated syllabus.">
-        Curriculum rows carry their authority, academic year, version and verification status. The SSC/HSC
-        subject lists below come from the official NCTB subject structure. <strong>Two subjects have a
-        chapter list</strong> — SSC Physics (14) and SSC Chemistry (12) — read from the printed সূচিপত্র of
-        the official textbooks and marked <em>partially verified</em>: the scans are 2022 reprints and the
-        2025 editions have not been compared. The other 80 subjects have <strong>no chapters and no
-        topics</strong>, and nothing is invented to fill the gap. The demo version is placeholder structure
-        only.
+        Curriculum rows carry their authority, academic year, version and verification status. The subject
+        lists below come from the official NCTB subject structure.{' '}
+        <strong>
+          {sourcedSubjects.length} of {officialSubjectCount} subjects have a chapter list
+        </strong>{' '}
+        ({sourcedSubjects.map((entry) => `${entry.label} (${entry.chapters})`).join(', ')}), each read from a
+        printed textbook contents page and marked <em>partially verified</em> — every one still has a named
+        limitation, so none is verified. The other {officialSubjectCount - sourcedSubjects.length} subjects have{' '}
+        <strong>no chapters and no topics</strong>, and nothing is invented to fill the gap. The demo version
+        is placeholder structure only.
       </Notice>
 
       <CoveragePanel

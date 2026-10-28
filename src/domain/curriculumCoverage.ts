@@ -26,6 +26,24 @@ import type {
 } from '@/types/domain';
 
 /* -------------------------------------------------------------------------- */
+/* Ordering                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * HSC leads.
+ *
+ * This app is used by an HSC student, so the level they are actually sitting
+ * should not be buried under SSC in every list. SSC is still shown in full —
+ * sorted second, never hidden. Nothing else about the reports changes: a level
+ * being *first* says nothing about it being *complete*.
+ */
+export function levelRank(level: string): number {
+  if (level === 'HSC') return 0;
+  if (level === 'SSC') return 1;
+  return 2;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Per-subject                                                                */
 /* -------------------------------------------------------------------------- */
 
@@ -136,7 +154,7 @@ export function subjectCoverage(
   }
   return rows.sort(
     (a, b) =>
-      a.education_level.localeCompare(b.education_level) ||
+      levelRank(a.education_level) - levelRank(b.education_level) ||
       a.stream.localeCompare(b.stream) ||
       a.academic_year.localeCompare(b.academic_year) ||
       a.name.localeCompare(b.name) ||
@@ -170,6 +188,12 @@ export interface GroupCoverage {
   subjects: number;
   compulsory_subjects: number;
   subjects_with_chapters: number;
+  /** Subjects whose chapter list is verified in full. */
+  verified_subjects: number;
+  /** Subjects with a chapter list, short of verified (e.g. OCR-sourced). */
+  partial_subjects: number;
+  /** Subjects with no chapter list at all — the honest gap count. */
+  missing_subjects: number;
   chapters: number;
   verified_chapters: number;
   partial_chapters: number;
@@ -211,6 +235,11 @@ export function groupCoverage(
         subjects: own.length,
         compulsory_subjects: own.filter((row) => row.is_compulsory).length,
         subjects_with_chapters: subjectsWithChapters,
+        verified_subjects: own.filter((row) => row.chapter_state === 'verified').length,
+        partial_subjects: own.filter(
+          (row) => row.chapter_state === 'partially_verified' || row.chapter_state === 'unverified',
+        ).length,
+        missing_subjects: own.filter((row) => row.chapter_state === 'none').length,
         chapters,
         verified_chapters: verified,
         partial_chapters: own.reduce((total, row) => total + row.partial_chapters, 0),
@@ -226,7 +255,7 @@ export function groupCoverage(
     })
     .sort(
       (a, b) =>
-        a.education_level.localeCompare(b.education_level) ||
+        levelRank(a.education_level) - levelRank(b.education_level) ||
         a.stream.localeCompare(b.stream) ||
         a.academic_year.localeCompare(b.academic_year),
     );

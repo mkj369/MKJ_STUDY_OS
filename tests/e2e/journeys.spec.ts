@@ -227,9 +227,9 @@ test('journey C: curriculum filters narrow by SSC/HSC, group and Bangla subject 
   await expect(main.getByText('Physics · পদার্থবিজ্ঞান').first()).toBeVisible();
   await expect(main.getByText('Chapter list partly recorded').first()).toBeVisible();
   await expect(main.getByText('14 chapter row(s)').first()).toBeVisible();
-  // The page reports the whole truth, not just the good half: 26 chapter rows
+  // The page reports the whole truth, not just the good half: 41 chapter rows
   // exist across the whole curriculum, and not one of them is verified.
-  await expect(main.getByText('26 chapter(s)', { exact: true }).first()).toBeVisible();
+  await expect(main.getByText('41 chapter(s)', { exact: true }).first()).toBeVisible();
   await expect(main.getByText('0 verified chapter(s)', { exact: true }).first()).toBeVisible();
 
   // Filtering never deletes or hides the user's own records.
@@ -259,4 +259,46 @@ test('journey C2: a modelled chapter keeps its status when the curriculum seed r
   await expect(page.getByRole('main').getByText(/Chapter list not yet verified/).first()).toBeVisible({
     timeout: 20_000,
   });
+});
+
+test('journey C3: HSC leads, and the coverage report counts papers separately', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+    timeout: 20_000,
+  });
+  const main = page.getByRole('main');
+
+  // The notice is computed from the data, not typed into the sentence: it must
+  // agree with the badges next to it.
+  await expect(main.getByText(/3 of 86 subjects have a chapter list/)).toBeVisible();
+  await expect(main.getByText('41 chapter(s)', { exact: true }).first()).toBeVisible();
+  await expect(main.getByText('0 verified chapter(s)', { exact: true }).first()).toBeVisible();
+
+  // HSC comes first in the level filter and in the group table — but SSC is
+  // still present, not hidden behind it.
+  //
+  // Address the control by role, not getByLabel: the wrapping <label> also
+  // contains the <option> texts, so its label string is "Level All levels HSC
+  // SSC" and getByLabel('Level', { exact: true }) matches nothing.
+  const levelSelect = main.getByRole('combobox', { name: 'Level', exact: true });
+  await expect(levelSelect).toBeVisible({ timeout: 15_000 });
+  const levelOptions = await levelSelect
+    .locator('option')
+    .evaluateAll((options) => options.map((option) => option.textContent ?? ''));
+  expect(levelOptions.findIndex((text) => text.includes('HSC'))).toBeLessThan(
+    levelOptions.findIndex((text) => text.includes('SSC')),
+  );
+
+  const groupTable = main.locator('table').first();
+  const firstGroupRow = await groupTable.locator('tbody tr').first().innerText();
+  expect(firstGroupRow).toContain('HSC');
+  // toContainText is case-sensitive on textContent; the CSS uppercases it.
+  await expect(groupTable.locator('thead')).toContainText(/no chapters/i);
+
+  // HSC Physics is two subjects, and only 2nd Paper has a chapter list.
+  await page.getByRole('button', { name: /show per-subject coverage/i }).click();
+  const physicsRows = main.locator('tbody tr').filter({ hasText: 'Physics' });
+  await expect(physicsRows.filter({ hasText: '2nd Paper' }).first()).toContainText('15');
+  await expect(physicsRows.filter({ hasText: '1st Paper' }).first()).toContainText('No chapter list yet');
 });
