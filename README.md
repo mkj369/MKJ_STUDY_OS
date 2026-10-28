@@ -32,13 +32,15 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Data layer: local demo repository | **Integration-tested**, including cross-workspace isolation |
 | Data layer: Supabase repository | **Written** — cloud mode has never been executed against a real project |
 | Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
-| Screens: 27 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
+| Screens: 28 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
-| Postgres schema + RLS (`0001`–`0005`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
+| Postgres schema + RLS (`0001`–`0007`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
 | AI narrative Edge Function | **Unit-tested end-to-end with a stubbed provider** (16 tests: request shape, key handling, schema + invented-number rejection, timeout/5xx/401 mapping); **no live call** — no key, provider hosts unreachable |
 | Android (Capacitor 7) | `android/` project generated, plugin synced, 8 config assertions pass; **APK not built** (no JDK/SDK), **no device test** |
 | Demo curriculum | **Placeholder**, `needs_verification`, **not** official NCTB content |
+| Official SSC/HSC subject structure | **Sourced and seeded** (NCTB, 6 versions, 70 subjects, bilingual names), every row `needs_verification`; chapters **absent**, not invented — see [docs/CURRICULUM.md](docs/CURRICULUM.md) |
+| Curriculum progress safety | **Integration- and DB-tested**: a reseed created no duplicates and left chapter status, checklist ticks, notes and curriculum links intact |
 | Export / backup | **Browser-tested** (JSON download contains real rows); restore is **not implemented** |
 | Secret handling | **Verified against the built bundle** (`tests/bundle/secrets.test.ts`): no service-role key, provider key or key header ships to the client |
 | Loading / empty / error / retry states | **Browser- and jsdom-tested** on gated pages; every page has a written empty state |
@@ -504,8 +506,8 @@ no JDK, no Android SDK, and `services.gradle.org` / `dl.google.com` / Maven host
 unreachable, so `gradlew assembleDebug` was never run and no APK exists in this repository.
 `npm run android:preflight` reproduces that verdict in one command. Reminders use inexact
 alarms unless the user grants exact-alarm access — untested on hardware. See
-[docs/ANDROID_APK.md](docs/ANDROID_APK.md) for the build and install steps and
-[docs/VERIFICATION.md](docs/VERIFICATION.md) §2.3 for the device checklist.
+[docs/ANDROID_APK.md](docs/ANDROID_APK.md) for the build and install steps and the
+device checklist in [docs/VERIFICATION.md](docs/VERIFICATION.md) §2.3.
 
 ---
 
@@ -541,8 +543,12 @@ Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_
 3. **No Android build or device run.** The native project, manifest, permissions and icon
    are committed and config-tested; nothing was compiled or installed (no JDK/SDK, no
    device). Run `npm run android:build` on a machine with the SDK.
-4. **Demo curriculum only.** No official NCTB data is bundled; `needs_verification` stays
-   until a real, sourced import replaces it.
+4. **Subject structure only, no chapters.** The official NCTB subject lists for SSC and
+   HSC ship for Science, Humanities and Business Studies, but chapter titles do not:
+   they live in PDFs that could not be read here, so they are absent rather than
+   invented. Every curriculum row stays `needs_verification` until a human compares it
+   with the cited source. Six HSC streams exist; Islamic Studies, Home Science and Music
+   are not seeded.
 5. **No restore from backup.** Export works (JSON + CSV); importing a JSON workspace is
    not implemented. Chapter import is a separate, reviewed feature.
 6. **No offline write queue.** Cloud mode needs a connection; failed writes surface as
@@ -573,8 +579,10 @@ Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_
 3. Run `npm run android:build`, install the APK, and verify notification permission,
    scheduling, time zones, dedupe and reboot-restore on a device (checklist in
    `docs/VERIFICATION.md` §2.3).
-4. Import a verified curriculum with `authority`, `source_url` and `academic_year`, then
-   flip `verification_status` to `verified` only for the reviewed rows.
+4. Add the chapter lists for the seeded SSC/HSC subjects from the official NCTB PDFs,
+   keeping `source_url` and `verification_status = 'needs_verification'` until each one
+   has been read, then flip only the reviewed rows to `verified` (see
+   [docs/CURRICULUM.md](docs/CURRICULUM.md) for the exact procedure).
 5. Add JSON workspace restore (with a version check and a dry-run preview) on top of the
    existing export format.
 6. Add a cloud-mode offline write queue if the app is used on unreliable connections.
