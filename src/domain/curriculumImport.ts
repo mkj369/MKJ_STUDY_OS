@@ -216,3 +216,253 @@ export function planChapterImport(
     idempotent: inserts.length === 0 && updates.length === 0,
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Topics                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A topic list read out of the *body* of a chapter, not off its contents page.
+ *
+ * This is a different job from a chapter import and it fails in different
+ * ways. A chapter list is short and every line is numbered, so a missed line
+ * shows up as a gap. A topic list is long, headings sit between paragraphs,
+ * and the section that was skipped looks exactly like the section that never
+ * existed. The rules below exist because "we did not see it" and "it is not
+ * there" must not produce the same row set.
+ *
+ * Deliberate choices:
+ *   * `document_type` must be `textbook`. A syllabus lists the sections that
+ *     are examined; a book lists the sections it contains. Importing one as
+ *     the other is the substitution this project refuses to make.
+ *   * `page` is optional but recorded when present, because a topic that
+ *     cannot be found again is indistinguishable from an invented one.
+ *   * `number` is required. A heading with no printed number is the most
+ *     common OCR failure and the cheapest thing to check.
+ */
+export const TOPIC_IMPORT_SCHEMA = z.object({
+  /** The `curriculum_chapters.id` these sections live under. */
+  chapter_id: z.string().uuid(),
+  academic_year: z.string().min(4),
+  source_document: z.string().min(3),
+  source_url: z.string().url(),
+  document_type: z.enum(['textbook', 'curriculum', 'exam_syllabus', 'other']),
+  checked_at: z.string().min(10),
+  fully_verified: z.boolean().default(false),
+  topics: z
+    .array(
+      z.object({
+        number: z.string().min(1).max(24),
+        title: z.string().min(1).max(160),
+        title_bn: z.string().max(160).nullish(),
+        /** Printed page the section starts on. */
+        page: z.number().int().positive().nullish(),
+      }),
+    )
+    .min(1),
+});
+
+export type TopicImportFile = z.input<typeof TOPIC_IMPORT_SCHEMA>;
+
+export interface TopicImportValidation {
+  ok: boolean;
+  errors: ImportIssue[];
+  warnings: ImportIssue[];
+  data: z.output<typeof TOPIC_IMPORT_SCHEMA> | null;
+  resulting_status: 'verified' | 'partially_verified' | null;
+}
+
+export function validateTopicImport(raw: unknown): TopicImportValidation {
+  const parsed = TOPIC_IMPORT_SCHEMA.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      errors: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.') || '(root)',
+        message: issue.message,
+      })),
+      warnings: [],
+      data: null,
+      resulting_status: null,
+    };
+  }
+
+  const data = parsed.data;
+  const errors: ImportIssue[] = [];
+  const warnings: ImportIssue[] = [];
+
+  if (data.document_type === 'exam_syllabus') {
+    errors.push({
+      path: 'document_type',
+      message:
+        'An exam syllabus lists the sections being examined, not the sections the book contains. Import it as a syllabus record, never as the textbook topic list.',
+    });
+  }
+
+  // Whitespace-only text passes a length check and is still not a heading.
+  data.topics.forEach((topic, index) => {
+    if (topic.title.trim().length === 0) {
+      errors.push({
+        path: `topics[${index}].title`,
+        message: 'A title of only whitespace is an OCR artefact, not a heading.',
+      });
+    }
+    if (topic.number.trim().length === 0) {
+      errors.push({
+        path: `topics[${index}].number`,
+        message: 'A section number of only whitespace cannot key an import.',
+      });
+    }
+  });
+
+  // Duplicate numbers: the copy-paste error that produces two "1.2"s.
+  const byNumber = new Map<string, number>();
+  data.topics.forEach((topic, index) => {
+    const key = topic.number.trim();
+    const previous = byNumber.get(key);
+    if (previous !== undefined) {
+      errors.push({
+        path: `topics[${index}].number`,
+        message: `Section number "${key}" already appears at topics[${previous}].`,
+      });
+    } else {
+      byNumber.set(key, index);
+    }
+  });
+
+  // Duplicate titles with different numbers is the other half of the same
+  // mistake: a re-read heading filed twice under adjacent numbers.
+  const byTitle = new Map<string, number>();
+  data.topics.forEach((topic, index) => {
+    const key = topic.title.trim().toLowerCase();
+    const previous = byTitle.get(key);
+    if (previous !== undefined) {
+      warnings.push({
+        path: `topics[${index}].title`,
+        message: `Title repeats topics[${previous}] under a different number — check whether the page was read twice.`,
+      });
+    } else {
+      byTitle.set(key, index);
+    }
+  });
+
+  // Numbers should form an unbroken run per chapter prefix (1.1, 1.2, …).
+  // A gap is a warning, not an error: books do skip numbers.
+  const grouped = new Map<string, number[]>();
+  for (const topic of data.topics) {
+    const [prefix, suffix] = topic.number.trim().split('.');
+    if (prefix === undefined || suffix === undefined) continue;
+    const minor = Number(suffix);
+    if (!Number.isFinite(minor)) continue;
+    grouped.set(prefix, [...(grouped.get(prefix) ?? []), minor]);
+  }
+  for (const [prefix, minors] of grouped) {
+    const sorted = [...minors].sort((a, b) => a - b);
+    const expected = sorted.map((_, index) => index + 1);
+    if (sorted.some((value, index) => value !== expected[index])) {
+      warnings.push({
+        path: 'topics',
+        message: `Sections ${prefix}.x are not a clean 1..${sorted.length} run (found ${sorted.join(', ')}). Check for a missed heading.`,
+      });
+    }
+  }
+
+  const withoutPage = data.topics.filter((topic) => topic.page === null || topic.page === undefined);
+  if (withoutPage.length > 0) {
+    warnings.push({
+      path: 'topics',
+      message: `${withoutPage.length} of ${data.topics.length} sections have no page reference. They stay traceable only by title.`,
+    });
+  }
+
+  // "Verified" means someone re-opened the book and found every section where
+  // this file says it is. Without a page number that check did not happen.
+  if (data.fully_verified && withoutPage.length > 0) {
+    errors.push({
+      path: 'fully_verified',
+      message: 'A topic list cannot be marked verified while some sections carry no page reference to verify against.',
+    });
+  }
+
+  if (!data.fully_verified) {
+    warnings.push({
+      path: 'fully_verified',
+      message: 'Sections will be stored as partially_verified, not verified.',
+    });
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    data,
+    resulting_status: data.fully_verified ? 'verified' : 'partially_verified',
+  };
+}
+
+export interface ExistingTopic {
+  id: string;
+  topic_number: string | null;
+  title: string;
+  source_page: number | null;
+}
+
+export interface PlannedTopic {
+  action: 'insert' | 'update' | 'unchanged';
+  number: string;
+  title: string;
+  page: number | null;
+  previous_title?: string;
+}
+
+export interface TopicImportPlan {
+  inserts: PlannedTopic[];
+  updates: PlannedTopic[];
+  unchanged: PlannedTopic[];
+  /** Sections on file that the new reading does not contain. */
+  missing_from_import: string[];
+  idempotent: boolean;
+}
+
+export function planTopicImport(
+  existing: ExistingTopic[],
+  incoming: z.output<typeof TOPIC_IMPORT_SCHEMA>,
+): TopicImportPlan {
+  const byNumber = new Map<string, ExistingTopic>();
+  for (const topic of existing) {
+    if (topic.topic_number) byNumber.set(topic.topic_number.trim(), topic);
+  }
+
+  const inserts: PlannedTopic[] = [];
+  const updates: PlannedTopic[] = [];
+  const unchanged: PlannedTopic[] = [];
+
+  for (const topic of incoming.topics) {
+    const number = topic.number.trim();
+    const current = byNumber.get(number);
+    const page = topic.page ?? null;
+    const planned: PlannedTopic = { action: 'insert', number, title: topic.title, page };
+    if (!current) {
+      inserts.push(planned);
+    } else if (current.title !== topic.title || current.source_page !== page) {
+      updates.push({ ...planned, action: 'update', previous_title: current.title });
+    } else {
+      unchanged.push({ ...planned, action: 'unchanged' });
+    }
+  }
+
+  // Reported, never acted on: removing a section would orphan a student's
+  // `user_topics` row, exactly as deleting a chapter would orphan progress.
+  const incomingNumbers = new Set(incoming.topics.map((topic) => topic.number.trim()));
+  const missing = [...byNumber.keys()]
+    .filter((number) => !incomingNumbers.has(number))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  return {
+    inserts,
+    updates,
+    unchanged,
+    missing_from_import: missing,
+    idempotent: inserts.length === 0 && updates.length === 0,
+  };
+}

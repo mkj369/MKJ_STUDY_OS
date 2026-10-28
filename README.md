@@ -34,7 +34,7 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
 | Screens: 28 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
-| Postgres schema + RLS (`0001`–`0012`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
+| Postgres schema + RLS (`0001`–`0014`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
 | AI narrative Edge Function | **Unit-tested end-to-end with a stubbed provider** (16 tests: request shape, key handling, schema + invented-number rejection, timeout/5xx/401 mapping); **no live call** — no key, provider hosts unreachable |
 | Android (Capacitor 7) | `android/` project generated, plugin synced, 8 config assertions pass; **APK not built** (no JDK/SDK), **no device test** |
@@ -139,6 +139,8 @@ structural placeholder (`needs_verification`), **not official NCTB content**.
    | `0010_ssc_physics_chemistry_chapters.sql` | First real chapter data: 14 SSC Physics + 12 SSC Chemistry chapters from printed NCTB contents pages, both `partially_verified` |
    | `0011_hsc_two_paper_split_and_physics_2.sql` | HSC two-paper split (Physics/Chemistry/Biology/Higher Mathematics 1st & 2nd Paper, Science only), 15 HSC Physics 2nd Paper chapters (printed English gloss, `title_bn` null, `partially_verified`), 3 sources and 3 outstanding requirements |
    | `0012_hsc_business_studies_sources.sql` | HSC Accounting + Business Organisation scans registered (nothing imported — numbers unreadable / no English gloss), the 10 Minute School uploads registered as rejected third-party material, 2 outstanding requirements |
+   | `0013_hsc_inventory_and_2026_27_syllabus.sql` | Corrects a wrong note about the ২০২৫-২৬ HSC textbook page (it renders — it just has no group lists), registers the 2026–27 Bangla 1st / English 1st / ICT **exam syllabi** as `exam_syllabus` sources, registers the Lecture Publications question bank as rejected, adds requirements 16–17. **No chapters, no topics.** |
+   | `0014_topic_source_columns.sql` | `curriculum_topics.topic_number` / `source_page` / `source_document` + positive-page check + `(chapter, number)` unique index. **No rows** — the columns exist so the first real topic import can be checked. |
 
    `0005` uses `on delete set null (practice_question_id)`, which needs Postgres 15+
    (Supabase projects are 15/16/17; PGlite here is 18).
@@ -214,17 +216,17 @@ npm run android:build # ./gradlew assembleDebug → APK (needs JDK + SDK)
 npm run android:open  # open the Android project
 ```
 
-### Verified output in this snapshot (2026-10-27)
+### Verified output in this snapshot (2026-10-28)
 
 ```
 npm run typecheck  → no errors
 npm run lint       → no errors, no warnings
-npm test           → 34 files, 402 tests passed
-                     (incl. 33 database/migration/RLS assertions in tests/db,
+npm test           → 43 files, 509 tests passed
+                     (incl. 72 database/migration/RLS assertions in tests/db,
                       24 Android config + preflight assertions,
                       a build-bundle secret scan and the loading/error/retry states)
 npm run build      → ✓ built in 5.88 s
-npm run test:e2e   → 37 passed (50.2 s) in Chromium against the production preview build
+npm run test:e2e   → 41 passed (58.0 s) in Chromium against the production preview build
 ```
 
 Bundle after route-level code splitting (raw / gzip):
@@ -324,10 +326,10 @@ secrets, run `npm run verify:cloud -- --ai` (see §9.1).
 | --- | --- | --- |
 | `npm run typecheck` | whole project incl. tests | pass |
 | `npm run lint` | ESLint (no warnings allowed in the result we report) | pass |
-| `npm test` | 34 files / 402 tests | pass |
-| `npx vitest run tests/db` | migrations `0001`–`0005` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability | pass (33 tests) |
+| `npm test` | 43 files / 509 tests | pass |
+| `npx vitest run tests/db` | migrations `0001`–`0014` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability, curriculum parity, `0014` topic columns | pass (72 tests) |
 | `npm run build` | production build + chunk report | pass |
-| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep, icon rendering | pass (37 tests, 50.2 s) |
+| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep, icon rendering | pass (41 tests, 58.0 s) |
 
 Key test files:
 

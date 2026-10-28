@@ -348,3 +348,66 @@ describe('sources recorded but deliberately not imported (migration 0012)', () =
     expect(gaps.every((gap) => gap.status === 'source_blocked')).toBe(true);
   });
 });
+
+describe('topic import groundwork (migration 0014)', () => {
+  it('adds the printed number and page columns without backfilling anything', async () => {
+    const columns = await rows<{ column_name: string; is_nullable: string }>(
+      `select column_name, is_nullable
+         from information_schema.columns
+        where table_schema = 'public' and table_name = 'curriculum_topics'
+          and column_name in ('topic_number', 'source_page', 'source_document')
+        order by column_name`,
+    );
+    expect(columns.map((column) => column.column_name)).toEqual(['source_document', 'source_page', 'topic_number']);
+    expect(columns.every((column) => column.is_nullable === 'YES')).toBe(true);
+  });
+
+  it('still holds zero official topics — the columns are empty on purpose', async () => {
+    const [row] = await rows<{ topics: number; numbered: number }>(
+      `select count(*)::int as topics,
+              count(topic_number)::int as numbered
+         from public.curriculum_topics
+        where is_demo = false`,
+    );
+    expect(row?.topics).toBe(0);
+    expect(row?.numbered).toBe(0);
+  });
+
+  it('refuses two sections with the same printed number in one chapter', async () => {
+    await expect(
+      exec(`insert into public.curriculum_topics
+              (curriculum_chapter_id, title, topic_number, source_page, is_demo)
+            values
+              ('b0000000-0000-4000-8000-000000003001', 'ক', '1.1', 3, false),
+              ('b0000000-0000-4000-8000-000000003001', 'খ', '1.1', 5, false)`),
+    ).rejects.toThrow(/curriculum_topics_chapter_number_key/);
+  });
+
+  it('refuses page 0 as a placeholder reference', async () => {
+    await expect(
+      exec(`insert into public.curriculum_topics
+              (curriculum_chapter_id, title, topic_number, source_page, is_demo)
+            values ('b0000000-0000-4000-8000-000000003001', 'গ', '1.2', 0, false)`),
+    ).rejects.toThrow(/curriculum_topics_source_page_positive/);
+  });
+
+  it('accepts a numbered, page-referenced section and keeps it out of the chapter table', async () => {
+    await exec(`insert into public.curriculum_topics
+                  (curriculum_chapter_id, title, title_bn, topic_number, source_page,
+                   source_document, source_url, verification_status, is_demo)
+                values ('b0000000-0000-4000-8000-000000003001', 'Test section', null, '9.9', 42,
+                        'test fixture', 'https://example.org/t', 'partially_verified', false)`);
+    const [topic] = await rows<{ topic_number: string; source_page: number; chapters: number }>(
+      `select t.topic_number, t.source_page,
+              (select count(*)::int from public.curriculum_chapters c
+                where c.id = t.curriculum_chapter_id) as chapters
+         from public.curriculum_topics t
+        where t.topic_number = '9.9'`,
+    );
+    expect(topic?.topic_number).toBe('9.9');
+    expect(topic?.source_page).toBe(42);
+    // A topic never creates or duplicates a chapter row.
+    expect(topic?.chapters).toBe(1);
+    await exec(`delete from public.curriculum_topics where topic_number = '9.9'`);
+  });
+});

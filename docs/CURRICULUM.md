@@ -140,6 +140,52 @@ per-item result. Consequently the HSC elective lists seeded from the curriculum
 notice stay unverified, and HSC Humanities and Business Studies still have **no**
 official inventory at all beyond the seed.
 
+## An exam syllabus is not a contents page
+
+Three ২০২৬-২৭ HSC exam syllabi were recovered this round as born-digital PDFs
+with real text layers: বাংলা ১ম পত্র, English 1st Paper and তথ্য ও যোগাযোগ
+প্রযুক্তি. They are the first HSC documents this project has read *cleanly* —
+no OCR, no legacy font — and it is tempting to treat them as chapter sources.
+They are not, and migration `0013` deliberately imports none of their contents.
+
+The difference is not pedantry:
+
+| | Textbook সূচিপত্র | Exam syllabus |
+| --- | --- | --- |
+| Answers | What the book contains | What the board will examine |
+| Bangla ১ম পত্র | the book's own chapter list | গদ্য ১২ + কবিতা ১২ + সহপাঠ ২ — examination groupings, not chapters |
+| English 1st Paper | the book's units | 12 units, each split into *seen / unseen* comprehension marks |
+| ICT | the book's 6 chapters | 6 chapters **and** mark distribution per question type |
+
+The Bangla syllabus is the clearest case: the book is one continuous
+সাহিত্যপাঠ volume; the syllabus splits the same selections into গদ্য and কবিতা
+for exam weighting. Storing that split as chapters would give a student a
+curriculum the book does not have. The syllabus mark tables have the same
+problem in reverse — they are real, official numbers, but they belong to an
+exam, not to a chapter, and there is no column for them yet.
+
+So `0013` records all three documents in `curriculum_sources` with
+`document_type = 'exam_syllabus'`, and `0014`'s import validator **rejects**
+`exam_syllabus` outright so the mistake cannot be made by accident later. The
+text is preserved in [CURRICULUM_SOURCES.md](CURRICULUM_SOURCES.md) as
+evidence, and requirement 17 asks for the three textbooks' actual contents
+pages.
+
+## Topic extraction groundwork (`0014`)
+
+`0014_topic_source_columns.sql` adds the three columns a topic needs to be
+checkable: `topic_number` (the printed number, verbatim), `source_page` (the
+printed page, or null) and `source_document`, with a `source_page > 0` check and
+a partial unique index on `(curriculum_chapter_id, topic_number)`. **It inserts
+nothing.** The topics table still holds 8 demo rows and 0 official rows.
+
+`src/domain/curriculumImport.ts` gained the matching validator and planner
+(`70` lines of policy, `14` tests), and [TOPIC_EXTRACTION.md](TOPIC_EXTRACTION.md)
+is the workflow a person follows to produce a file it will accept. The gate is
+the source, not the code: no chapter *body* is readable in this environment
+yet, so the first real topic import still awaits one chapter of a born-digital
+book.
+
 ## What changed in this pass
 
 | Change | Why |
@@ -175,7 +221,7 @@ evidence, but the row that actually has a read source says so.
 | National Curriculum 2012 — higher secondary | https://nctb.gov.bd/pages/files/6922dbc6933eb65569e0c702 | **Partly readable.** 43-page PDF, same encoding problem. |
 | SSC/HSC subject structure and marks | https://nctb.gov.bd/pages/static-pages/6922df50933eb65569e21292 | Cited by 0007. Not re-opened in this pass. |
 | HSC notices, 2026–27 syllabus | https://nctb.gov.bd/pages/notices/ | Cited by 0007. Not re-opened in this pass. |
-| HSC ২০২৫-২৬ textbook list | https://nctb.gov.bd/pages/static-pages/6922e145933eb65569e2b37b | **Blocked.** Table renders as an unresolved পাতা widget — navigation only. This is the document that would settle the HSC Humanities and Business Studies inventories. |
+| HSC ২০২৫-২৬ textbook list | https://nctb.gov.bd/pages/static-pages/6922e145933eb65569e2b37b | **Read (corrected).** An earlier version of this row said the table did not render. It does: five books, all compulsory (সাহিত্যপাঠ · সহপাঠ · English for Today · তথ্য ও যোগাযোগ প্রযুক্তি · তথ্য ও যোগাযোগ প্রযুক্তি (ইংলিশ ভার্সন)). No group or elective title appears, so this document cannot settle the HSC Humanities and Business Studies inventories — not because it is unreadable, but because it does not contain them. |
 | HSC Physics 2nd Paper textbook, printed scan | https://archive.org/details/hsc-nctb-book-physics-2nd-part | **Read.** 151 pages, ABBYY layer over a legacy font. The সূচিপত্র yields 15 numbered chapters with English glosses; Bengali titles and the imprint page are unreadable. Source of migration `0011`. |
 | HSC Biology 1st Paper textbook, printed scan | https://archive.org/details/hsc-nctb-book-biology | **Blocked.** Same legacy-font problem, no English gloss in the chapter headings; nothing imported. |
 | HSC ICT textbook, printed scan | https://archive.org/details/hsc-nctb-book-ict | **Blocked.** Legacy font, no contents page in the text layer. |

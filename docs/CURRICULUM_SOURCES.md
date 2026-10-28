@@ -31,11 +31,24 @@ Legend for **Read**:
 | Higher Mathematics | 1st, 2nd | *not located* | ❔ unread | No scan on the Internet Archive under any of the names tried. |
 | ICT | — | [archive.org/details/hsc-nctb-book-ict](https://archive.org/details/hsc-nctb-book-ict) | 🚫 blocked | Same legacy-font problem. |
 | All HSC | — | [NCTB higher-secondary curriculum, 43 pp](https://nctb.gov.bd/pages/files/6922dbc6933eb65569e0c702) | 🚫 blocked | The authoritative document. Its text layer is legacy single-byte; the page renders as a file wrapper with no inline text. |
-| All HSC | — | [২০২৫-২৬ HSC textbook list](https://nctb.gov.bd/pages/static-pages/6922e145933eb65569e2b37b) | 🚫 blocked | Page exists and is titled correctly, but the body is a `পাতা` sub-page widget that returns navigation only — the same failure as the 2026 SSC list. |
+| All HSC | — | [২০২৫-২৬ HSC textbook list](https://nctb.gov.bd/pages/static-pages/6922e145933eb65569e2b37b) | ✅ read (corrected) | **This row was wrong.** Through the rendering proxy the page returns its table in full: exactly **five** books, all compulsory — সাহিত্যপাঠ · সহপাঠ · English for Today · তথ্য ও যোগাযোগ প্রযুক্তি · তথ্য ও যোগাযোগ প্রযুক্তি (ইংলিশ ভার্সন). No Science, Humanities or Business Studies book appears. The page is readable; the group lists are simply not on it. |
+| Bangla 1st paper | — | [২০২৬-২৭ পাঠ্যসূচি — বাংলা প্রথম পত্র](https://objectstorage.ap-dcc-gazipur-1.oraclecloud15.com/n/axvjbnqprylg/b/V2Ministry/o/office-nctb/2026/9/5be8f27e-5220-4c2f-8cf6-7bb42c7d2648.pdf) | ✅ read | Text layer readable. সাহিত্যপাঠ: গদ্য ১২, কবিতা ১২; সহপাঠ: উপন্যাস লালসালু, নাটক সিরাজ-উ-দ্দোলা. **An exam syllabus**, not the textbook contents — registered as `exam_syllabus`, nothing imported as chapters. |
+| English 1st paper | — | [২০২৬-২৭ পাঠ্যসূচি — English 1st Paper](https://objectstorage.ap-dcc-gazipur-1.oraclecloud15.com/n/axvjbnqprylg/b/V2Ministry/o/office-nctb/2026/9/82c3294f-8f1d-4ab0-a85f-993766ded7bb.pdf) | ✅ read | Text layer readable. Twelve units with lessons plus Reading for Pleasure. States **"Subject : English 1st Paper (Subject Code- 107)"** — the first official subject code in this project. Exam syllabus; not imported as chapters. |
+| ICT | — | [২০২৬-২৭ পাঠ্যসূচি — তথ্য ও যোগাযোগ প্রযুক্তি](https://objectstorage.ap-dcc-gazipur-1.oraclecloud15.com/n/axvjbnqprylg/b/V2Ministry/o/office-nctb/2026/9/78491622-b852-466c-af8b-783718732428.pdf) | ✅ read | Text layer readable. Six chapters with Bengali titles (তথ্য ও যোগাযোগ প্রযুক্তি: বিশ্ব ও বাংলাদেশ প্রেক্ষিত … ডেটাবেজ ম্যানেজমেন্ট সিস্টেম). **A syllabus.** The ICT textbook's own contents page has not been read, so these are not chapter records. |
+| Physics 1st paper | — | [Physics 1st Paper Supplement 2026](https://archive.org/details/hsc-physics-1st-paper-supplement-2026) — 337 pp, Unicode OCR | 🚫 rejected | Readable, and not a source. A commercial chapter-wise question bank (Lecture Publications, board questions ২০১৫–২০২৫). Its chapter headings are the publisher's, not the book's সূচিপত্র. Registered as `other` so readability is not mistaken for authority. |
 
 **Net HSC result:** 1 of 10 Science subject-papers has a chapter list, and it is
 `partially_verified`. HSC is **not** complete, and no part of it may be described
 as such.
+
+**What the inventory question now actually is.** Until this round the note here
+said the HSC textbook list "does not render". It does. The corrected finding is
+narrower and more useful: NCTB's ২০২৫-২৬ HSC textbook page carries five books
+and all five are compulsory. There is no group-wise HSC textbook list at that
+address to read. So the ১৩ / ১৪ / ৯ seeded subject lists stay
+`needs_verification` — not because the page is broken, but because no accessible
+official document enumerates those subjects. The ২০২৬-২৭ syllabus, meanwhile,
+is published for three subjects only (Bangla 1st, English 1st, ICT).
 
 ### What would unblock HSC Science
 
