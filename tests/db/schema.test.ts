@@ -174,16 +174,22 @@ describe('migrations apply cleanly', () => {
     expect(subjects[0]?.n).toBeGreaterThan(0);
     expect(subjects[0]?.verified).toBe(0);
 
-    // No invented chapter titles may exist for the official versions.
-    const officialChapters = await userQuery<{ n: number }>(
+    // Chapters exist only where a printed contents page was actually read, and
+    // every one of them names its source. Nothing is invented to fill a gap.
+    const officialChapters = await userQuery<{ n: number; sourced: number; verified: number }>(
       USER_A,
-      `select count(*)::int as n
+      `select count(*)::int as n,
+              count(*) filter (where c.source_url is not null)::int as sourced,
+              count(*) filter (where c.verification_status = 'verified')::int as verified
          from curriculum_chapters c
          join curriculum_subjects s on s.id = c.curriculum_subject_id
          join curriculum_versions v on v.id = s.curriculum_version_id
         where not v.is_demo`,
     );
-    expect(officialChapters[0]?.n).toBe(0);
+    expect(officialChapters[0]?.n).toBe(26);
+    expect(officialChapters[0]?.sourced).toBe(26);
+    // OCR scans of 2022 reprints are evidence, not confirmation.
+    expect(officialChapters[0]?.verified).toBe(0);
   });
 });
 

@@ -163,10 +163,19 @@ describe('display helpers', () => {
 });
 
 describe('shipped official data holds the line on verification', () => {
-  it('marks no official version verified and ships no chapter rows', () => {
+  it('marks no official version verified and ships only sourced chapter rows', () => {
     expect(OFFICIAL_VERSIONS.every((v) => v.verification_status === 'needs_verification')).toBe(true);
     expect(OFFICIAL_VERSIONS.every((v) => v.scope === 'subject_structure')).toBe(true);
-    expect(OFFICIAL_CURRICULUM.chapters).toHaveLength(0);
+
+    // Two subjects have a chapter list, read from the printed contents page of
+    // the official textbook. Nothing else may appear out of nowhere.
+    expect(OFFICIAL_CURRICULUM.chapters).toHaveLength(26);
+    for (const chapter of OFFICIAL_CURRICULUM.chapters) {
+      expect(chapter.source_url).toBeTruthy();
+      expect(chapter.source_document).toContain('সূচিপত্র');
+      expect(chapter.verification_status).not.toBe('verified');
+    }
+    expect(new Set(OFFICIAL_CURRICULUM.chapters.map((c) => c.curriculum_subject_id)).size).toBe(2);
   });
 
   it('allows only needs_verification or partially_verified for shipped subjects', () => {
@@ -219,9 +228,15 @@ describe('shipped official data holds the line on verification', () => {
     expect(OFFICIAL_SUBJECTS.every((s) => Boolean(s.source_url))).toBe(true);
   });
 
-  it('points every source at nctb.gov.bd', () => {
+  it('points every source at an official document', () => {
+    // nctb.gov.bd is the authority. The two textbook scans are the printed NCTB
+    // books themselves, hosted by the Internet Archive because the official PDF
+    // is behind a Drive interstitial; they are labelled as such everywhere.
+    const allowed = /^https:\/\/(nctb\.gov\.bd\/|archive\.org\/details\/)/;
     for (const url of [...OFFICIAL_VERSIONS.map((v) => v.source_url), ...OFFICIAL_SUBJECTS.map((s) => s.source_url)]) {
-      expect(url).toMatch(/^https:\/\/nctb\.gov\.bd\//);
+      expect(url).toMatch(allowed);
     }
+    const scanned = OFFICIAL_SUBJECTS.filter((s) => s.source_url?.startsWith('https://archive.org/'));
+    expect(scanned.map((s) => s.name).sort()).toEqual(['Chemistry', 'Physics']);
   });
 });

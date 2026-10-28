@@ -128,3 +128,84 @@ Then, and only then, consider the version. `groupCoverage` in
 subject has chapters *and* every chapter is verified *and* the version itself is
 `verified`. That rule is unit-tested, so a partially filled curriculum cannot
 render as finished.
+
+---
+
+## 6. Importing from a screenshot or a PDF of the সূচিপত্র
+
+This is the route that actually works. The NCTB PDFs are ~100 MB behind a Drive
+virus-scan interstitial, so in practice the artefact a human can obtain is one
+photographed or scanned page: the book's own contents page.
+
+### What to send, per subject
+
+| # | Item | Why it cannot be skipped |
+| --- | --- | --- |
+| 1 | The সূচিপত্র page — screenshot, scan, or the PDF page itself | It is the only acceptable source. Not a coaching note, not a blog's chapter list, not an exam syllabus. |
+| 2 | The book's imprint page (প্রথম প্রকাশ / পরিমার্জিত সংস্করণ / পুনঃমুদ্রণ) | Decides the `source_document` edition and whether the rows may ever become `verified`. |
+| 3 | Subject identity: level (SSC/HSC), class, group, paper (১ম/২য় পত্র) | A chapter list with no subject is unusable, and Bangla/English are two subjects per version. |
+| 4 | The `curriculum_subjects.id` it belongs to | From `curriculum_coverage`; the import keys on it. |
+| 5 | The academic year the student is actually studying | The version's `academic_year`. A 2022 book cannot silently fill a 2026 row. |
+
+If items 2 or 3 are missing, the import can still be recorded as
+`needs_verification`, but it cannot claim `partially_verified`.
+
+### The translation into JSON
+
+```json
+{
+  "subject_id": "a0000000-0000-4000-8000-000000001111",
+  "academic_year": "2025",
+  "source_document": "NCTB পদার্থবিজ্ঞান নবম-দশম শ্রেণি, পরিমার্জিত সংস্করণ সেপ্টেম্বর ২০১৭ (পুনঃমুদ্রণ ২০২২) — সূচিপত্র",
+  "source_url": "https://archive.org/details/physics-class-9-10-com-opt",
+  "document_type": "textbook",
+  "checked_at": "2026-10-28",
+  "fully_verified": false,
+  "chapters": [{ "number": "1", "title": "ভৌত রাশি এবং পরিমাপ", "title_bn": null, "topics": [] }]
+}
+```
+
+`source_document` must name the edition, not just the subject: two printings of
+the same book are different evidence, and the difference is exactly what decides
+`verified` versus `partially_verified`.
+
+### Reading a page that came through OCR
+
+An OCR text layer on a scanned page is not a transcript. Four rules:
+
+1. **Reproduce the printed word, and log the fix.** OCR turned চতুর্থ into
+   চতুথ, শক্তি into শন্তি and তরঙ্গ into তরঙ্া across the two books imported so
+   far. The printed spelling is what a student sees on the page, so it is
+   restored — and the correction is written into `source_document` and
+   `docs/CURRICULUM.md`. Correcting silently is how invented text gets in.
+2. **Never fill a gap from memory.** If a line is unreadable, the chapter is
+   missing from the import and the subject stays incomplete. A guessed chapter
+   number shifts every later row.
+3. **Ignore stray punctuation.** `একাদশ | চল বিদ্যুৎ` is OCR noise around the
+   number, not a title.
+4. **Check the number sequence before applying.** `validateChapterImport` warns
+   on gaps; a gap almost always means a missed line, and it is the cheapest
+   signal that the transcription is wrong.
+
+### Worked example (the two imports that exist today)
+
+| Subject | Chapters | Source | Status |
+| --- | --- | --- | --- |
+| SSC Science / Physics | 14 | `archive.org/details/physics-class-9-10-com-opt` — 2017 revised edition, 2022 reprint | `partially_verified` |
+| SSC Science / Chemistry | 12 | `archive.org/details/chemistry-class-9-10-com-opt` — same imprint | `partially_verified` |
+
+Neither is `verified`: the scan is a 2022 reprint, the app's SSC version is
+2025, and no one has yet placed the two contents pages side by side. That
+comparison is the whole difference — see §5.
+
+### Two mistakes this pipeline has already made, so you do not repeat them
+
+- **Renaming a row that is part of a unique key is not idempotent.** A first
+  version of migration `0010` rewrote a `curriculum_pending_requirements.requirement`
+  string. `(education_level, academic_year, stream, requirement)` is unique, and
+  `0009` re-inserts the old string on every run, so the second application hit a
+  duplicate key. Annotate (`note = …`); never rename.
+- **Merging only versions and subjects hides the chapters in local mode.** The
+  local database merged `OFFICIAL_CURRICULUM.versions` and `.subjects` but not
+  `.chapters`, so an import would have appeared in the cloud and vanished in the
+  browser demo. Both paths now merge chapters by id.

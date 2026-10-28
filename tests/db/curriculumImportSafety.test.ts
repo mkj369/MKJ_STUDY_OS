@@ -176,15 +176,19 @@ describe('curriculum import safety', () => {
     await expect(exec(insert)).rejects.toThrow(/curriculum_pending_requiremen/);
   });
 
-  it('reports zero chapters for official subjects that have none', async () => {
-    const [row] = await rows<{ chapters: number; subjects: number }>(
-      `select coalesce(sum(chapter_count), 0)::int as chapters, count(*)::int as subjects
+  it('reports chapters only for the subjects whose contents page was read', async () => {
+    const [row] = await rows<{ chapters: number; subjects: number; with_chapters: number }>(
+      `select coalesce(sum(chapter_count), 0)::int as chapters,
+              count(*)::int as subjects,
+              count(*) filter (where chapter_count > 0)::int as with_chapters
          from public.curriculum_coverage
         where curriculum_subject_id::text not like 'f0000000%' and not version_is_demo`,
     );
-    // The whole point: the official inventory is recorded, the chapter data is
-    // not, and the report says so rather than showing a rounded percentage.
+    // The inventory is complete for SSC/HSC subject structure; the chapter data
+    // covers two subjects out of 80 and the report says so rather than rounding
+    // the gap away.
     expect(row!.subjects).toBeGreaterThan(70);
-    expect(row!.chapters).toBe(0);
+    expect(row!.with_chapters).toBe(2);
+    expect(row!.chapters).toBe(26);
   });
 });

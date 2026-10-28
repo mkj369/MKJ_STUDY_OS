@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { OFFICIAL_SUBJECTS, OFFICIAL_VERSIONS } from '@/services/seed/officialCurriculum';
+import { OFFICIAL_CHAPTERS, OFFICIAL_SUBJECTS, OFFICIAL_VERSIONS } from '@/services/seed/officialCurriculum';
 import { CURRICULUM_SOURCES, PENDING_REQUIREMENTS } from '@/services/seed/curriculumReadiness';
 
 /**
@@ -142,15 +142,53 @@ describe('official curriculum seed', () => {
     }
   });
 
-  it('does not invent chapter rows for official versions', async () => {
-    const [{ n }] = await rows<{ n: number }>(
-      `select count(*)::int as n
+  it('matches the TypeScript chapter data exactly, and every chapter names a source', async () => {
+    const chapters = await rows<{
+      id: string;
+      curriculum_subject_id: string;
+      title: string;
+      chapter_number: string | null;
+      sort_order: number;
+      source_url: string | null;
+      verification_status: string;
+    }>(
+      `select c.id, c.curriculum_subject_id, c.title, c.chapter_number,
+              c.sort_order, c.source_url, c.verification_status
+         from curriculum_chapters c
+         join curriculum_subjects s on s.id = c.curriculum_subject_id
+         join curriculum_versions v on v.id = s.curriculum_version_id
+        where not v.is_demo
+        order by c.id`,
+    );
+
+    const expected = [...OFFICIAL_CHAPTERS].sort((a, b) => a.id.localeCompare(b.id));
+    expect(chapters).toEqual(
+      expected.map((c) => ({
+        id: c.id,
+        curriculum_subject_id: c.curriculum_subject_id,
+        title: c.title,
+        chapter_number: c.chapter_number,
+        sort_order: c.sort_order,
+        source_url: c.source_url,
+        verification_status: c.verification_status,
+      })),
+    );
+
+    // A chapter without a source is an invented chapter, whatever it says.
+    for (const chapter of chapters) {
+      expect(chapter.source_url).toBeTruthy();
+      expect(chapter.verification_status).not.toBe('verified');
+    }
+
+    // Only the two subjects whose printed contents page was read have chapters.
+    const [{ subjects_with_chapters }] = await rows<{ subjects_with_chapters: number }>(
+      `select count(distinct curriculum_subject_id)::int as subjects_with_chapters
          from curriculum_chapters c
          join curriculum_subjects s on s.id = c.curriculum_subject_id
          join curriculum_versions v on v.id = s.curriculum_version_id
         where not v.is_demo`,
     );
-    expect(n).toBe(0);
+    expect(subjects_with_chapters).toBe(2);
   });
 
   it('never marks an official row verified while chapters are missing', async () => {

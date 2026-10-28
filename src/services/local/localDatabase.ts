@@ -142,6 +142,7 @@ export class LocalDatabase {
     bundle: {
       versions: readonly TableMap['curriculum_versions'][];
       subjects: readonly TableMap['curriculum_subjects'][];
+      chapters: readonly TableMap['curriculum_chapters'][];
     },
   ): void {
     const versions = db.tables['curriculum_versions'] as unknown as TableMap['curriculum_versions'][];
@@ -155,6 +156,17 @@ export class LocalDatabase {
       const existing = subjects.findIndex((s) => s.id === subject.id);
       if (existing >= 0) subjects[existing] = { ...subjects[existing], ...subject };
       else subjects.push({ ...subject });
+    }
+
+    // Chapters merge by id, never by position: a student's `user_chapters` row
+    // points at this id, so re-running the seed may refresh a title but must
+    // never replace the row. Nothing is deleted here — a chapter that disappears
+    // from the seed would leave the student's record orphaned.
+    const chapters = db.tables['curriculum_chapters'] as unknown as TableMap['curriculum_chapters'][];
+    for (const chapter of bundle.chapters) {
+      const existing = chapters.findIndex((c) => c.id === chapter.id);
+      if (existing >= 0) chapters[existing] = { ...chapters[existing], ...chapter };
+      else chapters.push({ ...chapter });
     }
   }
 

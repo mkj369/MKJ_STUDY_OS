@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { IonIcon } from '@ionic/react';
 import { addOutline, cloudUploadOutline, libraryOutline, openOutline, shieldCheckmarkOutline } from 'ionicons/icons';
 import { useMutate } from '@/hooks/useWorkspace';
@@ -42,6 +42,7 @@ function CurriculumContent() {
   const mutate = useMutate();
   const auth = useAuth();
   const notify = useNotify();
+  const navigate = useNavigate();
   const bundle = data?.bundle;
   const view = data?.view;
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -103,6 +104,35 @@ function CurriculumContent() {
     try {
       await mutate((repo) => repo.adoptCurriculumSubject(versionId, subjectId));
       await notify(`${subjectName} added. Add its chapters next.`);
+    } catch (error) {
+      await notify(errorMessage(error), 'danger');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  /**
+   * Coverage-driven entry into the topic screens. The coverage report knows which
+   * subjects actually have a chapter list; this adopts one of them, attaches its
+   * real chapters, and lands the student in Subjects & Chapters, where a topic is
+   * recorded against an existing chapter. It adds rows — it never removes any.
+   */
+  const studySubject = async (versionId: string, subjectId: string, subjectName: string) => {
+    setBusyKey(`study-${subjectId}`);
+    try {
+      if (!adoptedCurriculumSubjectIds.has(subjectId)) {
+        await mutate((repo) => repo.adoptCurriculumSubject(versionId, subjectId));
+      }
+      const chapterIds = bundle.curriculum.chapters
+        .filter((c) => c.curriculum_subject_id === subjectId && !userChaptersByCurriculumChapter.has(c.id))
+        .map((c) => c.id);
+      if (chapterIds.length > 0) {
+        await mutate((repo) => repo.addChaptersFromCurriculum(versionId, subjectId, chapterIds));
+        await notify(`${subjectName}: ${chapterIds.length} chapter(s) ready. Record a topic on any chapter.`);
+      } else {
+        await notify(`${subjectName} is already in your subjects. Open a chapter to record a topic.`);
+      }
+      navigate('/syllabus');
     } catch (error) {
       await notify(errorMessage(error), 'danger');
     } finally {
@@ -264,13 +294,20 @@ function CurriculumContent() {
 
       <Notice tone="warn" title="No fabricated syllabus.">
         Curriculum rows carry their authority, academic year, version and verification status. The SSC/HSC
-        subject lists below are seeded from official NCTB subject structure, but <strong>their chapter lists
-        are not verified yet</strong> — they were not readable as machine-parsable text when this data was
-        added, and chapter titles are never invented to fill the gap. The demo version is placeholder
-        structure only. Add chapters from your own textbook, or import a list you trust.
+        subject lists below come from the official NCTB subject structure. <strong>Two subjects have a
+        chapter list</strong> — SSC Physics (14) and SSC Chemistry (12) — read from the printed সূচিপত্র of
+        the official textbooks and marked <em>partially verified</em>: the scans are 2022 reprints and the
+        2025 editions have not been compared. The other 80 subjects have <strong>no chapters and no
+        topics</strong>, and nothing is invented to fill the gap. The demo version is placeholder structure
+        only.
       </Notice>
 
-      <CoveragePanel curriculum={bundle.curriculum} />
+      <CoveragePanel
+        curriculum={bundle.curriculum}
+        adoptedSubjectIds={adoptedCurriculumSubjectIds}
+        onStudySubject={studySubject}
+        busyKey={busyKey}
+      />
 
       {summary ? (
         <SectionCard title="What is actually loaded" hint="Counted from your database, not estimated">

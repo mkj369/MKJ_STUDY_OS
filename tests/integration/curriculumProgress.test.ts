@@ -75,11 +75,16 @@ describe('curriculum metadata updates preserve progress', () => {
     expect(adoptedAfter?.curriculum_subject_id).toBe(subject.id);
     expect(adoptedAfter?.curriculum_version_id).toBe(version.id);
 
-    // The reference row itself is still there, unverified, with no invented chapters.
+    // The reference row itself is still there, still short of `verified`, now
+    // carrying the 14 chapters read from the printed contents page. A reseed
+    // attaches them; it never drops the student's link to the subject.
     const curriculum = await after.listCurriculum();
     const referenceSubject = curriculum.subjects.find((s) => s.id === subject.id);
-    expect(referenceSubject?.verification_status).toBe('needs_verification');
-    expect(curriculum.chapters.filter((c) => c.curriculum_subject_id === subject.id)).toHaveLength(0);
+    expect(referenceSubject?.verification_status).toBe('partially_verified');
+    expect(referenceSubject?.source_document).toContain('সূচিপত্র');
+    const chapters = curriculum.chapters.filter((c) => c.curriculum_subject_id === subject.id);
+    expect(chapters).toHaveLength(14);
+    expect(chapters.every((c) => c.source_url && c.verification_status !== 'verified')).toBe(true);
   });
 
   it('never duplicates curriculum rows when the seed runs repeatedly', async () => {

@@ -18,8 +18,8 @@ Last run: **2026-10-28**, Node v22.22.3, npm 10.9.8, Vite 6.4.5, Linux sandbox.
 npm ci                      # 397 packages, lockfile respected
 npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
-npm run build               # tsc -b && vite build    -> built in 5.3s
-npx vitest run              # 41 files, 473 tests passed
+npm run build               # tsc -b && vite build    -> built in 5.49s
+npx vitest run              # 42 files, 480 tests passed
 npx playwright test         # 39 tests passed (Chromium, production bundle)
 ```
 
@@ -28,12 +28,12 @@ matters: `tests/bundle/secrets.test.ts` skips four assertions when `dist/` is ab
 because it greps the real bundle for leaked keys. Without a build you get
 `469 passed | 4 skipped` — not a failure, but it has not checked the secrets.
 
-### Test suite composition (473)
+### Test suite composition (480)
 
 | Area | Files | What it proves |
 | --- | --- | --- |
-| `tests/domain` | 19 | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, per-level/group coverage maths, official-import validation and idempotency planning, AI payload keys |
-| `tests/db` | 5 | Migrations `0001`–`0009` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin, a student chapter keeps its link through a reseed, and the import guarantees hold: duplicate chapter numbers rejected, `verified` without a source rejected, progress preserved across two re-imports |
+| `tests/domain` | 19 | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, per-level/group coverage maths, official-import validation and idempotency planning, AI payload keys, and the shipped chapter rows (26, every one sourced, none `verified`) |
+| `tests/db` | 6 | Migrations `0001`–`0010` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin **chapter for chapter**, a student chapter keeps its link through a reseed, the import guarantees hold (duplicate chapter numbers rejected, `verified` without a source rejected, progress preserved across two re-imports), and the real import is asserted: 14 Physics + 12 Chemistry chapters, numbering 1…n with no gaps, `partially_verified`, source named, zero topics invented |
 | `tests/integration` | — | Local repository behaviour: per-user isolation, history-safe deletes, curriculum seed reruns leaving progress and notes untouched |
 | `tests/ui` | — | jsdom rendering of shared components and pages, single `<h1>` per route |
 | `tests/bundle` | 1 | No service-role key or AI provider key in the built assets |
@@ -53,6 +53,16 @@ because it greps the real bundle for leaked keys. Without a build you get
   focus session writing a study session;
 - accessibility: named controls and landmarks on every route, exactly one `<h1>`,
   icons rendered from inline SVG (no runtime font fetch).
+
+Journey C now asserts the imported data end-to-end: filtering SSC/Science by `পদার্থ`
+surfaces Physics with "Chapter list partly recorded", "14 chapter row(s)", and the page
+reports 26 chapters of which 0 are verified.
+
+A separate scripted session (Chromium, local workspace, not part of CI) walked the new
+coverage → syllabus path: add SSC Physics from the coverage table, land on Subjects &
+Chapters with the 14 real titles (গতি, বল, তরঙ্গ ও শব্দ …), record a topic against
+তরঙ্গ ও শব্দ through the existing dialog, reload, and find the topic and the chapter
+link intact.
 
 Chromium in this sandbox comes from `scripts/playwright-browser.mjs`
 (`@sparticuz/chromium` + extracted NSS/NSPR libs in `/tmp`). On a normal machine use
@@ -131,16 +141,31 @@ What is actually true:
   sandbox cannot reach either host (`curl` → `000`). `pdftotext` and `pypdf` are also
   absent here.
 
-Consequence, recorded in [docs/CURRICULUM.md](CURRICULUM.md): 82 subject rows are seeded
-and sourced; **0 chapter rows exist**, because chapter titles live inside those PDFs.
-They must be transcribed by a human from the official সূচিপত্র page, and
-[CURRICULUM_IMPORT.md](CURRICULUM_IMPORT.md) gives the validated path for doing so.
+**Superseded 2026-10-28.** Scans of the printed books exist on the Internet Archive
+with a Tesseract Bengali OCR text layer, and their সূচিপত্র pages are readable. Two were
+imported (migration `0010`): SSC Physics, 14 chapters, and SSC Chemistry, 12 chapters,
+both `partially_verified` from 2022 reprints of the 2017-revised books.
+
+The remaining blocker is narrower than before but still real: 80 of 82 subjects have no
+readable contents page here, **no HSC textbook** exists on the Internet Archive in a
+readable form, and nothing at all exists for topic-level breakdowns. The scanned books
+are photographed editions, not the 2025 files, which is exactly why the two imports stop
+at `partially_verified`.
 
 ```bash
-# unblock: fetch any NCTB textbook PDF somewhere with normal internet access
+# what did work: read the OCR text layer of a scanned printed copy
+curl -s 'https://archive.org/metadata/<item-id>' | jq -r '.files[].name'
+curl -s 'https://archive.org/download/<item-id>/<exact-filename>_djvu.txt' | head -200
+
+# to unblock the other 80 subjects, fetch any NCTB textbook PDF with normal
+# internet access and read its সূচিপত্র page
 curl -L -o physics-class-9-10.pdf 'https://drive.google.com/uc?export=download&id=<ID>'
-pdftotext -f 1 -l 12 physics-class-9-10.pdf - | head -100   # the সূচিপত্র page
+pdftotext -f 1 -l 12 physics-class-9-10.pdf - | head -100
 ```
+
+**Lesson recorded the hard way:** `_djvu.txt` only resolves with the exact
+`files[].name` from the metadata endpoint. Guessing `physics-class-9-10-com-opt_djvu.txt`
+404s; the real file is `Physics Class 9-10 Com Opt_djvu.txt`.
 
 ---
 

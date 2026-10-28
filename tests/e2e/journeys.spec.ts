@@ -220,11 +220,17 @@ test('journey C: curriculum filters narrow by SSC/HSC, group and Bangla subject 
   await expect(main.getByRole('heading', { name: /SSC Science — official subject structure/ })).toBeVisible();
   await expect(main.getByRole('heading', { name: /HSC/ })).toHaveCount(0);
 
-  // Official subject structure carries a Bangla name and no chapter list.
-  await main.getByLabel('Subject').fill('পদার্থ');
-  await expect(main.getByText('Physics · পদার্থবিজ্ঞান')).toBeVisible();
-  await expect(main.getByText('Chapter list not yet verified').first()).toBeVisible();
-  await expect(main.getByText('0 chapter row(s)').first()).toBeVisible();
+  // Physics carries a Bangla name and — since migration 0010 — a real chapter
+  // list read from the printed contents page. It is partly recorded, never
+  // verified: the scan is a 2022 reprint and the 2025 edition is unopened.
+  await main.getByPlaceholder(/Physics, পদার্থবিজ্ঞান/).fill('পদার্থ');
+  await expect(main.getByText('Physics · পদার্থবিজ্ঞান').first()).toBeVisible();
+  await expect(main.getByText('Chapter list partly recorded').first()).toBeVisible();
+  await expect(main.getByText('14 chapter row(s)').first()).toBeVisible();
+  // The page reports the whole truth, not just the good half: 26 chapter rows
+  // exist across the whole curriculum, and not one of them is verified.
+  await expect(main.getByText('26 chapter(s)', { exact: true }).first()).toBeVisible();
+  await expect(main.getByText('0 verified chapter(s)', { exact: true }).first()).toBeVisible();
 
   // Filtering never deletes or hides the user's own records.
   await main.getByRole('button', { name: /clear filters/i }).first().click();

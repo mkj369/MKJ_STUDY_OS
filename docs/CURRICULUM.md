@@ -2,9 +2,9 @@
 
 This file records the exact state of the curriculum reference data shipped in
 `supabase/migrations/0007_official_subject_structure.sql`,
-`0009_curriculum_inventory.sql` and their TypeScript twins in
-`src/services/seed/` (the two sides are kept identical by
-`tests/db/curriculumParity.test.ts`).
+`0009_curriculum_inventory.sql`, `0010_ssc_physics_chemistry_chapters.sql` and
+their TypeScript twins in `src/services/seed/` (the two sides are kept identical
+by `tests/db/curriculumParity.test.ts`).
 
 Last reviewed: **2026-10-28**.
 
@@ -12,14 +12,18 @@ Last reviewed: **2026-10-28**.
 
 | Level | Group | Academic year | Subjects | Chapters | Topics | Verification status |
 | --- | --- | --- | --- | --- | --- | --- |
-| SSC | Science | 2025 | 17 | **0** | **0** | `needs_verification` |
+| SSC | Science | 2025 | 17 | **26** (Physics 14, Chemistry 12) | **0** | 2 subjects `partially_verified`, 15 `needs_verification` |
 | SSC | Humanities | 2025 | 17 | **0** | **0** | `needs_verification` |
 | SSC | Business Studies | 2025 | 16 | **0** | **0** | `needs_verification` |
 | HSC | Science | 2026–2027 | 9 | **0** | **0** | `needs_verification` |
 | HSC | Humanities | 2026–2027 | 14 | **0** | **0** | `needs_verification` |
 | HSC | Business Studies | 2026–2027 | 9 | **0** | **0** | `needs_verification` |
 
-**82 subjects, 0 chapters, 0 topics.** Every subject row carries
+**82 subjects, 26 chapters, 0 topics.** Two of the 82 subjects have a chapter
+list, both read from the printed সূচিপত্র of the official textbook; the other 80
+have none. No subject and no version is `verified`.
+
+Every subject row carries
 `scope = 'subject_structure'`, which is a deliberately narrow claim: *these are
 the subjects a student in this group studies, with their official names in
 English and Bangla*. It is **not** a claim that the chapter list, topic list or
@@ -28,6 +32,46 @@ mark distribution is known.
 The curriculum is therefore **incomplete**, and the app says so on screen
 rather than in a footnote. `docs/` and the UI both refuse to call any level,
 group or year complete while chapter data is missing.
+
+## The chapter data that exists (migration 0010)
+
+| Subject | Chapters | Evidence | Status |
+| --- | --- | --- | --- |
+| SSC Science / Physics (পদার্থবিজ্ঞান) | 14 | [archive.org/details/physics-class-9-10-com-opt](https://archive.org/details/physics-class-9-10-com-opt) — scan of the printed NCTB book, Bengali OCR layer | `partially_verified` |
+| SSC Science / Chemistry (রসায়ন) | 12 | [archive.org/details/chemistry-class-9-10-com-opt](https://archive.org/details/chemistry-class-9-10-com-opt) — same imprint, same OCR pipeline | `partially_verified` |
+
+**Imprint of both scans:** প্রথম প্রকাশ সেপ্টেম্বর ২০১২ · পরিমার্জিত সংস্করণ
+সেপ্টেম্বর ২০১৭ · পুনঃমুদ্রণ ২০২২.
+
+**Why not `verified`.** Three reasons, each of which a person can clear:
+
+1. The evidence is an OCR text layer over a scan, not the publisher's digital file.
+2. The scan is a **2022 reprint**; the app's SSC version is **2025**. Nobody has
+   compared the 2025 contents page with this one. Until that happens, calling it
+   verified would be claiming a check that did not occur.
+3. OCR damaged four words. The printed spellings were restored, and every
+   correction is recorded rather than applied silently:
+
+   | OCR text | Printed text | Where |
+   | --- | --- | --- |
+   | চতুথ … শন্তি | চতুর্থ … শক্তি | Physics ch. 4 |
+   | তরঙ্া | তরঙ্গ | Physics ch. 7 |
+   | শন্তি | শক্তি | Chemistry ch. 8 |
+   | বন্তুর | বস্তুর | Physics ch. 6 |
+
+**What is still missing for these two subjects:** every topic. The section
+headings (১.১, ১.২ …) live in the body of each book, not on the contents page, so
+extracting them means reading ~400 pages of OCR — a different job from this one,
+and a half-extracted topic list would be worse than an empty one.
+
+## Subjects still awaiting a contents page
+
+78 of 80. The two that are done are listed above. The remaining SSC subjects and
+**every HSC subject** need the same single artefact: the সূচিপত্র page of the
+official book, plus its edition. The HSC gap is the harder one — no HSC Physics,
+Chemistry, Biology or elective textbook exists on the Internet Archive in a form
+this environment could read, so the HSC elective lists seeded from the curriculum
+notice stay unverified.
 
 ## What changed in this pass
 
@@ -50,7 +94,9 @@ textbook list could be rendered here.
 | --- | --- | --- |
 | SSC Class 9–10 textbook list, 2025 | https://nctb.gov.bd/pages/static-pages/6922e0c0933eb65569e28767 | **Read in full.** 33 books, Bangla and English, each with two download links. Authority for the SSC inventory. |
 | SSC Class 9–10 textbook list, 2026 | https://nctb.gov.bd/pages/static-pages/695b99afc4774958d7b70612 | **Blocked.** Page exists; the content block is a `পাতা` sub-page widget that never resolves. Only navigation, a share bar and the accessibility menu render. |
-| SSC Physics textbook, 2025 (Bangla) | https://drive.google.com/file/d/121GCSD2909n-ETowJfdtzqOoVcdAe9Fx/view | **Blocked.** 105 MB; Google serves a virus-scan interstitial, and the egovcloud mirror returns HTTP 500. The সূচিপত্র inside this file is the only legitimate source for SSC Physics chapter titles. |
+| SSC Physics textbook, 2025 (Bangla) | https://drive.google.com/file/d/121GCSD2909n-ETowJfdtzqOoVcdAe9Fx/view | **Blocked.** 105 MB; Google serves a virus-scan interstitial, and the egovcloud mirror returns HTTP 500. **Worked around**, not ignored: a scan of the same printed book was read instead — see the two archive.org rows below. |
+| SSC Physics textbook, printed scan | https://archive.org/details/physics-class-9-10-com-opt | **Read in full.** Bengali OCR text layer; the সূচিপত্র yields 14 chapters with page numbers, and the imprint page gives the edition. Source of migration 0010. |
+| SSC Chemistry textbook, printed scan | https://archive.org/details/chemistry-class-9-10-com-opt | **Read in full.** Same pipeline; সূচিপত্র yields 12 chapters. Source of migration 0010. |
 | Government Cloud Drive mirror | https://drive.egovcloud.gov.bd/index.php/s/QciQ1yYNg2c6Jmf | **Blocked.** Share page renders and confirms the same 104.9 MB file; `/download` returns HTTP 500. |
 | National Curriculum 2012 — secondary | https://nctb.gov.bd/pages/files/6922db5b933eb65569e09a2c | **Partly readable.** 93-page PDF extracts, but in legacy Bijoy/ANSI single-byte encoding; unusable without a converter. |
 | National Curriculum 2012 — higher secondary | https://nctb.gov.bd/pages/files/6922dbc6933eb65569e0c702 | **Partly readable.** 43-page PDF, same encoding problem. |

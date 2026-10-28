@@ -49,7 +49,19 @@ function SourceLink({ url }: { url: string | null }) {
   );
 }
 
-export function CoveragePanel({ curriculum }: { curriculum: UserDataBundle['curriculum'] }) {
+export function CoveragePanel({
+  curriculum,
+  adoptedSubjectIds,
+  onStudySubject,
+  busyKey,
+}: {
+  curriculum: UserDataBundle['curriculum'];
+  /** Subjects already in the student's workspace, so the action is not a no-op. */
+  adoptedSubjectIds?: ReadonlySet<string>;
+  /** Adopt the subject with its chapters and continue in the topic screens. */
+  onStudySubject?: (versionId: string, subjectId: string, subjectName: string) => void;
+  busyKey?: string | null;
+}) {
   /*
    * Demo rows are excluded on purpose. The demo curriculum ships 18 placeholder
    * chapters, and counting them would put "18 chapters" next to "82 subjects"
@@ -161,6 +173,7 @@ export function CoveragePanel({ curriculum }: { curriculum: UserDataBundle['curr
                     <th scope="col">Chapters</th>
                     <th scope="col">Topics</th>
                     <th scope="col">Chapter list</th>
+                    <th scope="col">Study</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,6 +187,24 @@ export function CoveragePanel({ curriculum }: { curriculum: UserDataBundle['curr
                         <Badge tone={CHAPTER_STATE_TONE[row.chapter_state]}>
                           {row.chapter_state === 'none' ? 'None' : row.chapter_state.replace('_', ' ')}
                         </Badge>
+                      </td>
+                      <td>
+                        {row.chapter_count === 0 ? (
+                          <span className="tiny muted">No chapter list yet</span>
+                        ) : onStudySubject ? (
+                          <button
+                            type="button"
+                            className="btn btn--secondary btn--sm"
+                            disabled={busyKey === `study-${row.curriculum_subject_id}`}
+                            onClick={() =>
+                              onStudySubject(row.curriculum_version_id, row.curriculum_subject_id, row.name)
+                            }
+                          >
+                            {adoptedSubjectIds?.has(row.curriculum_subject_id)
+                              ? 'Open chapters'
+                              : 'Add to my subjects'}
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
