@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Badge, EmptyState, Notice, PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
+import { Badge, EmptyState, FilterBar, Notice, PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
@@ -187,11 +187,26 @@ function PracticeContent() {
         <StatCard label="Needs review" value={summary.flaggedQuestions} hint={`${summary.aiGenerated} AI-generated question(s)`} />
       </div>
 
-      <SectionCard title="Practice queue" hint="Flagged → answered incorrectly → never attempted → everything else.">
-        {queue.length === 0 ? (
+      {summary.questions === 0 ? (
+        <SectionCard title="Start your question bank" hint="Nothing is pre-filled: every question is yours, imported, or clearly labelled AI practice.">
           <EmptyState
             title="No question yet"
             message="Add your own question, or import a set from a file you trust. Accuracy stays “not recorded” until you grade an attempt."
+            action={
+              <button type="button" className="btn btn--primary btn--sm" onClick={() => setQuestionDialog({ editing: null })}>
+                Add your first question
+              </button>
+            }
+          />
+        </SectionCard>
+      ) : null}
+
+      {summary.questions > 0 ? (
+      <SectionCard title="Practice queue" hint="Flagged → answered incorrectly → never attempted → everything else.">
+        {queue.length === 0 ? (
+          <EmptyState
+            title="Nothing queued right now"
+            message="Every question has been attempted and none is flagged for review. Add a question or flag one to see it here."
           />
         ) : (
           <ul className="list">
@@ -244,12 +259,14 @@ function PracticeContent() {
           </ul>
         )}
       </SectionCard>
+      ) : null}
 
+      {summary.questions > 0 ? (
       <SectionCard
         title="All questions"
         hint="Search-free list of what you have; the filters narrow by subject, difficulty and origin."
-        action={
-          <div className="row">
+      >
+        <FilterBar>
             <select className="input input--inline" aria-label="Filter by subject" value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>
               <option value="">All subjects</option>
               {view.subjects.map((subject) => (
@@ -278,9 +295,7 @@ function PracticeContent() {
               <input type="checkbox" checked={onlyReview} onChange={(event) => setOnlyReview(event.target.checked)} />
               <span>Needs review only</span>
             </label>
-          </div>
-        }
-      >
+        </FilterBar>
         {filtered.length === 0 ? (
           <p className="small muted">No question matches these filters.</p>
         ) : (
@@ -330,8 +345,15 @@ function PracticeContent() {
           </ul>
         )}
       </SectionCard>
+      ) : null}
 
       <SectionCard title="Accuracy by difficulty" hint="Only graded attempts are counted; ungraded attempts are ignored rather than assumed wrong.">
+        {summary.gradedAttempts === 0 ? (
+          <EmptyState
+            title="No graded attempts yet"
+            message="Three empty bars would suggest three zero scores. Until one attempt is graded, accuracy is simply not recorded."
+          />
+        ) : (
         <div className="bars">
           {summary.byDifficulty.map((row) => (
             <div key={row.difficulty} className="bar">
@@ -345,6 +367,7 @@ function PracticeContent() {
             </div>
           ))}
         </div>
+        )}
         {bundle.practiceAttempts.some((attempt) => attempt.needs_review) ? (
           <Notice tone="warn" title="Flagged attempts">
             {summary.flaggedQuestions} question(s) are flagged or were answered incorrectly. They stay at the top of the

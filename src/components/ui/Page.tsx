@@ -5,23 +5,34 @@ import { informationCircleOutline, warningOutline } from 'ionicons/icons';
 import { chapterStatusLabel } from '@/domain/progress';
 import type { ChapterStatus } from '@/types/domain';
 
+/**
+ * The one page header. Rendered as the same `hero` panel the dashboard uses so
+ * every screen opens with the same weight, radius and background instead of a
+ * bare heading on some routes and a decorated card on others.
+ *
+ * `meta` takes small chips (level, week range, freshness) that belong next to
+ * the title rather than in a separate row of badges.
+ */
 export function PageHeader({
   title,
   description,
   actions,
+  meta,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
+  meta?: ReactNode;
 }) {
   return (
-    <div className="page-head">
-      <div>
+    <header className="hero page-head">
+      <div className="hero__body">
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
+        {meta ? <div className="hero__meta">{meta}</div> : null}
       </div>
-      {actions ? <div className="row">{actions}</div> : null}
-    </div>
+      {actions ? <div className="hero__actions">{actions}</div> : null}
+    </header>
   );
 }
 
@@ -55,6 +66,19 @@ export function SectionCard({
 }
 
 export type Tone = 'neutral' | 'good' | 'warn' | 'danger' | 'info' | 'accent';
+
+/**
+ * A row of filter controls that belongs to the card below it. Kept out of the
+ * card header so the title keeps its line and the controls line up left to
+ * right instead of wrapping around the heading.
+ */
+export function FilterBar({ children, label = 'Filters' }: { children: ReactNode; label?: string }) {
+  return (
+    <div className="filters" role="group" aria-label={label}>
+      {children}
+    </div>
+  );
+}
 
 export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
   return <span className={`badge badge--${tone}`}>{children}</span>;

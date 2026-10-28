@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { IonIcon } from '@ionic/react';
-import { addOutline, calendarOutline, checkmarkCircleOutline, warningOutline } from 'ionicons/icons';
+import { addOutline, calendarOutline, checkmarkCircleOutline, ellipsisHorizontal, warningOutline } from 'ionicons/icons';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
 import { Badge, EmptyState, Notice, PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
@@ -388,31 +388,63 @@ function TasksContent() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="list-row__actions" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <button type="button" className="btn btn--secondary btn--sm" onClick={() => setRescheduling(task)}>
-                      Reschedule
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--secondary btn--sm"
-                      onClick={() => void setStatus(task, task.status === 'blocked' ? 'todo' : 'blocked')}
-                    >
-                      {task.status === 'blocked' ? 'Unblock' : 'Block'}
-                    </button>
-                    <button type="button" className="btn btn--secondary btn--sm" onClick={() => setSplitting(task)}>
-                      Split
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--secondary btn--sm"
-                      onClick={() => {
-                        setEditing(task);
-                        setTaskDialog(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <ConfirmDeleteButton onConfirm={() => deleteTask(task.id)} label="Delete" />
+                  {/* One primary repair action plus an overflow menu. Six
+                      side-by-side buttons per row turned the list into a wall
+                      of borders and made "Delete" as easy to hit as
+                      "Reschedule". Every action stays reachable. */}
+                  <div className="list-row__actions">
+                    {isOpenTask(task) ? (
+                      <button type="button" className="btn btn--secondary btn--sm" onClick={() => setRescheduling(task)}>
+                        Reschedule
+                      </button>
+                    ) : null}
+                    <details className="menu">
+                      <summary
+                        className="btn btn--ghost btn--sm"
+                        // Native <summary> has no button role in Chromium, so
+                        // screen readers and tests would miss it entirely.
+                        role="button"
+                        aria-label={`More actions for ${task.title}`}
+                      >
+                        <IonIcon icon={ellipsisHorizontal} aria-hidden="true" />
+                      </summary>
+                      <div className="menu__panel" role="group" aria-label={`Actions for ${task.title}`}>
+                        <button
+                          type="button"
+                          className="menu__item"
+                          onClick={(event) => {
+                            event.currentTarget.closest('details')?.removeAttribute('open');
+                            void setStatus(task, task.status === 'blocked' ? 'todo' : 'blocked');
+                          }}
+                        >
+                          {task.status === 'blocked' ? 'Unblock task' : 'Mark blocked'}
+                        </button>
+                        <button
+                          type="button"
+                          className="menu__item"
+                          onClick={(event) => {
+                            event.currentTarget.closest('details')?.removeAttribute('open');
+                            setSplitting(task);
+                          }}
+                        >
+                          Split into smaller tasks
+                        </button>
+                        <button
+                          type="button"
+                          className="menu__item"
+                          onClick={(event) => {
+                            event.currentTarget.closest('details')?.removeAttribute('open');
+                            setEditing(task);
+                            setTaskDialog(true);
+                          }}
+                        >
+                          Edit details
+                        </button>
+                        <div className="menu__item menu__item--danger">
+                          <ConfirmDeleteButton onConfirm={() => deleteTask(task.id)} label="Delete task" />
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 </div>
               );

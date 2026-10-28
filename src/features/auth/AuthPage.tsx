@@ -105,6 +105,22 @@ export function AuthPage() {
 
   return (
     <div className="auth-shell">
+      <div className="auth-layout">
+      {/* Wide screens get a short statement of what the app actually does.
+          Every line here is a behaviour that exists in this build — no
+          marketing claims about accuracy, users or exams. */}
+      <aside className="auth-aside">
+        <p className="eyebrow">Study tracker</p>
+        <p className="auth-aside__lead">
+          Plan the week, record what you actually did, and read the result without the app guessing.
+        </p>
+        <ul className="auth-points">
+          <li>Every percentage shows its denominator, or says “not recorded”.</li>
+          <li>Reports and the weekly plan work with AI switched off.</li>
+          <li>Demo rows stay labelled “Demo”; nothing is presented as official.</li>
+          <li>SSC and HSC subject structure comes from NCTB — chapter lists are still unverified.</li>
+        </ul>
+      </aside>
       <div className="auth-card">
         <div className="auth-brand">
           <div className="brand__mark" aria-hidden="true">
@@ -253,6 +269,7 @@ export function AuthPage() {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

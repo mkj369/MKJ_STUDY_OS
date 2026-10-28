@@ -17,7 +17,9 @@ function ReportBody({ payload, source }: { payload: WeeklyReportPayload; source:
     <div className="weekly-report">
       <div className="row row--between" style={{ alignItems: 'flex-start' }}>
         <div>
-          <h2>{payload.summary}</h2>
+          {/* A sentence, not a heading: it describes the week, so it must not
+              enter the document outline as a section title. */}
+          <p className="report-summary">{payload.summary}</p>
           <p className="tiny muted">
             {source} · generated {formatDateTime(payload.generated_at)} · week {payload.week.start} → {payload.week.end}
           </p>
@@ -26,7 +28,7 @@ function ReportBody({ payload, source }: { payload: WeeklyReportPayload; source:
       </div>
 
       <div>
-        <h3>Observed facts</h3>
+        <h3 className="report-section-title">Observed facts</h3>
         <ul className="report-list">
           {payload.observed_facts.map((fact) => (
             <li key={fact.label}>
@@ -40,7 +42,7 @@ function ReportBody({ payload, source }: { payload: WeeklyReportPayload; source:
       </div>
 
       <div>
-        <h3>Possible gaps (evidence-based)</h3>
+        <h3 className="report-section-title">Possible gaps (evidence-based)</h3>
         {payload.possible_gaps.length === 0 ? (
           <p className="small muted">No gap is supported by this week’s records.</p>
         ) : (

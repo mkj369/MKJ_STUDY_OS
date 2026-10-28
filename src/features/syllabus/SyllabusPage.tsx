@@ -162,7 +162,7 @@ function SyllabusContent() {
       />
 
       <SectionCard title="Filters" hint="Filters change the reference curriculum you browse, never your records or your progress.">
-        <div className="grid grid--two">
+        <div className="filters filters--grid">
           <label className="field">
             <span className="field__label">Level</span>
             <select
@@ -242,6 +242,10 @@ function SyllabusContent() {
             <span>Only chapters that are not complete</span>
           </label>
         </div>
+        <p className="tiny muted">
+          Showing {version ? version.title : 'every loaded version'}. Filters change which reference rows you see;
+          your chapter progress below is never filtered away.
+        </p>
         {version ? (
           <Notice tone={version.verification_status === 'verified' ? 'info' : 'warn'} title="Syllabus source">
             {version.authority} · {version.education_level} · {version.academic_year} · version{' '}

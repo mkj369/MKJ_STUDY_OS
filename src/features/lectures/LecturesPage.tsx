@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { IonAlert, IonIcon } from '@ionic/react';
 import { addOutline, filterOutline } from 'ionicons/icons';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
-import { Badge, EmptyState, Notice, PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
+import { Badge, EmptyState, FilterBar, Notice, PageHeader, SectionCard, StatCard } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { ConfirmDeleteButton } from '@/components/ui/ConfirmDeleteButton';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
@@ -156,11 +156,11 @@ function LecturesContent() {
       />
 
       <div className="grid grid--stats">
-        <StatCard label="Lectures recorded (all time)" value={bundle.lectures.length} hint="Not an estimate of lectures taught" />
+        <StatCard label="Lectures recorded" value={bundle.lectures.length} hint="Not an estimate of lectures taught" />
         <StatCard label="This week" value={lecturesThisWeek.length} hint={`Week ${week.start} → ${week.end}`} />
         <StatCard label="Marked completed" value={bundle.lectures.filter((l) => l.is_completed).length} hint="Completion is your own record" />
         <StatCard
-          label="Subjects with a lecture target"
+          label="With a lecture target"
           value={view.subjects.filter((s) => s.chapters.some((c) => c.progress.lectures.target !== null)).length}
           hint="Empty targets mean “not recorded”"
         />
@@ -168,11 +168,13 @@ function LecturesContent() {
 
       <div style={{ height: 16 }} />
 
-      <SectionCard title="Filters" hint="Narrow the log without losing any records">
-        <div className="row">
-          <label className="field" style={{ minWidth: 220, flex: 1 }}>
+      <SectionCard title="Lecture history" hint={`${filtered.length} record(s) shown`}>
+        {/* Two filters do not need their own card; they sit above the records
+            they filter. */}
+        <FilterBar>
+          <label className="field">
             <span className="field__label">Subject</span>
-            <select className="select" value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>
+            <select className="input" value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>
               <option value="all">All subjects</option>
               {view.subjects.map((subject) => (
                 <option key={subject.subject.id} value={subject.subject.id}>
@@ -181,18 +183,13 @@ function LecturesContent() {
               ))}
             </select>
           </label>
-          <label className="checkbox" style={{ alignSelf: 'flex-end' }}>
+          <label className="field field--checkbox">
             <input type="checkbox" checked={onlyIncomplete} onChange={(event) => setOnlyIncomplete(event.target.checked)} />
             <span>
               <IonIcon icon={filterOutline} aria-hidden="true" /> Only unfinished
             </span>
           </label>
-        </div>
-      </SectionCard>
-
-      <div style={{ height: 16 }} />
-
-      <SectionCard title="Lecture history" hint={`${filtered.length} record(s) shown`}>
+        </FilterBar>
         {bundle.lectures.length === 0 ? (
           <EmptyState
             icon={<IonIcon icon={addOutline} aria-hidden="true" />}

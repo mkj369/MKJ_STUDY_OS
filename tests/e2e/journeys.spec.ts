@@ -200,3 +200,57 @@ test('quick capture saves a note that the vault can find', async ({ page }) => {
   await page.getByPlaceholder(/projectile, Newton, pH/i).fill('escape velocity');
   await expect(page.getByText('E2E — escape velocity').first()).toBeVisible({ timeout: 20_000 });
 });
+
+test('journey C: curriculum filters narrow by SSC/HSC, group and Bangla subject name', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  const main = page.getByRole('main');
+
+  // Both levels ship, and the page says what it really contains.
+  await expect(main.getByLabel('Level').locator('option', { hasText: 'SSC' })).toHaveCount(1);
+  await expect(main.getByLabel('Level').locator('option', { hasText: 'HSC' })).toHaveCount(1);
+  await expect(main.getByText(/curriculum version\(s\)/)).toBeVisible();
+
+  await main.getByLabel('Level').selectOption('SSC');
+  await main.getByLabel('Group / stream').selectOption('Science');
+  await expect(main.getByRole('heading', { name: /SSC Science — official subject structure/ })).toBeVisible();
+  await expect(main.getByRole('heading', { name: /HSC/ })).toHaveCount(0);
+
+  // Official subject structure carries a Bangla name and no chapter list.
+  await main.getByLabel('Subject').fill('পদার্থ');
+  await expect(main.getByText('Physics · পদার্থবিজ্ঞান')).toBeVisible();
+  await expect(main.getByText('Chapter list not yet verified').first()).toBeVisible();
+  await expect(main.getByText('0 chapter row(s)').first()).toBeVisible();
+
+  // Filtering never deletes or hides the user's own records.
+  await main.getByRole('button', { name: /clear filters/i }).first().click();
+  await expect(main.getByRole('heading', { name: 'Your subjects' })).toBeVisible();
+  await expect(main.getByText('Physics — 1st Paper').first()).toBeVisible();
+});
+
+test('journey C2: a modelled chapter keeps its status when the curriculum seed re-runs', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/syllabus');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
+
+  // Record progress against a curriculum-backed chapter.
+  await page.getByRole('link', { name: /Demo chapter 1 — mechanics/ }).first().click();
+  await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
+  const firstItem = page.locator('.checklist input[type="checkbox"]').first();
+  await firstItem.check();
+  await expect(firstItem).toBeChecked();
+
+  // A reload re-runs the curriculum seed on top of existing browser storage.
+  await page.reload();
+  await expect(page.locator('.checklist input[type="checkbox"]').first()).toBeChecked({ timeout: 20_000 });
+
+  // The official subject structure is still present and still unverified.
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByText(/Chapter list not yet verified/).first()).toBeVisible({
+    timeout: 20_000,
+  });
+});

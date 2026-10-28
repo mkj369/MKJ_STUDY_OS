@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { IonIcon } from '@ionic/react';
-import { alertCircleOutline, cloudOfflineOutline, refreshOutline } from 'ionicons/icons';
+import { alertCircleOutline, cloudOfflineOutline, fileTrayOutline, refreshOutline } from 'ionicons/icons';
 
 export function Splash() {
   return (
@@ -81,14 +81,14 @@ export function EmptyState({
 }) {
   return (
     <div className="empty">
-      {icon ? (
-        <div className="empty__icon" aria-hidden="true">
-          {icon}
-        </div>
-      ) : null}
+      {/* Always show the icon slot. A bare paragraph floating in a large card
+          reads like a rendering failure rather than a deliberate empty state. */}
+      <div className="empty__icon" aria-hidden="true">
+        {icon ?? <IonIcon icon={fileTrayOutline} />}
+      </div>
       <h3>{title}</h3>
       <p>{message}</p>
-      {action}
+      {action ? <div className="empty__action">{action}</div> : null}
     </div>
   );
 }
