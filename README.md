@@ -34,7 +34,7 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
 | Screens: 28 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
-| Postgres schema + RLS (`0001`–`0015`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
+| Postgres schema + RLS (`0001`–`0016`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
 | AI narrative Edge Function | **Unit-tested end-to-end with a stubbed provider** (16 tests: request shape, key handling, schema + invented-number rejection, timeout/5xx/401 mapping); **no live call** — no key, provider hosts unreachable |
 | Android (Capacitor 7) | `android/` project generated, plugin synced, 8 config assertions pass; **APK not built** (no JDK/SDK), **no device test** |
@@ -140,6 +140,7 @@ structural placeholder (`needs_verification`), **not official NCTB content**.
    | `0011_hsc_two_paper_split_and_physics_2.sql` | HSC two-paper split (Physics/Chemistry/Biology/Higher Mathematics 1st & 2nd Paper, Science only), 15 HSC Physics 2nd Paper chapters (printed English gloss, `title_bn` null, `partially_verified`), 3 sources and 3 outstanding requirements |
    | `0012_hsc_business_studies_sources.sql` | HSC Accounting + Business Organisation scans registered (nothing imported — numbers unreadable / no English gloss), the 10 Minute School uploads registered as rejected third-party material, 2 outstanding requirements |
    | `0013_hsc_inventory_and_2026_27_syllabus.sql` | Corrects a wrong note about the ২০২৫-২৬ HSC textbook page (it renders — it just has no group lists), registers the 2026–27 Bangla 1st / English 1st / ICT **exam syllabi** as `exam_syllabus` sources, registers the Lecture Publications question bank as rejected, adds requirements 16–17. **No chapters, no topics.** |
+   | `0016_textbook_download_walls.sql` | Records the two walls behind every textbook link: Google Drive returns its virus-scan interstitial (620 MB, needs a confirm token), and the ২০২১ archive page is empty like the ২০২৬ ones. 2 source rows, nothing imported. |
    | `0015_2026_hsc_textbook_pages_empty.sql` | Records that the ২০২৬ and ২০২৬-২৭ HSC textbook list pages exist and are empty (updated ২৭ Oct ২০২৬), corrects the second stale "did not render" note, and registers the Biology partial scan + the bucket-listing block. **No chapters, no topics.** |
    | `0014_topic_source_columns.sql` | `curriculum_topics.topic_number` / `source_page` / `source_document` + positive-page check + `(chapter, number)` unique index. **No rows** — the columns exist so the first real topic import can be checked. |
 

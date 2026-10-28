@@ -43,6 +43,9 @@ Legend for **Read**:
 | HSC ২০২৩ (archive) | — | [২০২৩ শিক্ষাবর্ষের সকল স্তরের পাঠ্যপুস্তক](https://nctb.gov.bd/pages/static-pages/6922dd35933eb65569e13f12) | ⛔ empty | Opened as a fallback for a group-wise list; body is `কন্টেন্ট: পাতা`, no rows. A ২০২৩ list would not answer a ২০২৬-২৭ question anyway. |
 | NCTB Oracle bucket | — | `…/b/V2Ministry/o?prefix=office-nctb/2026/9/` | ⛔ listing denied | Individual object URLs work (that is how the three syllabi were read), but the bucket refuses enumeration: `{"code":"BucketNotFound", …not authorized…}`. Textbook PDFs there can only be opened by a published link. |
 
+| HSC Bangla ২০২৬ (Drive) | — | [সাহিত্যপাঠ (একাদশ-দ্বাদশ ২০২৬)](https://drive.google.com/file/d/1Bfyt8NADDsRtpNt--mdDDzc29EV5Nnsu/view) | 🚫 blocked | Every NCTB textbook link points at Google Drive, and Drive serves its virus-scan interstitial — *"620M is too large for Google to scan"* — not the file. The confirm-token step needs a cookie jar this environment lacks. Not a bandwidth problem: an access one, and it will apply to the Science books too. |
+| HSC ২০২১ (archive) | — | [২০২১ শিক্ষাবর্ষের সকল স্তরের পাঠ্যপুস্তকের তালিকা](https://nctb.gov.bd/pages/static-pages/6922dbc9933eb65569e0c85a) | ⛔ empty | Opened as a fallback for a group-wise list; heading → `কন্টেন্ট: পাতা` → share bar, no rows. The archive is not a way around the empty ২০২৬-২৭ page. |
+
 **Net HSC result:** 1 of 10 Science subject-papers has a chapter list, and it is
 `partially_verified`. HSC is **not** complete, and no part of it may be described
 as such.
