@@ -19,21 +19,21 @@ npm ci                      # 397 packages, lockfile respected
 npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
 npm run build               # tsc -b && vite build    -> built in 5.49s
-npx vitest run              # 42 files, 486 tests passed
+npx vitest run              # 42 files, 490 tests passed
 npx playwright test         # 40 tests passed (Chromium, production bundle)
 ```
 
 `npm run verify` runs typecheck → lint → build → `vitest run`. Build before tests
 matters: `tests/bundle/secrets.test.ts` skips four assertions when `dist/` is absent,
 because it greps the real bundle for leaked keys. Without a build you get
-`481 passed | 4 skipped` — not a failure, but it has not checked the secrets.
+`486 passed | 4 skipped` — not a failure, but it has not checked the secrets.
 
-### Test suite composition (486)
+### Test suite composition (490)
 
 | Area | Files | What it proves |
 | --- | --- | --- |
 | `tests/domain` | 19 | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, per-level/group coverage maths, official-import validation and idempotency planning, AI payload keys, and the shipped chapter rows (41, every one sourced, none `verified`) |
-| `tests/db` | 6 | Migrations `0001`–`0011` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin **chapter for chapter**, a student chapter keeps its link through a reseed, the import guarantees hold (duplicate chapter numbers rejected, `verified` without a source rejected, progress preserved across two re-imports), and the real imports are asserted: 14 SSC Physics + 12 SSC Chemistry + 15 HSC Physics 2nd Paper chapters, numbering 1…n with no gaps, `partially_verified`, source named, `title_bn` null where the scan could not supply it, zero topics invented |
+| `tests/db` | 6 | Migrations `0001`–`0012` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin **chapter for chapter**, a student chapter keeps its link through a reseed, the import guarantees hold (duplicate chapter numbers rejected, `verified` without a source rejected, progress preserved across two re-imports), and the real imports are asserted: 14 SSC Physics + 12 SSC Chemistry + 15 HSC Physics 2nd Paper chapters, numbering 1…n with no gaps, `partially_verified`, source named, `title_bn` null where the scan could not supply it, zero topics invented; the Accounting and Business Organisation scans are registered with their read state and still have zero chapters, and the third-party slide decks are registered as rejected rather than as textbooks |
 | `tests/integration` | — | Local repository behaviour: per-user isolation, history-safe deletes, curriculum seed reruns leaving progress and notes untouched |
 | `tests/ui` | — | jsdom rendering of shared components and pages, single `<h1>` per route |
 | `tests/bundle` | 1 | No service-role key or AI provider key in the built assets |

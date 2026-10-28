@@ -81,6 +81,28 @@ title did not survive OCR and was not reconstructed):
 The chapter *numbers* and the English titles are what the book prints next to
 them; the capitalisation is the scan's, not a style guide's.
 
+### Why HSC Accounting was not imported
+
+The Accounting scan is the near-miss of this round. Its সূচিপত্র prints an
+English title on every chapter row, and ten of them are legible:
+
+> Introduction to Accounting · Books of Accounts · Bank Reconciliation
+> Statement · Trial Balance · Principles of Accounting · Accounting for
+> Receivables · Worksheet · Accounting for Tangible and Intangible Assets ·
+> Financial Statements · Single Entry System
+
+What did **not** survive is the other half of each row: the Bengali title, and
+the chapter number. Both are printed in Bengali digits, and the legacy font
+turns those into arbitrary ASCII (`১.`→`\s`, `৩.`→`8.`) with no consistent
+mapping. Physics 2nd Paper was importable precisely because its numbers are
+Latin digits.
+
+So the titles exist and the numbering does not. Numbering ten rows `1…10` by
+their position on the page would be an inference dressed as a fact, and a wrong
+number shifts every later chapter for every student who ticks it. The subject
+stays at zero chapters and the gap is recorded in
+`curriculum_pending_requirements` as *needs the সূচিপত্র page*.
+
 **Why not `verified`.** Three reasons, each of which a person can clear:
 
 1. The evidence is an OCR text layer over a scan, not the publisher's digital file.
@@ -158,6 +180,9 @@ evidence, but the row that actually has a read source says so.
 | HSC Biology 1st Paper textbook, printed scan | https://archive.org/details/hsc-nctb-book-biology | **Blocked.** Same legacy-font problem, no English gloss in the chapter headings; nothing imported. |
 | HSC ICT textbook, printed scan | https://archive.org/details/hsc-nctb-book-ict | **Blocked.** Legacy font, no contents page in the text layer. |
 | `hsc-nctb-book-physics` (four uploads) | https://archive.org/details/hsc-nctb-book-physics | **Unreachable.** The items contain no files at all (`emptyfiles` collection). |
+| HSC Accounting textbook, printed scan | https://archive.org/details/hsc-nctb-book-accounting | **Partly read.** 441 pages, ABBYY over a legacy font. Ten English chapter titles are legible on the সূচিপত্র; the Bengali titles and the chapter numbers are not (both printed in Bengali digits). Not imported — see below. |
+| HSC Business Organisation and Management, printed scan | https://archive.org/details/hsc-nctb-book-business-organisation-and-management | **Blocked.** 246 pages, same font problem, no English gloss on any chapter row. |
+| 10 Minute School "HSC Physics / Chemistry / Biology 1st and 2nd" uploads | https://archive.org/details/hsc-physics-1st-and-2nd-pdf-by-10-minute-school | **Rejected.** Coaching slide decks, not NCTB textbooks: clean Bengali OCR but no official সূচিপত্র, imprint or chapter numbering. Registered as `other` so nobody mistakes them for a source. |
 
 ### How the site became reachable
 
@@ -231,6 +256,8 @@ Curriculum screen.
 | HSC | 2026–27 | Chapter and topic lists (Physics 1st Paper, Chemistry, Biology, Higher Mathematics) | `source_blocked` — no readable HSC science scan |
 | HSC | 2026–27 | Bengali titles for the 15 Physics 2nd Paper chapters | `source_blocked` — legacy-font OCR, converter rejected |
 | HSC | 2026–27 | Elective and optional subject lists per stream | `source_blocked` — ২০২৫-২৬ HSC list page renders as an empty পাতা widget |
+| HSC | 2026–27 | Chapter numbers + Bengali titles for the ten legible Accounting chapters | `source_blocked` — numbers printed in Bengali digits, mangled by the legacy font |
+| HSC | 2026–27 | Chapter list for Business Organisation and Management | `source_blocked` — contents page has no English gloss |
 | HSC | 2026–27 | Paper split for electives | `awaiting_source` |
 
 Years 2027–2029 are listed because they were explicitly asked for. NCTB had

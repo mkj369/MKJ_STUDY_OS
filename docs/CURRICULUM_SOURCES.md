@@ -58,10 +58,14 @@ The import format for one page is specified in
 
 | Subject area | Artefact | Read | Result |
 | --- | --- | --- | --- |
-| Accounting | [archive.org/details/Accounting11](https://archive.org/details/Accounting11) — 441 pages | 🚫 blocked | Text layer is legacy-font garble; the contents page is not extractable. |
-| Business Organisation & Management | `hsc-nctb-book-business-organisation-and-management` | ⬜ empty | Metadata only. |
+| Accounting | [archive.org/details/hsc-nctb-book-accounting](https://archive.org/details/hsc-nctb-book-accounting) — 441 pages, ABBYY | 🟡 partial | **The সূচিপত্র prints English titles, and ten survive:** Introduction to Accounting · Books of Accounts · Bank Reconciliation Statement · Trial Balance · Principles of Accounting · Accounting for Receivables · Worksheet · Accounting for Tangible and Intangible Assets · Financial Statements · Single Entry System. The Bengali titles and the **chapter numbers** are printed in Bengali digits, which the legacy font destroys (`১.`→`\s`, `৩.`→`8.`). **Not imported:** numbering by position would be inference. Recorded as a pending requirement. |
+| Business Organisation & Management | [archive.org/details/hsc-nctb-book-business-organisation-and-management](https://archive.org/details/hsc-nctb-book-business-organisation-and-management) — 246 pages, ABBYY | 🚫 blocked | Contents page opened: no English gloss on any row, titles and numbers both mojibake. English section headings exist inside the body, but mapping them back to chapters would be reconstruction. |
+| (also on that item) | `archive.org/details/Accounting11` | 🚫 blocked | An unrelated upload of the same title with a worse text layer; superseded by the item above. |
 | Economics, Civics, History, Geography, Sociology, Social Work, Psychology, Logic | *not located* | ❔ unread | No readable artefacts. |
 | Finance / Production Management / Marketing | *not located* | ❔ unread | No readable artefacts. |
+
+**Net HSC Humanities / Business Studies result:** 0 chapters, and one book whose
+titles are half-readable (Accounting). Both groups remain `needs_verification`.
 
 **Inventory gap, stated plainly:** the seeded HSC Humanities list (14 rows) and
 Business Studies list (9 rows) came from the 2026–27 curriculum notice, and
@@ -69,6 +73,13 @@ Business Studies list (9 rows) came from the 2026–27 curriculum notice, and
 textbook list would do it and is blocked. Until then those rows stay
 `needs_verification`, and the app reports the group as *incomplete* rather than
 counting the seeded rows as proof.
+
+**Rejected, not unavailable:** the three `…pdf-by-10-minute-school` uploads
+(Physics, Chemistry, Biology) are coaching slide decks, not NCTB books. Their
+Bengali OCR is clean because they were born digital, which makes them tempting —
+but they carry no official সূচিপত্র, no imprint page and no chapter numbering.
+Using them would swap the textbook's contents for a third party's syllabus. They
+are registered as `other` / rejected so the next person does not re-open them.
 
 ---
 

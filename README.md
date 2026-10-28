@@ -34,7 +34,7 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
 | Screens: 28 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
-| Postgres schema + RLS (`0001`–`0011`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
+| Postgres schema + RLS (`0001`–`0012`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
 | AI narrative Edge Function | **Unit-tested end-to-end with a stubbed provider** (16 tests: request shape, key handling, schema + invented-number rejection, timeout/5xx/401 mapping); **no live call** — no key, provider hosts unreachable |
 | Android (Capacitor 7) | `android/` project generated, plugin synced, 8 config assertions pass; **APK not built** (no JDK/SDK), **no device test** |
@@ -138,6 +138,7 @@ structural placeholder (`needs_verification`), **not official NCTB content**.
    | `0009_curriculum_inventory.sql` | Bangla/English 1st & 2nd Paper split (12 rows), source registry, outstanding requirements |
    | `0010_ssc_physics_chemistry_chapters.sql` | First real chapter data: 14 SSC Physics + 12 SSC Chemistry chapters from printed NCTB contents pages, both `partially_verified` |
    | `0011_hsc_two_paper_split_and_physics_2.sql` | HSC two-paper split (Physics/Chemistry/Biology/Higher Mathematics 1st & 2nd Paper, Science only), 15 HSC Physics 2nd Paper chapters (printed English gloss, `title_bn` null, `partially_verified`), 3 sources and 3 outstanding requirements |
+   | `0012_hsc_business_studies_sources.sql` | HSC Accounting + Business Organisation scans registered (nothing imported — numbers unreadable / no English gloss), the 10 Minute School uploads registered as rejected third-party material, 2 outstanding requirements |
 
    `0005` uses `on delete set null (practice_question_id)`, which needs Postgres 15+
    (Supabase projects are 15/16/17; PGlite here is 18).

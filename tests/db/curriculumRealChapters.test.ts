@@ -295,3 +295,56 @@ describe('HSC Physics 2nd Paper chapters', () => {
     ]);
   });
 });
+
+describe('sources recorded but deliberately not imported (migration 0012)', () => {
+  it('keeps the Accounting book in the registry as partial, not as a success', async () => {
+    const [source] = await rows<{ access_state: string; document_type: string; note: string }>(
+      `select access_state, document_type, note
+         from public.curriculum_sources
+        where url = 'https://archive.org/details/hsc-nctb-book-accounting'`,
+    );
+    expect(source?.access_state).toBe('partial');
+    expect(source?.document_type).toBe('textbook');
+    // The reason it was not imported has to survive in the data, not only in a doc.
+    expect(source?.note).toContain('chapter numbers');
+  });
+
+  it('imports no chapters for HSC Business Studies, where the numbers are unreadable', async () => {
+    const [row] = await rows<{ subjects: number; chapters: number }>(
+      `select count(distinct s.id)::int as subjects,
+              count(c.id)::int as chapters
+         from public.curriculum_versions v
+         join public.curriculum_subjects s on s.curriculum_version_id = v.id
+         left join public.curriculum_chapters c on c.curriculum_subject_id = s.id
+        where v.education_level = 'HSC'
+          and v.stream = 'Business Studies'
+          and v.is_demo = false
+          and s.is_compulsory = true`,
+    );
+    expect(row?.subjects).toBeGreaterThan(0);
+    expect(row?.chapters).toBe(0);
+  });
+
+  it('marks the third-party slide decks as rejected rather than as an official textbook', async () => {
+    const [source] = await rows<{ document_type: string; authority: string }>(
+      `select document_type, authority
+         from public.curriculum_sources
+        where url like '%10-minute-school%'`,
+    );
+    expect(source?.document_type).toBe('other');
+    expect(source?.authority).toContain('not NCTB');
+  });
+
+  it('links the two new Business Studies gaps to the HSC 2026–27 version', async () => {
+    const gaps = await rows<{ requirement: string; status: string }>(
+      `select requirement, status
+         from public.curriculum_pending_requirements
+        where education_level = 'HSC'
+          and stream = 'Business Studies'
+          and academic_year = '2026–2027'
+        order by requirement`,
+    );
+    expect(gaps).toHaveLength(2);
+    expect(gaps.every((gap) => gap.status === 'source_blocked')).toBe(true);
+  });
+});
