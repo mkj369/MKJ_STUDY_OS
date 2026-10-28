@@ -114,6 +114,35 @@ The limitation that remains is the documents themselves, not the site: large
 Drive-hosted textbook PDFs are gated behind an interstitial, and the sandbox
 cannot reach `drive.google.com` or `drive.egovcloud.gov.bd` at all.
 
+### Books whose contents page did not survive OCR
+
+Three more SSC books are on the Internet Archive with the same pipeline
+(Mathematics, Higher Mathematics, Biology). Their text layers are readable, but
+the contents page is not: the Mathematics scan runs from প্রসঙ্গ-কথা straight
+into অধ্যায় ১, and the Higher Mathematics scan left only a column of page numbers
+(১২৩, ১৩৬, ১৪৬ …) with the titles stripped out. Transcribing chapter titles from
+that would be reconstructing a page, not reading one, so those three subjects
+stay at zero chapters and need the screenshot/PDF route in
+[CURRICULUM_IMPORT.md](CURRICULUM_IMPORT.md) §6.
+
+### The Bijoy/ANSI problem (not solved, and not faked)
+
+Both National Curriculum PDFs are single-byte legacy encodings: the bytes are not
+Unicode, so `pdftotext` (absent here anyway) would return mojibake. The safe path,
+if someone picks this up:
+
+1. Convert with an off-the-shelf Bijoy→Unicode mapper, or a documented
+   per-glyph mapping table — never by eyeballing the mojibake.
+2. **Validate against the original**: convert a page whose subject names are
+   independently known (the SSC/HSC subject tables already in
+   `curriculum_subjects`), and require an exact match before trusting any page
+   that feeds an import.
+3. Only then read the elective tables. Until step 2 passes, the HSC elective
+   lists stay `needs_verification`, exactly as they are now.
+
+This was **not** attempted in this pass. The HSC elective lists are still the
+unverified 7/12/7 seed.
+
 ### Rejected sources
 
 Third-party sites publish SSC Physics chapter lists that disagree with each
