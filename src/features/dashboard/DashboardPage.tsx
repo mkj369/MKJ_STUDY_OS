@@ -59,6 +59,27 @@ export function DashboardPage() {
     (session) => session.session_date >= week.start && session.session_date <= week.end,
   );
   const weekMinutes = sessionsThisWeek.reduce((sum, session) => sum + session.duration_minutes, 0);
+  /*
+   * Seven bars, one per day of the current week. Every height comes from a
+   * `study_sessions` row the student saved — a day with nothing logged stays at
+   * zero rather than being smoothed, averaged or filled in.
+   */
+  const weekDays = (() => {
+    const start = new Date(`${week.start}T00:00:00Z`);
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(start.getTime() + index * 86_400_000).toISOString().slice(0, 10);
+      const minutes = sessionsThisWeek
+        .filter((session) => session.session_date === day)
+        .reduce((sum, session) => sum + session.duration_minutes, 0);
+      return {
+        date: day,
+        minutes,
+        label: new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' }).slice(0, 2),
+        isToday: day === today,
+      };
+    });
+  })();
+  const peakDayMinutes = Math.max(0, ...weekDays.map((day) => day.minutes));
   const weekLectures = bundle.lectures.filter((l) => l.lecture_date >= week.start && l.lecture_date <= week.end).length;
   const profile = bundle.profile;
   const displayName = auth.user?.displayName || profile.display_name;
@@ -266,8 +287,29 @@ export function DashboardPage() {
           {view.dashboardTasks.length > 1 ? (
             <>
               <div className="divider" />
-              <p className="tiny muted">
-                {view.dashboardTasks.length - 1} more task(s) planned or due today.{' '}
+              {/*
+               * The card used to say "N more task(s)" and stop, leaving two thirds
+               * of the panel empty beside a full revision queue. Listing the next
+               * two costs nothing and is the same data, already sorted.
+               */}
+              <ul className="next-actions">
+                {view.dashboardTasks.slice(1, 3).map((task) => (
+                  <li key={task.id} className="next-actions__row">
+                    <div className="next-actions__body">
+                      <span className="next-actions__title">{task.title}</span>
+                      <span className="next-actions__meta">
+                        {task.priority} priority · {task.estimated_minutes} min
+                        {task.due_date ? ` · due ${task.due_date}` : ''}
+                      </span>
+                    </div>
+                    <Link to="/tasks" className="btn btn--ghost btn--sm">
+                      Open
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="tiny muted" style={{ marginTop: 6 }}>
+                {view.dashboardTasks.length} task(s) planned or due today.{' '}
                 <Link to="/tasks">Open the planner</Link>
               </p>
             </>
@@ -435,6 +477,45 @@ export function DashboardPage() {
           }
         >
           <div className="stack">
+            <div>
+              <div className="row row--between">
+                <span className="small">Study time by day</span>
+                <span className="small strong mono-num">{minutesToHuman(weekMinutes)}</span>
+              </div>
+              {weekMinutes === 0 ? (
+                <p className="tiny muted" style={{ marginTop: 6 }}>
+                  No study time recorded this week. Sessions you log on the Study Sessions page appear here —
+                  nothing is estimated from how long the app was open.
+                </p>
+              ) : (
+                <>
+                  <div className="week-bars" role="img" aria-label={`Study minutes per day, week of ${week.start}`}>
+                    {weekDays.map((day) => (
+                      <div className="week-bars__col" key={day.date}>
+                        <div className="week-bars__track">
+                          <div
+                            className={`week-bars__bar${day.minutes === 0 ? ' week-bars__bar--empty' : ''}`}
+                            style={{
+                              height: peakDayMinutes > 0 ? `${Math.max(2, (day.minutes / peakDayMinutes) * 100)}%` : '2px',
+                            }}
+                            title={`${day.date}: ${day.minutes === 0 ? 'nothing recorded' : minutesToHuman(day.minutes)}`}
+                          />
+                        </div>
+                        <span className={`week-bars__label${day.isToday ? ' week-bars__label--today' : ''}`}>
+                          {day.label}
+                        </span>
+                        <span className="week-bars__value">{day.minutes === 0 ? '–' : day.minutes}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="tiny muted" style={{ marginTop: 4 }}>
+                    Minutes per day from saved study sessions. A dash means nothing was recorded, not that you did
+                    not study.
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="divider" />
             <div>
               <div className="row row--between">
                 <span className="small">Checklist items ticked</span>

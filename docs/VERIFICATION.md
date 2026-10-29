@@ -8,7 +8,7 @@ This file used to be a full copy of `README.md`, which meant the status table ex
 twice and drifted. It is now only the log; the README is the single place that states
 current status.
 
-Last run: **2026-10-28**, Node v22.22.3, npm 10.9.8, Vite 6.4.5, Linux sandbox.
+Last run: **2026-10-30**, Node v22.22.3, npm 10.9.8, Vite 6.4.5, Linux sandbox.
 
 ---
 
@@ -18,10 +18,19 @@ Last run: **2026-10-28**, Node v22.22.3, npm 10.9.8, Vite 6.4.5, Linux sandbox.
 npm ci                      # 397 packages, lockfile respected
 npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
-npm run build               # tsc -b && vite build    -> built in 5.49s
-npx vitest run              # 43 files, 512 tests passed
-npx playwright test         # 43 tests passed (Chromium, production bundle)
+npm run build               # tsc -b && vite build    -> built in 4.94s
+npx vitest run              # 45 files, 532 tests passed
+npx playwright test         # 46 tests passed (Chromium, production bundle)
+npm run audit:routes        # 25/25 routes: heading, no console error, no overflow @1440 & @390
+npm run audit:contrast      # no text below WCAG AA (self-testing: plants a 1.07:1 element)
 ```
+
+The two audit scripts were added in Round 8 because a green suite does not prove a
+screen is readable. `audit:contrast` composites alpha and gradient stops before
+measuring, and plants an intentionally unreadable element that it must catch — so a
+pass cannot come from silently matching nothing. Both need the dev server on :5173.
+Round 8's findings and the per-paper curriculum audit are in
+[docs/ROUND8_REPORT.md](ROUND8_REPORT.md).
 
 `npm run verify` runs typecheck → lint → build → `vitest run`. Build before tests
 matters: `tests/bundle/secrets.test.ts` skips four assertions when `dist/` is absent,

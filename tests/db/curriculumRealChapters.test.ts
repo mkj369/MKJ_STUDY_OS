@@ -413,18 +413,43 @@ describe('topic import groundwork (migration 0014)', () => {
 });
 
 describe('2026 HSC textbook pages (migration 0015)', () => {
-  it('records both 2026 pages as published-but-empty rather than missing', async () => {
+  /*
+   * CORRECTED 2026-10-30. This test used to assert that both ২০২৬ pages were
+   * `blocked` and described as an empty পাতা widget. That was wrong: re-read
+   * through the same proxy on 2026-10-30, both pages render their tables in
+   * full — 29 SSC books, and 5 compulsory HSC books. The assertion now pins the
+   * real finding, which is the one that matters for the HSC Science mission:
+   * the HSC list renders and simply contains no science elective.
+   */
+  it('records both verified ২০২৬ pages as rendered, with what each actually lists', async () => {
+    // The two pages re-read on 2026-10-30. The third ২০২৬ row (the combined
+    // secondary + higher-secondary list) is still genuinely empty and is left
+    // out of this assertion on purpose — it is the one page where "blocked"
+    // remains the honest state.
     const rows2026 = await rows<{ title: string; access_state: string; note: string }>(
       `select title, access_state, note
          from public.curriculum_sources
-        where url like '%nctb.gov.bd/pages/static-pages/%%'
-          and (title like '২০২৬-%' or title like '২০২৬ শিক্ষাবর্ষের মাধ্যমিক%')
-          and document_type = 'textbook_list'
+        where document_type = 'textbook_list'
+          and (url like '%695b99afc4774958d7b70612%' or url like '%o4phi6%')
         order by title`,
     );
-    expect(rows2026.length).toBeGreaterThanOrEqual(2);
-    expect(rows2026.every((row) => row.access_state === 'blocked')).toBe(true);
-    expect(rows2026.every((row) => /পাতা|empty/.test(row.note))).toBe(true);
+    expect(rows2026).toHaveLength(2);
+    // Rendered, never "missing": the documents exist and were read.
+    expect(rows2026.every((row) => row.access_state === 'rendered')).toBe(true);
+    // And each note says what was actually in the table.
+    expect(rows2026.every((row) => /render|২৯|five books/i.test(row.note))).toBe(true);
+    // The stale claim must not survive on either row.
+    expect(rows2026.some((row) => /only navigation|never resolves/i.test(row.note))).toBe(false);
+  });
+
+  it('the ২০২৬-২৭ HSC list proves no science elective is published', async () => {
+    const [row] = await rows<{ note: string }>(
+      `select note from public.curriculum_sources
+        where document_type = 'textbook_list'
+          and url like '%o4phi6%'`,
+    );
+    expect(row?.note).toMatch(/five/i);
+    expect(row?.note).toMatch(/no Science|not.*Science|Science.*no/i);
   });
 
   it('no longer repeats the false claim that the ২০২৫-২৬ page did not render', async () => {

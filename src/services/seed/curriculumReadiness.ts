@@ -28,6 +28,9 @@ import type { CurriculumPendingRequirement, CurriculumSource } from '@/types/dom
 
 const NOW = '2026-10-28T00:00:00.000Z';
 const CHECKED = '2026-10-28';
+// Rows re-read during the Round 8 source audit. Kept as its own constant so the
+// date on a row always says when that row was last actually looked at.
+const RECHECKED = '2026-10-30';
 
 function sourceId(n: number): string {
   return `c0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -59,9 +62,9 @@ export const CURRICULUM_SOURCES: CurriculumSource[] = [
     document_type: 'textbook_list',
     education_level: 'SSC',
     academic_year: '2026',
-    access_state: 'blocked',
-    checked_at: CHECKED,
-    note: 'Page exists and its title lists the 2026 books, but the content block is a "পাতা" (sub-page) widget that never resolves: the rendered body contains only navigation, a share bar and the accessibility menu. No subject rows could be extracted.',
+    access_state: 'rendered',
+    checked_at: RECHECKED,
+    note: 'CORRECTED 2026-10-30: this page renders in full. The earlier "পাতা widget never resolves" reading was wrong — the table is there, 29 rows, each book listed in Bangla and English with a Google Drive link and an egovcloud mirror: বাংলা সাহিত্য, বাংলা সহপাঠ, বাংলা ভাষার ব্যাকরণ ও নির্মিতি, English For Today, English Grammar and Composition, গণিত/Mathematics, তথ্য ও যোগাযোগ যুক্তি, বিজ্ঞান/Science, পদার্থবিজ্ঞান/Physics, রসায়ন/Chemistry, জীববিজ্ঞান/Biology, উচ্চতর গণিত/Higher Mathematics, ভূগোল ও পরিবেশ, অর্থনীতি, কৃষিশিক্ষা, গার্হস্থ্যবিজ্ঞান, পৌরনীতি ও নাগরিকতা, হিসাববিজ্ঞান, ফিন্যান্স ও ব্যাংকিং and the rest. Nothing was imported: the seeder still holds the ২০২৫ SSC structure, and swapping a whole year in would invalidate every existing SSC row and the student progress attached to it. Recorded so the next pass starts from the real inventory.',
     created_at: NOW,
   },
   {
@@ -293,9 +296,9 @@ export const CURRICULUM_SOURCES: CurriculumSource[] = [
     document_type: 'textbook_list',
     education_level: 'HSC',
     academic_year: '2026–2027',
-    access_state: 'blocked',
-    checked_at: CHECKED,
-    note: 'The ২০২৬-২৭ HSC textbook list page itself. Published ২৭ অক্টোবর ২০২৬, ১২:১০ PM, and empty: heading, "কন্টেন্ট: পাতা", share bar, nothing between. Read through the same proxy that returns the ২০২৫-২৬ page in full, so the emptiness is the page\'s, not the proxy\'s. This is the single document whose publication would settle the HSC inventory.',
+    access_state: 'rendered',
+    checked_at: RECHECKED,
+    note: 'RE-READ 2026-10-30 and it is no longer empty: the table renders with five rows, all compulsory — সাহিত্যপাঠ, সহপাঠ, English for Today, তথ্য ও যোগাযোগ প্রযুক্তি, তথ্য ও যোগাযোগ প্রযুক্তি (ইংলিশ ভার্সন). On 2026-10-28 this page was a bare পাতা widget, so NCTB filled it in between. The finding that matters: it has no Science, Humanities or Business Studies section, exactly like the ২০২৫-২৬ page. That is the documented answer to requirement 16 rather than a blocked read.',
     created_at: NOW,
   },
   {
@@ -335,6 +338,19 @@ export const CURRICULUM_SOURCES: CurriculumSource[] = [
     access_state: 'blocked',
     checked_at: CHECKED,
     note: 'Opened hoping an older all-levels list would at least name the HSC Science books. It renders heading → "কন্টেন্ট: পাতা" → share bar with no rows, the same shape as the ২০২৬ pages in 0015. The archive is not a route around the empty ২০২৬-২৭ page.',
+    created_at: NOW,
+  },
+  {
+    id: sourceId(30),
+    url: 'https://drive.google.com/file/d/1MKVd6iyIwt9-4frohPbmw9aodZ2FEDkj/view',
+    title: 'ICT 11-12 (২০২৬-২৭) — তথ্য ও যোগাযোগ প্রযুক্তি textbook, Google Drive',
+    authority: 'NCTB — hosted on Google Drive',
+    document_type: 'textbook',
+    education_level: 'HSC',
+    academic_year: '2026–2027',
+    access_state: 'partial',
+    checked_at: RECHECKED,
+    note: 'The one HSC book link that resolves without the virus-scan wall this round: the filename is "ICT 11-12 All pdf for website-2027Com.pdf" and the Drive thumbnail renders the cover, which confirms it is the ICT textbook for the ২০২৭ session. Only the link and cover were verified — the PDF itself was not parsed here, so no contents page is claimed. Useful because it is the only confirmed-reachable HSC book file, and a reminder that the drive lane works when the file is small enough for Google to scan.',
     created_at: NOW,
   },
   {
@@ -400,9 +416,9 @@ export const PENDING_REQUIREMENTS: CurriculumPendingRequirement[] = [
     curriculum_version_id: null,
     curriculum_subject_id: null,
     requirement: 'Complete SSC subject inventory for the 2026 academic year',
-    status: 'source_blocked',
+    status: 'awaiting_publication',
     source_url: 'https://nctb.gov.bd/pages/static-pages/695b99afc4774958d7b70612',
-    note: 'The 2026 list page is identified but renders only navigation — the book table lives in a sub-page widget that does not resolve. Needs the page transcribed by hand, or a rendered copy.',
+    note: 'CORRECTED 2026-10-30: this page RENDERS IN FULL through the proxy — the earlier "renders only navigation" note was wrong. It lists 29 books for ২০২৬, each in Bangla and English with a Google Drive link and an egovcloud mirror: বাংলা সাহিত্য, বাংলা সহপাঠ, বাংলা ভাষার ব্যাকরণ ও নির্মিতি, English For Today, English Grammar and Composition, গণিত/Mathematics, তথ্য ও যোগাযোগ প্রযুক্তি, বিজ্ঞান/Science, পদার্থবিজ্ঞান/Physics, রসায়ন/Chemistry, জীববিজ্ঞান/Biology, উচ্চতর গণিত/Higher Mathematics, ভূগোল ও পরিবেশ, অর্থনীতি, কৃষিশিক্ষা, গার্হস্থ্যবিজ্ঞান, পৌরনীতি ও নাগরিকতা, হিসাববিজ্ঞান, ফিন্যান্স ও ব্যাংকিং and the rest. Carried as awaiting_publication, not source_blocked: the list is readable, but the seeder still holds the ২০২৫ SSC subject structure, and swapping a ২০২৬ inventory in would need a full re-verification of every SSC row and every student progress link. Recorded so the next pass starts from the real inventory instead of hunting a phantom bug.',
     created_at: NOW,
   },
   {
@@ -569,9 +585,9 @@ export const PENDING_REQUIREMENTS: CurriculumPendingRequirement[] = [
     curriculum_version_id: null,
     curriculum_subject_id: null,
     requirement: 'Group-wise textbook list (Science / Humanities / Business Studies) from NCTB',
-    status: 'source_blocked',
+    status: 'awaiting_publication',
     source_url: 'https://nctb.gov.bd/pages/static-pages/6922e145933eb65569e2b37b',
-    note: 'UPDATED 2026-10-28: the page that would answer this now exists — "২০২৬-২৭ শিক্ষাবর্ষের উচ্চ মাধ্যমিক স্তরের একাদশ-দ্বাদশ শ্রেণির পাঠ্যপুস্তক" (nctb.gov.bd, last updated ২৭ অক্টোবর ২০২৬) — but its body is empty: the render ends at "কন্টেন্ট: পাতা" with no table. The ২০২৬ combined "মাধ্যমিক স্তর ও উচ্চ মাধ্যমিক স্তরের পাঠ্যপুস্তকের তালিকা" page is empty in the same way. So the blocker is now "published but not yet filled", not "not published" and not "unreadable". The ১৩/১৪/৯ seeded lists remain unconfirmed and must stay needs_verification until one of those pages is filled or an official group-wise list is supplied.',
+    note: 'CONFIRMED 2026-10-30: the ২০২৬-২৭ HSC textbook page now renders in full, and it settles the question. It lists five books and all five are compulsory: সাহিত্যপাঠ, সহপাঠ, English for Today, তথ্য ও যোগাযোগ প্রযুক্তি, তথ্য ও যোগাযোগ প্রযুক্তি (ইংলিশ ভার্সন). There is no Science, Humanities or Business Studies section — not on this page and not on the ২০২৫-২৬ one. So NCTB does not publish a group-wise HSC textbook list at all, and no HSC Science book link exists to follow. The ১৩/১৪/৯ seeded elective lists therefore stay needs_verification permanently until a different official document (a printed distribution list, or a school-issued book list) is supplied.',
     created_at: NOW,
   },
   {
@@ -582,9 +598,9 @@ export const PENDING_REQUIREMENTS: CurriculumPendingRequirement[] = [
     curriculum_version_id: null,
     curriculum_subject_id: null,
     requirement: 'Textbook contents pages for the three subjects whose 2026–27 syllabus is published',
-    status: 'source_blocked',
+    status: 'awaiting_publication',
     source_url: 'https://objectstorage.ap-dcc-gazipur-1.oraclecloud15.com/n/axvjbnqprylg/b/V2Ministry/o/office-nctb/2026/9/78491622-b852-466c-af8b-783718732428.pdf',
-    note: 'বাংলা প্রথম পত্র, English 1st Paper and ICT now have an official ২০২৬-২৭ exam syllabus with a readable text layer. None of them has a read textbook contents page, so no chapter row may claim these titles. The syllabus and the book must stay separate records; the ICT six-chapter list in particular is a syllabus, and treating it as the book would be the substitution this project forbids.',
+    note: 'RE-CHECKED 2026-10-30: the ২০২৬-২৭ HSC syllabus notice (published ০১-১০-২০২৬) still carries exactly three attachments — বাংলা প্রথম পত্র, English 1st Paper, and তথ্য ও যোগাযোগ প্রযুক্তি. No science subject has a published ২০২৬-২৭ syllabus. Physics, Chemistry, Biology and Higher Mathematics will each need their syllabus before even an exam-scope record can be made, separate from the textbook contents this project actually wants.',
     created_at: NOW,
   },
   {

@@ -223,7 +223,7 @@ test('journey C: curriculum filters narrow by SSC/HSC, group and Bangla subject 
   // Physics carries a Bangla name and — since migration 0010 — a real chapter
   // list read from the printed contents page. It is partly recorded, never
   // verified: the scan is a 2022 reprint and the 2025 edition is unopened.
-  await main.getByPlaceholder(/Physics, পদার্থবিজ্ঞান/).fill('পদার্থ');
+  await main.getByPlaceholder(/Physics 2nd Paper/).fill('পদার্থ');
   await expect(main.getByText('Physics · পদার্থবিজ্ঞান').first()).toBeVisible();
   await expect(main.getByText('Chapter list partly recorded').first()).toBeVisible();
   await expect(main.getByText('14 chapter row(s)').first()).toBeVisible();
@@ -364,5 +364,79 @@ test('journey C6: a subject with no recovered chapter list says so instead of lo
 
   // Adopted, but honest about why nothing came with it.
   await expect(row.getByText('Track chapters you add yourself')).toBeVisible({ timeout: 20_000 });
-  await expect(row.getByText(/no chapter list yet/)).toBeVisible();
+  // The paper card states it in the body as well as the actions, so the empty
+  // paper never looks like a complete one with nothing in it yet.
+  await expect(row.getByText(/no chapter list yet/i).first()).toBeVisible();
+});
+
+test('journey C7: a paper card states its verification and expands to its chapters', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // The one recovered paper, addressed as a paper rather than as a subject.
+  const card = page.locator('.paper-row').filter({ hasText: 'Show 15 chapter(s)' }).first();
+  await expect(card).toBeVisible();
+
+  // It says how many rows it has and that none of them is verified — the card is
+  // not allowed to look complete because it has fifteen rows.
+  await expect(card.getByText(/15 chapter row\(s\)/)).toBeVisible();
+  await expect(card.getByText(/0 verified/)).toBeVisible();
+  await expect(card.getByText(/15 partial/)).toBeVisible();
+  await expect(card.getByText('Partly verified')).toBeVisible();
+
+  // Expanding shows the printed titles, in order, each with its source.
+  await card.locator('summary').click();
+  const rows = card.locator('.chapter-list__row');
+  await expect(rows).toHaveCount(15);
+  await expect(rows.first()).toContainText('Electrostatics or Static Electricity');
+  await expect(rows.first().locator('.chapter-list__num')).toHaveText('1');
+  await expect(rows.last()).toContainText('Theory Of Relativity And Astro Physics');
+});
+
+test('journey C8: a paper with no official list says so and never looks empty-but-fine', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  const card = page.locator('.paper-row').filter({ hasText: 'No chapter list yet' }).first();
+  await expect(card).toBeVisible();
+  // The reason is on the card itself, in words a student can act on.
+  await expect(card.getByText(/NCTB has not published a contents page/i)).toBeVisible();
+  // And no chapter disclosure is offered, because there is nothing to disclose.
+  await expect(card.locator('summary')).toHaveCount(0);
+});
+
+test('journey C9: searching by Bengali paper name finds the same paper as the English one', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/curriculum');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  const search = page.getByPlaceholder(/Physics 2nd Paper/);
+
+  await search.fill('Physics 2nd Paper');
+  await expect(page.locator('.paper-row').first()).toBeVisible();
+  const englishCount = await page.locator('.paper-row').count();
+  const englishTitles = await page.locator('.paper-row__title').allInnerTexts();
+  expect(englishTitles.every((title) => title.includes('2nd Paper'))).toBe(true);
+
+  await search.fill('পদার্থবিজ্ঞান ২য়');
+  await expect(page.locator('.paper-row').first()).toBeVisible();
+  const bengaliTitles = await page.locator('.paper-row__title').allInnerTexts();
+
+  // The same official paper is found by its Bengali name.
+  expect(bengaliTitles.some((title) => title.includes('পদার্থবিজ্ঞান') && title.includes('2nd Paper'))).toBe(true);
+  expect(bengaliTitles.every((title) => title.includes('2nd Paper'))).toBe(true);
+
+  // It can legitimately return fewer cards: a demo subject row has no Bengali
+  // name to match, and inventing one to make the counts agree would be worse
+  // than the smaller list.
+  expect(bengaliTitles.length).toBeLessThanOrEqual(englishCount);
+  expect(englishTitles.length).toBeGreaterThan(0);
 });

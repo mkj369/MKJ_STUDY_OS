@@ -48,6 +48,7 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Loading / empty / error / retry states | **Browser- and jsdom-tested** on gated pages; every page has a written empty state |
 | Production build + route splitting | **Verified**: 27 route chunks, 8 shared chunks, 4 vendor chunks (39 JS files) |
 | Android project (native config) | **Generated and config-tested**; APK build **not executed** here |
+| HSC Science curriculum completeness | **Settled, and still incomplete — by publication, not by omission.** The official ২০২৬-২৭ HSC textbook page now renders and lists **5 compulsory books only**; NCTB publishes no group-wise HSC science list, so **7 of the 8 required papers have no official chapter list anywhere**. Physics 2nd Paper is the one recovered list (15 rows, `partially_verified`, no Bengali titles). Nothing was invented to fill the gap. Per-paper table and exact reasoning: [docs/ROUND8_REPORT.md](docs/ROUND8_REPORT.md) |
 | Hosted Supabase, real AI call, device run | **BLOCKED** — see [docs/VERIFICATION.md](docs/VERIFICATION.md) for the per-item commands |
 
 ---

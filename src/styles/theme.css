@@ -2,27 +2,33 @@
    Calm, high-contrast, large touch targets. No decorative charts. */
 
 :root {
-  --mkj-ink: #101d18;
-  --mkj-ink-soft: #3c4a44;
-  --mkj-muted: #5c6b64;
-  --mkj-line: #dbe3df;
-  --mkj-bg: #f6f8f6;
-  --mkj-surface: #ffffff;
-  --mkj-surface-alt: #eef3f0;
-  --mkj-primary: #0f5132;
-  --mkj-primary-strong: #0b3d26;
-  --mkj-primary-soft: #dcefe3;
-  --mkj-accent: #a15c00;
-  --mkj-accent-soft: #fdf1dd;
-  --mkj-danger: #a32121;
-  --mkj-danger-soft: #fdeaea;
-  --mkj-info: #14507a;
-  --mkj-info-soft: #e8f1f8;
-  --mkj-warning: #8a5a00;
-  --mkj-warning-soft: #fff6e5;
-  --mkj-radius: 14px;
-  --mkj-radius-sm: 10px;
-  --mkj-radius-lg: 18px;
+  /* Premium academic workspace — deep emerald / graphite.
+     Dark is the default because this is a focus tool used at night as often as
+     in class; a light variant is kept for users who ask for it. */
+  --mkj-ink: #f3f7f4;
+  --mkj-ink-soft: #d3e0d8;
+  --mkj-muted: #a7b7ae;
+  --mkj-line: #264b3a;
+  --mkj-line-soft: #1d3a2c;
+  --mkj-bg: #08130f;
+  --mkj-surface: #10231b;
+  --mkj-surface-alt: #173126;
+  --mkj-primary: #3ddc97;
+  --mkj-primary-strong: #6ef0b8;
+  --mkj-primary-soft: #123527;
+  --mkj-on-primary: #04150d;
+  --mkj-secondary: #1db954;
+  --mkj-accent: #60a5fa;
+  --mkj-accent-soft: #12283d;
+  --mkj-danger: #ff8078;
+  --mkj-danger-soft: #3a1717;
+  --mkj-info: #8cc6fb;
+  --mkj-info-soft: #102a40;
+  --mkj-warning: #f5b544;
+  --mkj-warning-soft: #3a2a08;
+  --mkj-radius: 16px;
+  --mkj-radius-sm: 11px;
+  --mkj-radius-lg: 22px;
   /* Spacing scale — one rhythm for every screen instead of ad-hoc pixel gaps. */
   --mkj-space-1: 4px;
   --mkj-space-2: 8px;
@@ -30,40 +36,53 @@
   --mkj-space-4: 16px;
   --mkj-space-5: 22px;
   --mkj-space-6: 30px;
-  --mkj-shadow: 0 1px 2px rgba(16, 29, 24, 0.06), 0 8px 24px rgba(16, 29, 24, 0.06);
-  --mkj-shadow-sm: 0 1px 2px rgba(16, 29, 24, 0.08);
-  --mkj-nav-width: 264px;
+  --mkj-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 2px 6px rgba(0, 0, 0, 0.35),
+    0 18px 44px rgba(0, 0, 0, 0.32);
+  --mkj-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --mkj-ring: 0 0 0 3px rgba(61, 220, 151, 0.35);
+  --mkj-glow: radial-gradient(1200px 520px at 12% -12%, rgba(61, 220, 151, 0.14), transparent 62%),
+    radial-gradient(900px 420px at 92% -6%, rgba(96, 165, 250, 0.1), transparent 60%);
+  --mkj-nav-width: 268px;
   --mkj-tap: 46px;
-  --ion-color-primary: #0f5132;
-  --ion-color-primary-rgb: 15, 81, 50;
-  --ion-font-family: 'Inter', 'Segoe UI', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
-  color-scheme: light;
+  --ion-color-primary: #3ddc97;
+  --ion-color-primary-rgb: 61, 220, 151;
+  --ion-font-family: 'Inter', 'Segoe UI', 'Noto Sans Bengali', 'Noto Sans Bengali UI', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --mkj-ink: #e8efea;
-    --mkj-ink-soft: #c3d0c8;
-    --mkj-muted: #9caea4;
-    --mkj-line: #27352e;
-    --mkj-bg: #0d1512;
-    --mkj-surface: #14201a;
-    --mkj-surface-alt: #1b2a23;
-    --mkj-primary: #7fd6a2;
-    --mkj-primary-strong: #a9e8c2;
-    --mkj-primary-soft: #173a27;
-    --mkj-accent: #f0b46a;
-    --mkj-accent-soft: #33260f;
-    --mkj-danger: #ff9d9d;
-    --mkj-danger-soft: #3a1c1c;
-    --mkj-info: #9ccdf0;
-    --mkj-info-soft: #132b3b;
-    --mkj-warning: #ffd28a;
-    --mkj-warning-soft: #33270f;
-    --mkj-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.25);
-    --mkj-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    color-scheme: dark;
-  }
+[data-theme='light'] {
+  /* Light variant: same structure, same semantics, daytime contrast.
+     Opt-in via <html data-theme="light">. Dark is the shipped default so
+     the workspace looks the same on every machine regardless of the OS
+     setting — a light-OS user would otherwise never see the design. */
+  --mkj-ink: #0b1a14;
+  --mkj-ink-soft: #314b40;
+  --mkj-muted: #55685f;
+  --mkj-line: #d5e2da;
+  --mkj-line-soft: #e6efe9;
+  --mkj-bg: #f4f8f5;
+  --mkj-surface: #ffffff;
+  --mkj-surface-alt: #eef5f1;
+  --mkj-primary: #0c6b47;
+  --mkj-primary-strong: #084c32;
+  --mkj-primary-soft: #d9f2e6;
+  --mkj-on-primary: #ffffff;
+  --mkj-secondary: #0f8f43;
+  --mkj-accent: #1d5fa8;
+  --mkj-accent-soft: #e4eefb;
+  --mkj-danger: #b3261e;
+  --mkj-danger-soft: #fdeceb;
+  --mkj-info: #14507a;
+  --mkj-info-soft: #e8f1f8;
+  --mkj-warning: #8a5a00;
+  --mkj-warning-soft: #fff6e5;
+  --mkj-shadow: 0 1px 2px rgba(11, 26, 20, 0.06), 0 10px 28px rgba(11, 26, 20, 0.08);
+  --mkj-shadow-sm: 0 1px 2px rgba(11, 26, 20, 0.08);
+  --mkj-ring: 0 0 0 3px rgba(12, 107, 71, 0.25);
+  --mkj-glow: radial-gradient(1200px 520px at 12% -12%, rgba(12, 107, 71, 0.07), transparent 62%);
+  --ion-color-primary: #0c6b47;
+  --ion-color-primary-rgb: 12, 107, 71;
+  color-scheme: light;
 }
 
 * {
@@ -258,8 +277,8 @@ ion-app {
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  background: linear-gradient(150deg, var(--mkj-primary), #1d7a4c);
-  color: #f3fff8;
+  background: linear-gradient(150deg, var(--mkj-primary), var(--mkj-secondary));
+  color: var(--mkj-on-primary);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -339,7 +358,7 @@ ion-app {
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(4, 12, 8, 0.45);
+  background: color-mix(in srgb, #04120c 62%, transparent);
   z-index: 40;
 }
 
@@ -591,13 +610,13 @@ ion-app {
 }
 
 .btn--primary {
-  background: var(--mkj-primary);
-  color: #fff;
+  background: linear-gradient(180deg, var(--mkj-primary) 0%, var(--mkj-secondary) 100%);
+  color: var(--mkj-on-primary);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 6px 18px rgba(29, 185, 84, 0.22);
 }
-@media (prefers-color-scheme: dark) {
-  .btn--primary {
-    color: #07160e;
-  }
+
+.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
 }
 
 .btn--secondary {
@@ -1531,8 +1550,8 @@ a.stat:active {
 }
 
 .chip--warn {
-  border-color: color-mix(in srgb, var(--mkj-warning, #b26a00) 45%, transparent);
-  background: color-mix(in srgb, var(--mkj-warning, #b26a00) 12%, var(--mkj-surface));
+  border-color: color-mix(in srgb, var(--mkj-warning) 45%, transparent);
+  background: color-mix(in srgb, var(--mkj-warning) 12%, var(--mkj-surface));
   color: var(--mkj-text);
 }
 
@@ -1610,7 +1629,7 @@ a.stat:active {
 }
 
 .bar__fill--warn {
-  background: var(--mkj-warning, #b26a00);
+  background: var(--mkj-warning);
 }
 
 /* --------------------------- dashboard layout --------------------------- */
@@ -1731,8 +1750,9 @@ a.stat:active {
   .dash-split {
     /* The actionable panel gets the extra width. */
     grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-    /* Cards share the row height so a short panel never leaves a hole beside a
-       tall neighbour; internals stay top-aligned. */
+    /* Cards share the row height so the two panels line up, and the internals
+       stay top-aligned. The left panel earns that height by listing the next
+       actions rather than trailing off after one. */
     align-items: stretch;
   }
 }
@@ -1768,4 +1788,602 @@ a.stat:active {
   gap: var(--mkj-space-1);
   padding-top: var(--mkj-space-1);
   border-top: 1px solid var(--mkj-line);
+}
+
+/* ========================================================================
+   Premium refinement layer (final sprint)
+   Design intent: a calm academic workspace — deep emerald ground, graphite
+   surfaces, one accent green for action, blue only for information. Depth
+   comes from a single soft shadow and hairline borders, not from glows.
+   Everything here is additive: no class names changed, so every screen and
+   every test keeps working.
+   ===================================================================== */
+
+body {
+  background-color: var(--mkj-bg);
+  background-image: var(--mkj-glow);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--mkj-primary) 35%, transparent);
+  color: var(--mkj-ink);
+}
+
+/* One visible focus treatment for every interactive element. Keyboard users
+   get a clear ring; pointer users never see it. */
+:where(a, button, [role='button'], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--mkj-primary);
+  outline-offset: 2px;
+  border-radius: var(--mkj-radius-sm);
+  box-shadow: var(--mkj-ring);
+}
+
+/* Cards: hairline border plus a whisper of top light, so panels read as
+   layered surfaces instead of boxes drawn on the page. */
+.card,
+.stat,
+.section-card {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 120px);
+  border-color: var(--mkj-line-soft);
+}
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--mkj-line) 70%, var(--mkj-primary));
+}
+
+.card--nested {
+  background: color-mix(in srgb, var(--mkj-surface-alt) 55%, var(--mkj-surface));
+  border-color: var(--mkj-line-soft);
+  box-shadow: none;
+}
+
+/* Links inside dense lists should read as links without shouting. */
+.card__title:hover,
+.list-row__title a:hover {
+  color: var(--mkj-primary-strong);
+}
+
+/* Sidebar: the active item gets a left accent bar rather than a filled pill,
+   which keeps the navigation quiet while still marking position. */
+.nav-link {
+  border-radius: var(--mkj-radius-sm);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.nav-link.is-active {
+  background: color-mix(in srgb, var(--mkj-primary) 14%, transparent);
+  color: var(--mkj-primary-strong);
+  box-shadow: inset 2px 0 0 var(--mkj-primary);
+}
+
+.nav-link:not(.is-active):hover {
+  background: color-mix(in srgb, var(--mkj-ink) 6%, transparent);
+}
+
+/* Tables: sticky headers and zebra rows so long coverage tables stay legible. */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--mkj-surface-alt);
+  backdrop-filter: blur(6px);
+  z-index: 1;
+}
+
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--mkj-primary) 6%, transparent);
+}
+
+/* Progress: the fill gets a soft inner gradient; the track stays flat so the
+   remaining portion is still readable at low percentages. */
+.progress__fill {
+  background-image: linear-gradient(90deg, var(--mkj-secondary), var(--mkj-primary));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--mkj-primary) 35%, transparent);
+}
+
+/* Chips double as read-only progress rollups; make that legible. */
+.chip {
+  border-radius: 999px;
+  border: 1px solid var(--mkj-line-soft);
+  background: color-mix(in srgb, var(--mkj-surface-alt) 70%, transparent);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.chip--on {
+  border-color: color-mix(in srgb, var(--mkj-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--mkj-primary) 14%, transparent);
+  color: var(--mkj-primary-strong);
+}
+
+/* Scrollbars in the dark theme should not be light-grey slabs. */
+* {
+  scrollbar-color: var(--mkj-line) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mkj-line);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Respect the OS setting. Anything decorative collapses; layout does not. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Small screens: tighter type scale, full-width actions, no cramped tables. */
+@media (max-width: 560px) {
+  .card {
+    padding: 14px;
+    border-radius: var(--mkj-radius-sm);
+  }
+
+  .data-table {
+    font-size: 0.78rem;
+  }
+
+  .data-table thead th {
+    position: static;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Paper cards — My Curriculum
+   HSC Science is examined as ১ম পত্র / ২য় পত্র, so a subject is never one row.
+   Each paper gets a card that states its chapter count, how many of those are
+   verified, and — only when the student owns the chapters — real progress.
+   --------------------------------------------------------------------------- */
+
+.paper-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 14px;
+  margin: 8px 0;
+  border: 1px solid var(--mkj-line);
+  border-radius: var(--mkj-radius-lg);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--mkj-surface-alt) 92%, transparent), transparent 70%),
+    var(--mkj-surface);
+}
+
+.paper-row:last-child {
+  border-bottom: 1px solid var(--mkj-line);
+}
+
+.paper-row__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.paper-row__identity {
+  min-width: 0;
+}
+
+.paper-row__title {
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+}
+
+.paper-row__paper {
+  color: var(--mkj-primary);
+  font-weight: 700;
+}
+
+.paper-row__sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 0.74rem;
+  color: var(--mkj-muted);
+}
+
+.paper-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.paper-row__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 0.78rem;
+  color: var(--mkj-muted);
+}
+
+.paper-row__stats strong {
+  color: var(--mkj-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-row__none,
+.paper-row__warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mkj-warning);
+}
+
+.paper-row__done strong {
+  color: var(--mkj-primary);
+}
+
+.paper-row__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.paper-row__progress .progress {
+  flex: 1;
+  min-width: 90px;
+  margin: 0;
+}
+
+.paper-row__empty {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  color: var(--mkj-muted);
+  border-left: 2px solid var(--mkj-line);
+  background: color-mix(in srgb, var(--mkj-surface-alt) 45%, transparent);
+  border-radius: 0 var(--mkj-radius) var(--mkj-radius) 0;
+}
+
+/* --- expandable chapter list --- */
+
+.paper-row__details {
+  border-top: 1px solid var(--mkj-line-soft);
+  padding-top: 6px;
+}
+
+.paper-row__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 2px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--mkj-accent);
+  list-style: none;
+}
+
+.paper-row__summary::-webkit-details-marker {
+  display: none;
+}
+
+.paper-row__summary ion-icon {
+  transition: transform 160ms ease;
+}
+
+.paper-row__details[open] .paper-row__summary ion-icon {
+  transform: rotate(180deg);
+}
+
+.paper-row__summary:focus-visible {
+  outline: none;
+  box-shadow: var(--mkj-ring);
+  border-radius: var(--mkj-radius);
+}
+
+.chapter-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chapter-list__row {
+  display: flex;
+  gap: 10px;
+  padding: 8px 2px;
+  border-bottom: 1px dashed var(--mkj-line-soft);
+}
+
+.chapter-list__row:last-child {
+  border-bottom: none;
+}
+
+.chapter-list__num {
+  flex: 0 0 26px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--mkj-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding-top: 1px;
+}
+
+.chapter-list__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.chapter-list__title {
+  font-size: 0.84rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.chapter-list__en {
+  color: var(--mkj-muted);
+  font-size: 0.78rem;
+}
+
+.chapter-list__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 3px;
+  font-size: 0.72rem;
+  color: var(--mkj-muted);
+}
+
+.chapter-list__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.chapter-list__doc {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  color: var(--mkj-muted);
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+}
+
+.chapter-list__note {
+  margin: 8px 0 2px;
+  font-size: 0.72rem;
+  color: var(--mkj-muted);
+  max-width: 70ch;
+}
+
+.source-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+@media (max-width: 560px) {
+  .paper-row {
+    padding: 12px 10px;
+  }
+
+  .paper-row__head {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .paper-row__badges {
+    justify-content: flex-start;
+  }
+
+  .chapter-list__num {
+    flex-basis: 20px;
+  }
+
+  /* 2.75rem is the smallest comfortable tap target for the disclosure row. */
+  .paper-row__summary {
+    min-height: 44px;
+  }
+}
+
+.paper-row__paper-en {
+  color: var(--mkj-muted);
+  font-weight: 500;
+  font-size: 0.82em;
+}
+
+.chapter-list__doc--list {
+  margin: 6px 0 4px;
+  padding: 6px 8px;
+  border-radius: var(--mkj-radius);
+  background: color-mix(in srgb, var(--mkj-surface-alt) 60%, transparent);
+  font-size: 0.72rem;
+}
+
+/* Small buttons stay compact on pointer devices, but a thumb needs 44px.
+   Applying this under the mobile query only keeps the desktop density. */
+@media (max-width: 560px) {
+  .btn--sm {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .chapter-list__source,
+  .paper-row__summary {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .chapter-list__row {
+    padding: 10px 2px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Weekly study-time bars — dashboard
+   Heights are saved minutes. Zero is drawn as a hairline, never as an average.
+   --------------------------------------------------------------------------- */
+
+.week-bars {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0 4px;
+  align-items: end;
+}
+
+.week-bars__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.week-bars__track {
+  width: 100%;
+  height: 64px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.week-bars__bar {
+  width: 100%;
+  max-width: 26px;
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(
+    180deg,
+    var(--mkj-primary),
+    color-mix(in srgb, var(--mkj-secondary) 80%, transparent)
+  );
+}
+
+.week-bars__bar--empty {
+  background: var(--mkj-line);
+  opacity: 0.55;
+}
+
+.week-bars__label {
+  font-size: 0.68rem;
+  color: var(--mkj-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.week-bars__label--today {
+  color: var(--mkj-primary);
+  font-weight: 700;
+}
+
+.week-bars__value {
+  font-size: 0.66rem;
+  color: var(--mkj-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 560px) {
+  .week-bars__track {
+    height: 52px;
+  }
+
+  .week-bars {
+    gap: 4px;
+  }
+}
+
+/* The dashboard hero was a 140px banner for a greeting. Compact it so the
+   actionable cards sit above the fold, which is the whole point of a dashboard. */
+.hero {
+  padding: var(--mkj-space-4) var(--mkj-space-5);
+  align-items: center;
+  gap: var(--mkj-space-3);
+}
+
+.hero h1 {
+  font-size: clamp(1.2rem, 1.05rem + 0.45vw, 1.45rem);
+}
+
+.hero__meta {
+  margin-top: 6px;
+  gap: 6px 8px;
+}
+
+.hero__chip {
+  padding: 3px 9px;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 560px) {
+  .hero {
+    padding: var(--mkj-space-3) var(--mkj-space-4);
+  }
+
+  .hero__actions {
+    width: 100%;
+  }
+
+  .hero__actions .btn {
+    flex: 1;
+  }
+}
+
+.next-actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.next-actions__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--mkj-line-soft);
+}
+
+.next-actions__row:last-child {
+  border-bottom: none;
+}
+
+.next-actions__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.next-actions__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.next-actions__meta {
+  font-size: 0.72rem;
+  color: var(--mkj-muted);
+}
+
+.syllabus-source {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
 }

@@ -8,6 +8,7 @@ import { useAuth } from '@/app/AppProviders';
 import { Badge, DemoBadge, EmptyState, Notice, PageHeader, SectionCard } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { CoveragePanel } from '@/features/curriculum/CoveragePanel';
+import { PaperRow } from '@/features/curriculum/PaperRow';
 import { levelRank } from '@/domain/curriculumCoverage';
 import { FormError } from '@/components/ui/Form';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
@@ -33,7 +34,6 @@ import {
   groupOptions,
   levelOptions,
   summariseCurriculum,
-  subjectDisplayName,
   yearOptions,
   type CurriculumFilters,
 } from '@/domain/curriculum';
@@ -126,6 +126,22 @@ function CurriculumContent() {
   const adoptedCurriculumSubjectIds = new Set(
     bundle.subjects.map((s) => s.curriculum_subject_id).filter((id): id is string => Boolean(id)),
   );
+  /*
+   * Saved progress, keyed by the curriculum subject it belongs to. This is what
+   * lets a paper card show 3/15 instead of a hopeful zero: the numbers come from
+   * chapter records the student actually owns.
+   */
+  const progressByCurriculumSubject = new Map(
+    (view.subjects ?? [])
+      .filter((subject) => subject.subject.curriculum_subject_id)
+      .map((subject) => [subject.subject.curriculum_subject_id as string, subject]),
+  );
+  const chapterViewsByCurriculumSubject = new Map<string, typeof view.subjects[number]['chapters']>();
+  for (const subject of view.subjects ?? []) {
+    const curriculumSubjectId = subject.subject.curriculum_subject_id;
+    if (!curriculumSubjectId) continue;
+    chapterViewsByCurriculumSubject.set(curriculumSubjectId, subject.chapters);
+  }
   const userChaptersByCurriculumChapter = new Set(
     bundle.chapters.map((c) => c.curriculum_chapter_id).filter((id): id is string => Boolean(id)),
   );
@@ -440,7 +456,7 @@ function CurriculumContent() {
             <input
               className="input"
               type="search"
-              placeholder="Physics, পদার্থবিজ্ঞান, …"
+              placeholder="Physics 2nd Paper, পদার্থবিজ্ঞান ২য়, …"
               value={filters.subjectQuery}
               onChange={(event) => setFilters((current) => ({ ...current, subjectQuery: event.target.value }))}
             />
@@ -522,59 +538,29 @@ function CurriculumContent() {
                 {version.source_note ? <p className="tiny muted" style={{ marginBottom: 10 }}>{version.source_note}</p> : null}
                 <div className="list">
                   {subjects.map((subject) => {
-                    const chapters = bundle.curriculum.chapters.filter((c) => c.curriculum_subject_id === subject.id);
+                    const chapters = bundle.curriculum.chapters
+                      .filter((c) => c.curriculum_subject_id === subject.id)
+                      .sort((a, b) => a.sort_order - b.sort_order);
                     const adopted = adoptedCurriculumSubjectIds.has(subject.id);
-                    const missingChapters = chapters.filter((c) => !userChaptersByCurriculumChapter.has(c.id)).length;
+                    const missingChapters = chapters.filter(
+                      (c) => !userChaptersByCurriculumChapter.has(c.id),
+                    ).length;
+                    const subjectView = progressByCurriculumSubject.get(subject.id);
                     return (
-                      <div className="list-row" key={subject.id}>
-                        <div className="list-row__main">
-                          <div className="list-row__title">
-                            {subjectDisplayName(subject)}
-                            {subject.paper_label ? ` — ${subject.paper_label}` : ''}
-                          </div>
-                          <div className="list-row__meta">
-                            <span>
-                              {chapters.length === 0
-                                ? 'no chapter list yet'
-                                : `${chapters.length} chapter row(s)`}
-                            </span>
-                            {subject.is_compulsory ? <span>compulsory</span> : <span>optional</span>}
-                            <Badge tone={subject.verification_status === 'verified' ? 'good' : 'warn'}>
-                              {VERIFICATION_LABEL[subject.verification_status].text}
-                            </Badge>
-                            {adopted ? <span>in your workspace</span> : <span>not added yet</span>}
-                          </div>
-                        </div>
-                        <div className="list-row__actions">
-                          {!adopted ? (
-                            <button
-                              type="button"
-                              className="btn btn--primary btn--sm"
-                              disabled={busyKey === subject.id}
-                              onClick={() => void adoptSubject(version.id, subject.id, subject.name)}
-                            >
-                              {busyKey === subject.id
-                                ? 'Adding…'
-                                : chapters.length === 0
-                                  ? 'Add subject'
-                                  : `Add subject + ${chapters.length} chapter(s)`}
-                            </button>
-                          ) : missingChapters === 0 ? (
-                            <span className="tiny muted">
-                              {chapters.length === 0 ? 'Track chapters you add yourself' : 'All chapters added'}
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn--secondary btn--sm"
-                              disabled={busyKey === `chapters-${subject.id}`}
-                              onClick={() => void addAllChapters(version.id, subject.id, subject.name)}
-                            >
-                              Add {missingChapters} chapter(s)
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <PaperRow
+                        key={subject.id}
+                        subject={subject}
+                        version={version}
+                        chapters={chapters}
+                        adopted={adopted}
+                        missingChapters={missingChapters}
+                        busy={busyKey}
+                        onAdopt={() => void adoptSubject(version.id, subject.id, subject.name)}
+                        onAddChapters={() => void addAllChapters(version.id, subject.id, subject.name)}
+                        progress={subjectView?.progress ?? null}
+                        chapterViews={chapterViewsByCurriculumSubject.get(subject.id) ?? []}
+                        adoptedChapterIds={userChaptersByCurriculumChapter}
+                      />
                     );
                   })}
                 </div>

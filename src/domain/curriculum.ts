@@ -48,19 +48,62 @@ export function groupOptions(versions: CurriculumVersion[], level = '', year = '
   );
 }
 
+const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
+
+/**
+ * Bengali paper labels, derived from the stored English ones. A student types
+ * "১ম পত্র", not "1st Paper"; both have to find the same paper. Only exact known
+ * labels are translated — anything else passes through untouched.
+ */
+export function paperLabelBn(label: string | null): string | null {
+  if (!label) return null;
+  const map: Record<string, string> = { '1st Paper': '১ম পত্র', '2nd Paper': '২য় পত্র', '3rd Paper': '৩য় পত্র' };
+  return map[label] ?? null;
+}
+
+/**
+ * Folds the ways a Bangladeshi student might type a paper into one form, so the
+ * search box is not secretly English-only. Ordinals are translated before digits
+ * because "১ম" contains a Bengali digit.
+ */
+export function normaliseCurriculumQuery(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/১ম|প্রথম/g, '1st')
+    .replace(/২য়|দ্বিতীয়/g, '2nd')
+    .replace(/৩য়|তৃতীয়/g, '3rd')
+    .replace(/[০-৯]/g, (digit) => String(BN_DIGITS.indexOf(digit)))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /**
  * Subjects matching the free-text query. An empty query matches everything.
  * Bangla search matters: a lot of students know the subject by its Bangla name
- * and would type "পদার্থবিজ্ঞান", not "Physics".
+ * and would type "পদার্থবিজ্ঞান", not "Physics" — and would type "২য় পত্র", not
+ * "2nd Paper", which is the half that used to find nothing at all.
  */
 export function matchesSubjectQuery(subject: CurriculumSubject, query: string): boolean {
-  const needle = query.trim().toLowerCase();
+  const needle = normaliseCurriculumQuery(query);
   if (!needle) return true;
-  return (
-    subject.name.toLowerCase().includes(needle) ||
-    (subject.name_bn ?? '').toLowerCase().includes(needle) ||
-    (subject.code ?? '').toLowerCase().includes(needle)
+  /*
+   * The haystack includes the paper label, both alone and joined to the name.
+   * Without that, "Physics 1st Paper" matched nothing: the label lives in its own
+   * column, so 1st and 2nd Paper were impossible to tell apart from the search
+   * box — the one place a student is most likely to try.
+   */
+  const haystack = normaliseCurriculumQuery(
+    [
+      subject.name,
+      subject.name_bn ?? '',
+      subject.code ?? '',
+      subject.paper_label ?? '',
+      subject.paper_label ? `${subject.name} ${subject.paper_label}` : '',
+      paperLabelBn(subject.paper_label) ?? '',
+      paperLabelBn(subject.paper_label) ? `${subject.name} ${paperLabelBn(subject.paper_label)}` : '',
+    ].join(' '),
   );
+  return haystack.includes(needle);
 }
 
 export interface VersionWithSubjects {

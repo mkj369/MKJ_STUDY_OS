@@ -338,6 +338,30 @@ function SyllabusContent() {
                   </span>
                 </div>
               ) : null}
+              {chapterRows.length === 0 ? (
+                <p className="tiny muted" style={{ marginBottom: 8 }}>
+                  No official chapter list is on file for this paper
+                  {chapters.length > 0
+                    ? ` — the ${chapters.length} chapter(s) below are your own, not an official list`
+                    : ''}
+                  . That is a gap in the source material, not something you did wrong: add chapters yourself and they
+                  will be tracked exactly like any other.
+                </p>
+              ) : (
+                <p className="tiny muted syllabus-source">
+                  {chapterRows.length} official chapter row(s):{' '}
+                  {chapterRows.filter((chapter) => chapter.verification_status === 'verified').length} verified,{' '}
+                  {chapterRows.filter((chapter) => chapter.verification_status === 'partially_verified').length} partial
+                  {chapterRows[0]?.source_url ? (
+                    <>
+                      {' · '}
+                      <a href={chapterRows[0].source_url} target="_blank" rel="noreferrer noopener">
+                        {chapterRows[0].source_document ?? 'source'}
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+              )}
               {englishTitleOnly ? (
                 <p className="tiny muted" style={{ marginBottom: 8 }}>
                   Some rows show only the book&rsquo;s printed English title: the Bengali title did not survive the scan
