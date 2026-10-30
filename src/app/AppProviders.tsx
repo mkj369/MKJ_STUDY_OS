@@ -18,8 +18,12 @@ interface AuthContextValue {
   signInWithGoogle(): Promise<void>;
   signUp(email: string, password: string, displayName: string): Promise<SignUpResult>;
   signOut(): Promise<void>;
-  startLocalWorkspace(displayName: string): Promise<AuthUser>;
+  startLocalWorkspace(displayName?: string): Promise<AuthUser>;
+  /** True when this device already holds a workspace that would be reopened. */
+  hasLocalWorkspace: boolean;
   sendPasswordReset(email: string): Promise<void>;
+  /** Finish a password reset (cloud only); no-op error in local mode. */
+  updatePassword(password: string): Promise<void>;
 }
 
 const ServicesContext = createContext<AppServices | null>(null);
@@ -56,23 +60,33 @@ export interface AppProvidersProps {
   queryClient?: QueryClient;
 }
 
+/**
+ * Query defaults for a local-first app.
+ *
+ * `networkMode: 'always'`, not TanStack's default `'online'`: the device
+ * workspace reads and writes the phone's storage, not a server. With the
+ * default, a phone in airplane mode has its queries paused and its mutations
+ * queued, so a saved chapter looks as if it vanished until the network comes
+ * back — the worst possible behaviour for a study app on a train. Cloud mode
+ * surfaces its own network errors instead of pretending to be offline.
+ */
+export function createAppQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        networkMode: 'always',
+        retry: 1,
+        staleTime: 20_000,
+        refetchOnWindowFocus: false,
+      },
+      mutations: { networkMode: 'always', retry: 0 },
+    },
+  });
+}
+
 export function AppProviders({ children, services, queryClient }: AppProvidersProps) {
   const appServices = useMemo(() => services ?? createAppServices(), [services]);
-  const client = useMemo(
-    () =>
-      queryClient ??
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            retry: 1,
-            staleTime: 20_000,
-            refetchOnWindowFocus: false,
-          },
-          mutations: { retry: 0 },
-        },
-      }),
-    [queryClient],
-  );
+  const client = useMemo(() => queryClient ?? createAppQueryClient(), [queryClient]);
 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -139,8 +153,34 @@ export function AppProviders({ children, services, queryClient }: AppProvidersPr
     await appServices.auth.signInWithGoogle();
   }, [appServices]);
 
+  /*
+   * Whether "Start on this device" would reopen existing work. Read once the
+   * provider mounts (and whenever the user changes) so the welcome screen can
+   * say so instead of looking like a fresh install.
+   */
+  const [hasLocalWorkspace, setHasLocalWorkspace] = useState(false);
+  useEffect(() => {
+    const probe = appServices.auth.hasLocalAccount;
+    if (!probe) {
+      setHasLocalWorkspace(false);
+      return;
+    }
+    let cancelled = false;
+    void probe
+      .call(appServices.auth)
+      .then((value) => {
+        if (!cancelled) setHasLocalWorkspace(Boolean(value));
+      })
+      .catch(() => {
+        if (!cancelled) setHasLocalWorkspace(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [appServices, user]);
+
   const startLocalWorkspace = useCallback(
-    async (displayName: string) => {
+    async (displayName = '') => {
       if (!appServices.auth.startLocalWorkspace) {
         throw new AuthError('This build has no local workspace support.', 'not_supported');
       }
@@ -158,6 +198,16 @@ export function AppProviders({ children, services, queryClient }: AppProvidersPr
     [appServices],
   );
 
+  const updatePassword = useCallback(
+    async (password: string) => {
+      if (!appServices.auth.updatePassword) {
+        throw new AuthError('Password reset is not available in this build.', 'not_supported');
+      }
+      await appServices.auth.updatePassword(password);
+    },
+    [appServices],
+  );
+
   const authValue = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -170,7 +220,9 @@ export function AppProviders({ children, services, queryClient }: AppProvidersPr
       signUp,
       signOut,
       startLocalWorkspace,
+      hasLocalWorkspace,
       sendPasswordReset,
+      updatePassword,
     }),
     [
       user,
@@ -181,7 +233,9 @@ export function AppProviders({ children, services, queryClient }: AppProvidersPr
       signUp,
       signOut,
       startLocalWorkspace,
+      hasLocalWorkspace,
       sendPasswordReset,
+      updatePassword,
     ],
   );
 

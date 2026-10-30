@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { bootWorkspace } from './onboarding';
 
-test('boots in local demo mode with a real browser', async ({ page }) => {
+test('boots the device workspace with a real browser', async ({ page }) => {
   await bootWorkspace(page);
 
   // Regression: the stored session must survive a reload. Earlier builds wrote
@@ -9,7 +9,8 @@ test('boots in local demo mode with a real browser', async ({ page }) => {
   // student out silently.
   await page.reload();
   await expect(page.getByText(/welcome,|good to see you/i)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(/local demo/i).first()).toBeVisible();
+  // The shell states the storage mode instead of a generic "demo" claim.
+  await expect(page.getByText(/on this device/i).first()).toBeVisible();
 });
 
 test.describe('small screen', () => {

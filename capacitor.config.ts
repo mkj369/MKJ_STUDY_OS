@@ -3,8 +3,11 @@ import type { CapacitorConfig } from '@capacitor/cli';
 /**
  * Capacitor configuration for the Android build.
  *
- * appId is a placeholder package id — change it to your own reverse-DNS id
- * before publishing to Google Play, then regenerate the Android project.
+ * `appId` is the shipped application id, not a template placeholder. It is
+ * asserted against `android/app/build.gradle` (applicationId + namespace) and
+ * `res/values/strings.xml` by tests/android/config.test.ts, and it is the id
+ * Play Console will hold forever — changing it means a new listing, so it must
+ * never be edited casually.
  */
 const config: CapacitorConfig = {
   appId: 'com.mkjstudyos.app',

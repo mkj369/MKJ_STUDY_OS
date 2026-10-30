@@ -22,6 +22,7 @@ import { Badge, DemoBadge } from '@/components/ui/Page';
 import { LogoMark } from '@/components/brand/Logo';
 import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
 import { RecordDialog } from '@/components/ui/RecordDialog';
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { useNotify } from '@/features/shared/WorkspaceGate';
 import { noteSchema, type NoteValues } from '@/domain/schemas';
 import { NOTE_KINDS } from '@/types/domain';
@@ -171,7 +172,7 @@ function ShellStatusBadges() {
         </Badge>
       ) : (
         <Badge tone="info">
-          <IonIcon icon={phonePortraitOutline} aria-hidden="true" /> Local demo
+          <IonIcon icon={phonePortraitOutline} aria-hidden="true" /> On this device
         </Badge>
       )}
       {view?.demoActive ? <DemoBadge /> : null}
@@ -182,6 +183,7 @@ function ShellStatusBadges() {
 function UserFooter() {
   const auth = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   return (
     <div className="nav-footer">
       <div className="row" style={{ gap: 8 }}>
@@ -200,14 +202,28 @@ function UserFooter() {
         type="button"
         className="link-button"
         style={{ textAlign: 'left', color: 'var(--mkj-muted)', fontSize: '0.8rem' }}
-        onClick={() => {
-          setSigningOut(true);
-          void auth.signOut().finally(() => setSigningOut(false));
-        }}
+        onClick={() => setSignOutOpen(true)}
         disabled={signingOut}
       >
         {signingOut ? 'Signing out…' : 'Sign out'}
       </button>
+      {/*
+       * Signing out is not a delete, but a student cannot know that from a bare
+       * button — and the previous build reopened an *empty* workspace, which
+       * made the two indistinguishable. Say exactly what is kept.
+       */}
+      <ConfirmSheet
+        open={signOutOpen}
+        title="Sign out of MKJ StudyOS?"
+        message="Your subjects, chapters, tasks, notes and study sessions stay on this device and reopen when you start again. Nothing is deleted."
+        confirmLabel="Sign out"
+        onCancel={() => setSignOutOpen(false)}
+        onConfirm={() => {
+          setSignOutOpen(false);
+          setSigningOut(true);
+          void auth.signOut().finally(() => setSigningOut(false));
+        }}
+      />
       <Link to="/settings#appearance" className="tiny" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
         <IonIcon icon={moonOutline} aria-hidden="true" /> Appearance
       </Link>

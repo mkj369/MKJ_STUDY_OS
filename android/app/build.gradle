@@ -1,5 +1,34 @@
 apply plugin: 'com.android.application'
 
+/*
+ * Release signing.
+ *
+ * The keystore and its passwords never live in Git. They come from
+ * android/keystore.properties (ignored) or from environment variables, so the
+ * same identity can be used on a laptop and on a CI runner:
+ *
+ *   storeFile=/absolute/or/relative/path/to/mkj-release.jks
+ *   storePassword=…
+ *   keyAlias=mkj-release
+ *   keyPassword=…
+ *
+ * or MKJ_KEYSTORE_FILE / MKJ_KEYSTORE_PASSWORD / MKJ_KEY_ALIAS /
+ * MKJ_KEY_PASSWORD. Without them the release build is unsigned and Gradle prints
+ * a warning instead of silently producing an installable-but-untrusted APK.
+ */
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def hasKeystoreFile = keystorePropertiesFile.exists()
+if (hasKeystoreFile) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def releaseStoreFile = System.getenv('MKJ_KEYSTORE_FILE') ?: keystoreProperties['storeFile']
+def releaseStorePassword = System.getenv('MKJ_KEYSTORE_PASSWORD') ?: keystoreProperties['storePassword']
+def releaseKeyAlias = System.getenv('MKJ_KEY_ALIAS') ?: keystoreProperties['keyAlias']
+def releaseKeyPassword = System.getenv('MKJ_KEY_PASSWORD') ?: keystoreProperties['keyPassword']
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
 android {
     namespace "com.mkjstudyos.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -8,7 +37,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +45,30 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            /*
+             * R8 stays off: Capacitor's bridge and the WebView bundle are
+             * reflective, and a release that has not been smoke-tested on a
+             * device must not gain an obfuscation step. Enabling it is a tested
+             * change for a later version, not a release-day switch.
+             */
             minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

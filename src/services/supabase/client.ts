@@ -26,7 +26,7 @@ export function readConfig(env: Record<string, string | undefined> = import.meta
     return {
       mode: 'local',
       cloud: null,
-      localReason: `Supabase is not configured (${missing}). Running in local demo mode; records stay in this browser.`,
+      localReason: `Cloud sync is not configured (${missing}). Records are stored on this device only.`,
       appEnv: env['VITE_APP_ENV'] ?? 'development',
     };
   }

@@ -15,11 +15,12 @@
  * does not catch it — a green run means it measured something.
  *
  * Usage: npm run dev (port 5173), then `npm run audit:contrast`.
+ * Set AUDIT_BASE to audit another origin, e.g. a production preview.
  */
 import { chromium } from 'playwright';
 import { chromiumExecutablePath, chromiumEnv } from './playwright-browser.mjs';
 
-const BASE = 'http://127.0.0.1:5173';
+const BASE = process.env.AUDIT_BASE ?? 'http://127.0.0.1:5173';
 const browser = await chromium.launch({
   executablePath: await chromiumExecutablePath(),
   env: chromiumEnv(),
@@ -28,11 +29,20 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
 await page.goto(BASE + '/', { waitUntil: 'networkidle' });
 
-const start = page.getByRole('button', { name: /start local workspace/i });
-if (await start.count()) await start.first().click();
-// First run asks for a class; the audit needs a dashboard, not onboarding.
+/*
+ * The welcome screen is where a release build starts. Class and group are asked
+ * here (or in onboarding on an older build); either way the audit needs a
+ * dashboard, not a setup screen, before it can measure anything.
+ */
+const start = page.getByRole('button', { name: /start on this device|start local workspace/i });
+if (await start.count()) {
+  await page.getByRole('button', { name: 'Class 11', exact: true }).click().catch(() => {});
+  const groupChip = page.getByRole('radio', { name: 'Science', exact: true });
+  if (await groupChip.count()) await groupChip.click();
+  await start.first().click();
+}
 const onboarding = page.getByRole('heading', { name: /which class do you study in/i });
-await Promise.race([onboarding.waitFor({ timeout: 5000 }).catch(() => {}), page.waitForTimeout(5200)]);
+await Promise.race([onboarding.waitFor({ timeout: 6000 }).catch(() => {}), page.waitForTimeout(6200)]);
 if (await onboarding.count()) {
   await page.getByRole('button', { name: '11', exact: true }).click();
   await page.getByRole('button', { name: /^continue/i }).click();
@@ -43,6 +53,9 @@ if (await onboarding.count()) {
   }
 }
 await page.waitForTimeout(1200);
+if (!(await page.getByRole('main').count())) {
+  throw new Error('contrast audit: the workspace did not open, so a green run would mean nothing');
+}
 
 const routes = [
   '/',

@@ -1,11 +1,18 @@
 # MKJ StudyOS
 
-A personal academic memory, syllabus tracker and study planner for an HSC Science
-student — built as a real, runnable app rather than a mock-up.
+An offline-first study planner, curriculum tracker and revision system for Classes
+1–12 in Bangladesh — a real, runnable app rather than a mock-up.
 
-React 18 + TypeScript + Vite, Ionic React UI, a local-first demo repository and a
-Supabase/Postgres implementation behind the same interface. It runs with **no backend
-and no API keys**, and it says clearly what it does not know.
+React 18 + TypeScript + Vite, Ionic React UI, a device-local repository and an
+optional Supabase/Postgres implementation behind the same interface. It runs with
+**no backend and no API keys**, and it says clearly what it does not know.
+
+**Release: v1.0.0 for Android** (`com.mkjstudyos.app`, versionCode 1). The store
+build starts with an empty workspace — no demo rows, no sample student, no fake
+statistics. Signing, build and publishing steps are in
+[docs/ANDROID_RELEASE.md](docs/ANDROID_RELEASE.md); what changed is in
+[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md); the privacy policy is in
+[docs/PRIVACY.md](docs/PRIVACY.md) and inside the app.
 
 > Missing records are missing data, not a verdict on your effort.
 
@@ -29,21 +36,27 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | --- | --- |
 | Domain engine: progress, checklist denominators, revision spacing, exam maths, planner, recovery, reports, reminders, import | **Unit-tested** (deterministic, explicit `today`) |
 | Phase 2 domain: time tracking, focus state machine, syllabus matrix, mistakes, practice, preparation, insights | **Unit-tested** |
-| Data layer: local demo repository | **Integration-tested**, including cross-workspace isolation |
+| Data layer: device-local repository | **Integration-tested**, including cross-workspace isolation |
 | Data layer: Supabase repository | **Written** — cloud mode has never been executed against a real project |
 | Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
-| Screens: 28 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
+| Screens: 31 lazy routes (study, curriculum, planner, reports, focus, export, legal pages, 404) | **Browser-tested**: all 27 app routes plus privacy, terms and the reset screen load in Chromium with their own heading and no console error |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
+| Release suite | **Executed here**: 59 Playwright tests on the production bundle (Chromium), 651 Vitest unit/integration tests in 57 files, typecheck and lint clean, `verify:release` PASS, `audit:contrast` PASS (15 routes × 6 schemes), 27 routes audited at 1440 px and 390 px with no overflow |
 | Postgres schema + RLS (`0001`–`0016`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
 | AI narrative Edge Function | **Unit-tested end-to-end with a stubbed provider** (16 tests: request shape, key handling, schema + invented-number rejection, timeout/5xx/401 mapping); **no live call** — no key, provider hosts unreachable |
-| Android (Capacitor 7) | `android/` project generated, plugin synced, 8 config assertions pass; **APK not built** (no JDK/SDK), **no device test** |
+| Android (Capacitor 7) | `android/` project generated, release signing configured, plugin synced, config assertions pass; **no APK built here** (no JDK, no Android SDK, no access to Google's Maven repo — see [docs/ANDROID_RELEASE.md](docs/ANDROID_RELEASE.md) §7), **no device test** |
+| Public release content | **Browser-tested**: a production build (`npm run verify:release`) opens empty — no sample rows, labels or demo chapter titles; demo fixtures are compiled out unless `VITE_DEMO_FIXTURES=true` (only the Playwright suite sets it) |
+| Accounts on device | **Browser- and jsdom-tested**: welcome → class/group → workspace with no email or password; the class is written to the profile before the dashboard paints |
+| Device workspace identity | **Integration- and browser-tested**: one durable owner per device, kept across sign-out; resuming reopens the same rows and theme; a pre-fix device recovers its existing owner instead of minting a new one |
+| Cloud accounts (email, Google, reset) | **Written and unit-tested** (form validation, error mapping, reset screen); **never run against a hosted project** — exact setup in [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md) |
+| Local database durability | **Integration-tested**: versioned document store, schema migration v1→v2 on update, IndexedDB mirror restores a key the WebView store lost; 4 mirror tests + 2 migration tests |
 | Demo curriculum | **Placeholder**, `needs_verification`, **not** official NCTB content |
 | Official SSC/HSC subject structure | **Sourced and seeded** (NCTB, 6 versions, **86 subjects**, bilingual names, Bangla/English split into 1st & 2nd Paper; HSC Physics is two papers since `0011`). Versions `needs_verification`; SSC paper rows `partially_verified`. **41 chapters** exist for 3 subject-papers (SSC Physics 14, SSC Chemistry 12, HSC Physics 2nd Paper 15) recovered from scanned textbook contents pages; the other 83 subjects have **0 chapters, 0 topics — not invented** — see [docs/CURRICULUM.md](docs/CURRICULUM.md) and the source matrix in [docs/CURRICULUM_SOURCES.md](docs/CURRICULUM_SOURCES.md) |
 | Curriculum coverage reporting | **Unit- and DB-tested**: per level / group / year / subject counts from `curriculum_coverage` + `src/domain/curriculumCoverage.ts`, shown on `/curriculum` with HSC first but SSC still visible, and a verified / partly / no-chapters split per group. Reports **incomplete**: 3 of 86 subjects have a chapter list, 0 topics, 0 subjects `verified` — by design, it cannot report complete while chapter data is missing |
 | Curriculum import tooling | **Unit- and DB-tested** validator + idempotency planner (`src/domain/curriculumImport.ts`), SQL upsert tested against PGlite including progress preservation and `verified`-requires-source. **Real data imported twice**: 14 SSC Physics + 12 SSC Chemistry chapters (`0010`) and 15 HSC Physics 2nd Paper chapters (`0011`), all `partially_verified`, from scanned official books. The HSC rows carry the printed English gloss only — the Bengali titles are unrecoverable from the scan and stay `null`. Screenshot/PDF-of-সূচিপত্র workflow documented in [docs/CURRICULUM_IMPORT.md](docs/CURRICULUM_IMPORT.md) |
 | Curriculum progress safety | **Integration- and DB-tested**: a reseed created no duplicates and left chapter status, checklist ticks, notes and curriculum links intact |
-| Export / backup | **Browser-tested** (JSON download contains real rows); restore is **not implemented** |
+| Export / backup | **Browser-tested** (JSON download contains real rows); restore and any automatic backup (including Google Drive) are **not implemented** — see [docs/GOOGLE_DRIVE_ROADMAP.md](docs/GOOGLE_DRIVE_ROADMAP.md) |
 | Secret handling | **Verified against the built bundle** (`tests/bundle/secrets.test.ts`): no service-role key, provider key or key header ships to the client |
 | Loading / empty / error / retry states | **Browser- and jsdom-tested** on gated pages; every page has a written empty state |
 | Production build + route splitting | **Verified**: 27 route chunks, 8 shared chunks, 4 vendor chunks (39 JS files) |
@@ -75,10 +88,11 @@ weekly report, and receive planned reminders.
 | **Progress insights + AI coach** | Four bands: observed → calculated → interpretation → missing, each with evidence; deterministic next steps; AI is optional and additive | `/insights`, `/reports` |
 | **Dashboard** | Today's study time (from the timeline), next exam countdown, today's tasks, revision queue, needs-attention flags, weekly facts — all from the same records as their pages | `/` |
 | **Focus mode** | Foreground focus/break timer (5–120 min focus, ≤ 30 min breaks, ≤ 8 intervals), linked to task/subject/chapter, writes exactly one study session | `/focus` |
-| **Export & academic history** | JSON backup of every table + per-table CSV, demo rows marked, subject/chapter history preserved across curriculum changes, delete flows that never silently destroy history | `/export`, `/settings` |
+| **Export & academic history** | JSON backup of every table + per-table CSV, fixture rows marked so they are never mistaken for yours, subject/chapter history preserved across curriculum changes, delete flows that never silently destroy history | `/export`, `/settings` |
 
-Everything above runs in the browser with no server: local mode keeps rows in
-`localStorage` under one key and seeds labelled demo data.
+Everything above runs on the device with no server: the device workspace keeps rows
+in a versioned store under one `localStorage` key, mirrored to IndexedDB for
+durability, and starts **empty**.
 
 **Classes 1–12, one curriculum system.** The student picks a class (1–12). A study group
 is asked only where it exists — optional for 9–10, required for 11–12, never for 1–8.
@@ -120,19 +134,25 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-Without `VITE_SUPABASE_*` variables the app starts in **local demo mode**: records live in
-this browser's `localStorage`, and the landing screen offers “Start local workspace”,
-which seeds clearly labelled demo data.
+Without `VITE_SUPABASE_*` variables the app opens a **device workspace**: choose a class
+(and a group where one applies) and everything lives in this browser's `localStorage`,
+mirrored to IndexedDB. No email, no password, no network. The workspace starts empty — the
+dashboard says “No subjects yet”, “No study sessions yet” and “No tasks created yet”
+until you add something.
 
-Local mode is for trying the workflow. It is **not** encrypted, **not** a security
-boundary and **not** backed up. Explore with it; do not make it the only copy of anything
-important.
+The device workspace is not encrypted and not backed up automatically. It survives
+closing the tab, a device restart and a normal app update (versioned schema, additive
+migrations), but it never moves to another phone by itself — use **Export all data** and
+keep the JSON file.
 
-### Demo data
+### Demo fixtures (development only)
 
-Every seeded row has `is_demo = true` and shows a **Demo** badge. The demo curriculum is a
-structural placeholder (`needs_verification`), **not official NCTB content**.
-“Remove demo data” in Settings deletes demo rows and keeps everything you created.
+The Playwright suite needs a populated workspace, so fixtures live in
+`src/services/local/demoWorkspace.ts` and are merged **only** when
+`VITE_DEMO_FIXTURES=true`. Unset means “on in `vite dev`, off in `vite build`”; the
+release gate (`npm run verify:release`) asserts that a production build renders no sample
+subject, no fixture chapter title and no `is_demo` row in storage. A release build cannot
+seed them by accident.
 
 ---
 
@@ -514,43 +534,44 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests
 
 ---
 
-## 10. Android build
+## 10. Android build and release
 
-Prerequisites: Node 20.19+, JDK 17+, and the Android SDK (platform 35 + build-tools +
-platform-tools). A full walkthrough — including installing on your own phone, which backend
-the APK should use, and what must never go into it — is in
-**[docs/ANDROID_APK.md](docs/ANDROID_APK.md)**.
+Prerequisites: Node 20.19+, JDK 17+, Android SDK platform 35 + build-tools +
+platform-tools. Toolchain installation and `adb install` steps:
+[docs/ANDROID_APK.md](docs/ANDROID_APK.md). Signing, Play upload and update rules:
+[docs/ANDROID_RELEASE.md](docs/ANDROID_RELEASE.md).
 
 ```bash
-npm run android:preflight  # checks JDK, SDK, wrapper and synced assets; prints the fix
-npm run android:sync       # vite build + cap sync android
-npm run android:build      # → android/app/build/outputs/apk/debug/app-debug.apk
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-# or: npm run android:open   (Android Studio)
+npm run android:preflight       # JDK / SDK / wrapper / synced assets, with the exact fix
+npm run android:sync            # production build + cap sync android
+npm run android:build:release   # signed release APK (needs keystore, see below)
+npm run android:bundle:release  # signed AAB for Google Play
+./scripts/verify-apk.sh         # size, signature, badging
 ```
 
-The APK contains only the web bundle. With no `.env.local` it runs in **local demo mode**
-with no key of any kind inside it; if you point it at your own Supabase project, only the
-**anon** key is compiled in (safe because RLS is on) — never a service-role key or an AI
-provider key. `npx vitest run tests/bundle` scans the built bundle for those.
+Signing material is never in Git. Generate it once with
+`./scripts/generate-keystore.sh` (writes `~/.mkj-keystore/mkj-release.jks` and the
+git-ignored `android/keystore.properties`), or provide `MKJ_KEYSTORE_FILE`,
+`MKJ_KEYSTORE_PASSWORD`, `MKJ_KEY_ALIAS` and `MKJ_KEY_PASSWORD` in CI. The same
+key must sign every future update.
 
-What is in the repository: `appId com.mkjstudyos.app`, `minSdk 23 / target 35`,
-`androidScheme https`, the `@capacitor/local-notifications@7.0.7` plugin registered by
-`cap sync`, its permissions merged into the manifest
-(`POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`), and a real status-bar icon
-(`res/drawable/ic_stat_studyos.xml`) — the template pointed at a drawable that did not
-exist. `tests/android/config.test.ts` re-checks package id, SDK levels, permissions and the
-icon on every run, and the template test stubs were fixed so `./gradlew test` does not fail
-on the renamed package.
+**Version:** `1.0.0` / versionCode `1`; `package.json`, `android/app/build.gradle`
+and the injected `APP_VERSION` are kept equal by `tests/release/releaseConfig.test.ts`.
 
-**Status in this snapshot: sync PASS, configuration PASS, APK and device BLOCKED.** The web
-build and `cap sync` were executed here (40 assets copied, plugin registered), but there is
-no JDK, no Android SDK, and `services.gradle.org` / `dl.google.com` / Maven hosts are
-unreachable, so `gradlew assembleDebug` was never run and no APK exists in this repository.
-`npm run android:preflight` reproduces that verdict in one command. Reminders use inexact
-alarms unless the user grants exact-alarm access — untested on hardware. See
-[docs/ANDROID_APK.md](docs/ANDROID_APK.md) for the build and install steps and the
-device checklist in [docs/VERIFICATION.md](docs/VERIFICATION.md) §2.3.
+**The APK contains only the web bundle.** With no `.env.local` it runs entirely on
+the device and needs no key of any kind. Pointed at your own Supabase project it
+contains the **anon** key only (safe because RLS is on) — never a service-role key
+or an AI provider key; `tests/bundle` scans the built assets for those.
+
+**Status in this snapshot: web build PASS, `cap sync` PASS, release config PASS,
+release gate PASS, APK BLOCKED.** `npm run verify:release` starts the production
+bundle and proves a new workspace is empty. The Gradle step cannot run here: the
+sandbox has no JDK (`java: command not found`), no Android SDK, and
+`dl.google.com` / `repo1.maven.org` / `services.gradle.org` all return `000`, so
+`./gradlew assembleRelease` stops at `JAVA_HOME is not set` and **no APK or AAB
+exists in this repository**. Nothing was installed on a device or emulator. The
+commands above reproduce the signed APK on any machine with the toolchain, and
+[docs/ANDROID_RELEASE.md](docs/ANDROID_RELEASE.md) §4 is the device checklist.
 
 ---
 

@@ -32,6 +32,9 @@ const ReportsPage = lazyPage(() => import('@/features/reports/ReportsPage'), 'Re
 const RemindersPage = lazyPage(() => import('@/features/reminders/RemindersPage'), 'RemindersPage');
 const SettingsPage = lazyPage(() => import('@/features/settings/SettingsPage'), 'SettingsPage');
 const NotFoundPage = lazyPage(() => import('@/features/shared/NotFoundPage'), 'NotFoundPage');
+const ResetPasswordPage = lazyPage(() => import('@/features/auth/ResetPasswordPage'), 'ResetPasswordPage');
+const PrivacyPage = lazyPage(() => import('@/features/legal/LegalPage'), 'PrivacyPage');
+const TermsPage = lazyPage(() => import('@/features/legal/LegalPage'), 'TermsPage');
 const MorePage = lazyPage(() => import('@/features/shared/MorePage'), 'MorePage');
 
 const SyllabusPage = lazyPage(() => import('@/features/syllabus/SyllabusPage'), 'SyllabusPage');
@@ -80,6 +83,9 @@ export function AppRoutes() {
           <Route path="focus" element={<FocusPage />} />
           <Route path="insights" element={<InsightsPage />} />
           <Route path="export" element={<ExportPage />} />
+          <Route path="reset-password" element={<ResetPasswordPage />} />
+          <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="terms" element={<TermsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

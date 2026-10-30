@@ -5,6 +5,7 @@ import {
   type TableMap,
 } from '@/types/domain';
 import { DEMO_CURRICULUM } from '@/services/seed/demoCurriculum';
+import { demoFixturesEnabled } from '@/config/release';
 import { OFFICIAL_CURRICULUM } from '@/services/seed/officialCurriculum';
 import { CURRICULUM_SOURCES, PENDING_REQUIREMENTS } from '@/services/seed/curriculumReadiness';
 import type { KeyValueStorage } from './storage';
@@ -41,8 +42,46 @@ function normaliseRow(table: RepositoryTable, row: Row): Row {
 }
 
 interface DatabaseShape {
-  version: 1;
+  version: number;
   tables: Record<string, Row[]>;
+}
+
+/**
+ * Schema version of the local document store.
+ *
+ *   1 — first release: one JSON blob, tables created on demand.
+ *   2 — class scoping (user_subjects.class_level) and profile view settings
+ *       (active_class, active_group, theme) became columns. Existing rows get
+ *       explicit nulls so every reader can rely on the key being present.
+ *
+ * Migrations only ever add or normalise; nothing is deleted, and a store written
+ * by a later version is left untouched rather than downgraded.
+ */
+const SCHEMA_VERSION = 2;
+
+function migrate(db: DatabaseShape): boolean {
+  if (db.version >= SCHEMA_VERSION) return false;
+  if (db.version < 2) {
+    for (const profile of (db.tables['profiles'] ?? []) as Row[]) {
+      profile['active_class'] ??= null;
+      profile['active_group'] ??= null;
+      profile['onboarded_at'] ??= null;
+      profile['theme_mode'] ??= 'system';
+      profile['theme_preset'] ??= 'sky';
+      profile['theme_accent'] ??= null;
+    }
+    for (const subject of (db.tables['user_subjects'] ?? []) as Row[]) {
+      subject['class_level'] ??= null;
+      subject['paper_label'] ??= null;
+      subject['name_bn'] ??= null;
+    }
+    for (const chapter of (db.tables['user_chapters'] ?? []) as Row[]) {
+      chapter['chapter_number'] ??= null;
+      chapter['chapter_title_bn'] ??= null;
+    }
+  }
+  db.version = SCHEMA_VERSION;
+  return true;
 }
 
 const ALL_TABLES: RepositoryTable[] = [
@@ -77,8 +116,14 @@ export class LocalDatabase {
       const existing = parsed?.tables?.[table];
       tables[table] = Array.isArray(existing) ? existing.map((row) => normaliseRow(table, row)) : [];
     }
-    const db: DatabaseShape = { version: 1, tables };
+    const db: DatabaseShape = {
+      version: typeof parsed?.version === 'number' ? parsed.version : 1,
+      tables,
+    };
+    const migrated = migrate(db);
     this.ensureCurriculum(db);
+    // Persist the migration once, so the next read is already on the new shape.
+    if (migrated) this.write(db);
     return db;
   }
 
@@ -91,17 +136,18 @@ export class LocalDatabase {
    */
   private ensureCurriculum(db: DatabaseShape): void {
     this.mergeCurriculum(db, OFFICIAL_CURRICULUM);
-    const versions = db.tables['curriculum_versions'] as unknown as TableMap['curriculum_versions'][];
-    if (!versions?.some((v) => v.id === DEMO_CURRICULUM.version.id)) {
-      versions?.push({ ...DEMO_CURRICULUM.version });
-    }
-    const subjects = db.tables['curriculum_subjects'] as unknown as TableMap['curriculum_subjects'][];
-    for (const subject of DEMO_CURRICULUM.subjects) {
-      if (!subjects.some((s) => s.id === subject.id)) subjects.push({ ...subject });
-    }
-    const chapters = db.tables['curriculum_chapters'] as unknown as TableMap['curriculum_chapters'][];
-    for (const chapter of DEMO_CURRICULUM.chapters) {
-      if (!chapters.some((c) => c.id === chapter.id)) chapters.push({ ...chapter });
+    /*
+     * The demo curriculum ("Demo chapter 1 — mechanics") is a fixture. Merging
+     * it into a store build would put placeholder chapter titles in the
+     * template list of every new install, so it is only merged when the demo
+     * fixtures are enabled. Rows already in a student's store are left alone.
+     */
+    if (demoFixturesEnabled()) {
+      this.mergeCurriculum(db, {
+        versions: [DEMO_CURRICULUM.version],
+        subjects: DEMO_CURRICULUM.subjects,
+        chapters: DEMO_CURRICULUM.chapters,
+      });
     }
     this.mergeReadiness(db);
   }

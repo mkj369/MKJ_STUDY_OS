@@ -31,7 +31,14 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
+    /*
+     * The suite runs against a production build, and the demo fixtures it
+     * depends on are compiled out of real store builds. Setting the flag here
+     * keeps the tests on the production bundle while still giving them sample
+     * data — the same switch `npm run build` leaves off.
+     */
     command: 'npm run build && npm run preview -- --port 4173 --strictPort',
+    env: { VITE_DEMO_FIXTURES: 'true' },
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: true,
     timeout: 180_000,

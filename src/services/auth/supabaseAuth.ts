@@ -134,6 +134,11 @@ export class SupabaseAuthClient implements AuthClient {
     if (error) throw mapAuthError(error.message);
   }
 
+  async updatePassword(password: string): Promise<void> {
+    const { error } = await this.client.auth.updateUser({ password });
+    if (error) throw mapAuthError(error.message);
+  }
+
   async deleteAccount(): Promise<void> {
     const { data, error } = await this.client.functions.invoke('delete-account', {
       body: { confirm: 'DELETE' },

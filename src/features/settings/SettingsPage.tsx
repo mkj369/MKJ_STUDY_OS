@@ -4,10 +4,12 @@ import { IonAlert, IonIcon } from '@ionic/react';
 import { downloadOutline, shieldCheckmarkOutline, trashOutline } from 'ionicons/icons';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
 import { useAuth, useServices } from '@/app/AppProviders';
+import { demoFixturesEnabled, APP_VERSION, CONTACT_EMAIL } from '@/config/release';
 import { useI18n } from '@/i18n';
 import { Badge, DemoBadge, Notice, PageHeader, SectionCard } from '@/components/ui/Page';
 import { FormError } from '@/components/ui/Form';
 import { ConfirmDeleteButton } from '@/components/ui/ConfirmDeleteButton';
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { profileSchema } from '@/domain/schemas';
 import { TIMEZONE_OPTIONS } from '@/services/reminderDefaults';
@@ -38,6 +40,7 @@ function SettingsContent() {
   const [deleteAccountAlert, setDeleteAccountAlert] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
   if (!data) return null;
   const { bundle, view } = data;
@@ -156,7 +159,7 @@ function SettingsContent() {
       <PageHeader
         title="Profile, Privacy & Settings"
         description="Your records, your control. Export or delete at any time. Minimum data collected."
-        actions={<Badge tone={auth.mode === 'cloud' ? 'good' : 'info'}>{auth.mode === 'cloud' ? 'Cloud account' : 'Local demo'}</Badge>}
+        actions={<Badge tone={auth.mode === 'cloud' ? 'good' : 'info'}>{auth.mode === 'cloud' ? 'Cloud account' : 'On this device'}</Badge>}
       />
 
       <AppearanceSection />
@@ -236,14 +239,14 @@ function SettingsContent() {
               reminder settings.
             </p>
             <p className="small">
-              <strong>What is not stored:</strong> location, contacts, photos, passwords in plain text, or
+              <strong>What is not stored:</strong> location, contacts, photos, camera, microphone, passwords in plain text, or
               anything you did not enter. No public profile or social features exist.
             </p>
             <p className="small">
               <strong>Who can read it:</strong>{' '}
               {auth.mode === 'cloud'
                 ? 'only your authenticated account, enforced by Postgres row-level security. AI features receive a bounded summary of relevant records, never your whole database.'
-                : 'in local demo mode the data lives in this browser’s storage. Anyone with access to this device/browser profile could read it. It is not encrypted and not backed up.'}
+                : 'everything lives in this app’s private storage on this phone. Anyone who can unlock the phone and open the app can read it; it is not encrypted by the app and is not backed up automatically. Export a copy if you need one.'}
             </p>
             <p className="small">
               <strong>AI:</strong> optional and server-side only. With AI off, every core workflow and the weekly
@@ -256,6 +259,17 @@ function SettingsContent() {
             <Notice tone="neutral" icon={<IonIcon icon={shieldCheckmarkOutline} />}>
               No analytics, ads or third-party trackers are included in this build.
             </Notice>
+            <div className="row">
+              <Link to="/privacy" className="btn btn--secondary btn--sm">
+                Read the full privacy policy
+              </Link>
+              <Link to="/terms" className="btn btn--ghost btn--sm">
+                Terms and about
+              </Link>
+              <a className="btn btn--ghost btn--sm" href={`mailto:${CONTACT_EMAIL}`}>
+                {CONTACT_EMAIL}
+              </a>
+            </div>
           </div>
         </SectionCard>
       </div>
@@ -273,14 +287,16 @@ function SettingsContent() {
                 Copy JSON
               </button>
             ) : null}
-            <button
-              type="button"
-              className="btn btn--secondary btn--sm"
-              onClick={() => void loadDemo()}
-              disabled={bundle.subjects.some((s) => s.is_demo)}
-            >
-              Load demo data
-            </button>
+            {demoFixturesEnabled() ? (
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => void loadDemo()}
+                disabled={bundle.subjects.some((s) => s.is_demo)}
+              >
+                Load demo data
+              </button>
+            ) : null}
             <button type="button" className="btn btn--secondary btn--sm" onClick={() => void removeDemo()} disabled={!view.demoActive}>
               Remove demo data
             </button>
@@ -321,7 +337,7 @@ function SettingsContent() {
             <span className="tiny muted">
               {auth.mode === 'cloud'
                 ? 'Deletes the cloud account and all its rows via a server-side function. Irreversible.'
-                : 'Local demo has no server account. Use “Delete all my records” above, or clear this browser’s site data.'}
+                : 'A device workspace has no server account. Use “Delete all my records” above, or uninstall the app to remove its storage.'}
             </span>
           </div>
         </div>
@@ -331,19 +347,27 @@ function SettingsContent() {
 
       <SectionCard title="Session" hint="Sign out on this device">
         <div className="row">
-          <button
-            type="button"
-            className="btn btn--secondary"
-            onClick={() => {
-              void auth.signOut();
-            }}
-          >
+          <button type="button" className="btn btn--secondary" onClick={() => setSignOutOpen(true)}>
             Sign out
           </button>
           <span className="tiny muted">
             {auth.mode === 'cloud' ? `Signed in as ${auth.user?.email}` : 'Local workspace session'}
           </span>
         </div>
+        <p className="tiny muted">
+          Signing out does not delete anything. Your records stay on this device and reopen when you start again.
+        </p>
+        <ConfirmSheet
+          open={signOutOpen}
+          title="Sign out of MKJ StudyOS?"
+          message="Your subjects, chapters, tasks, notes and study sessions stay on this device and reopen when you start again. Nothing is deleted."
+          confirmLabel="Sign out"
+          onCancel={() => setSignOutOpen(false)}
+          onConfirm={() => {
+            setSignOutOpen(false);
+            void auth.signOut();
+          }}
+        />
       </SectionCard>
 
       <div style={{ height: 16 }} />
@@ -354,7 +378,7 @@ function SettingsContent() {
             <LogoMark size={44} />
             <div className="logo-lockup__text">
               <span className="logo-lockup__name">MKJ StudyOS</span>
-              <span className="logo-lockup__tagline">Study smarter. Stay consistent. · v0.1.0</span>
+              <span className="logo-lockup__tagline">Study smarter. Stay consistent. · v{APP_VERSION}</span>
             </div>
           </div>
           <div className="row">
@@ -365,7 +389,7 @@ function SettingsContent() {
           </div>
           <p className="small">
             Storage mode: <strong>{auth.mode === 'cloud' ? 'Supabase cloud' : 'browser local storage'}</strong>
-            {auth.mode === 'local' ? ` — ${auth.localReason ?? ''}` : ''}
+            {auth.mode === 'local' && import.meta.env.DEV ? ` — ${auth.localReason ?? ''}` : ''}
           </p>
           <p className="small">
             Curriculum versions available: {bundle.curriculum.versions.length}. Subjects in your workspace:{' '}

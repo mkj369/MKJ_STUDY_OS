@@ -50,35 +50,30 @@ afterEach(() => {
 
 
 /**
- * Complete the first-launch setup the same way a student does: start the local
- * workspace, choose a class, then continue. Without this the app correctly shows
- * onboarding instead of the dashboard, so every assertion below depends on it.
+ * Complete the first-launch setup the same way a student does: choose a class,
+ * pick a group where one applies, then start the workspace. The class is written
+ * to the profile during sign-up, so onboarding is not shown a second time.
  */
-async function startAndOnboard() {
-  await userEvent.click(await screen.findByRole('button', { name: /start local workspace/i }));
-  await screen.findByText(/which class do you study in/i, {}, { timeout: 15000 });
-  await userEvent.click(screen.getByRole('button', { name: '11', exact: true }));
-  await userEvent.click(screen.getByRole('button', { name: /^continue/i }));
-  await screen.findByText(/which group are you in/i, {}, { timeout: 5000 });
-  await userEvent.click(screen.getByRole('radio', { name: /science/i }));
-  await userEvent.click(screen.getByRole('button', { name: /start studying/i }));
+async function startWorkspace(classLevel = 11, group = /science/i) {
+  await screen.findByRole('button', { name: /start on this device/i }, { timeout: 15000 });
+  await userEvent.click(screen.getByRole('button', { name: `Class ${classLevel}`, exact: true }));
+  if (classLevel >= 9) {
+    await userEvent.click(screen.getByRole('radio', { name: group }));
+  }
+  await userEvent.click(screen.getByRole('button', { name: /start on this device/i }));
 }
 
-describe('first run (local demo mode)', () => {
+describe('first run (device workspace)', () => {
   it('starts a local workspace, seeds labelled demo data and shows the dashboard', async () => {
     render(<App />);
 
-    // The auth screen explains that this build is running without Supabase.
-    expect((await screen.findAllByText(/Local demo mode/i, {}, { timeout: 5000 })).length).toBeGreaterThan(0);
-    const start = await screen.findByRole('button', { name: /start local workspace/i });
-    await userEvent.click(start);
+    // The auth screen says plainly that this build runs without a cloud account.
+    expect(
+      (await screen.findAllByText(/Cloud accounts are not configured in this build/i, {}, { timeout: 5000 })).length,
+    ).toBeGreaterThan(0);
 
-    // Class setup comes before the curriculum, exactly once.
-    await screen.findByText(/which class do you study in/i, {}, { timeout: 15000 });
-    await userEvent.click(screen.getByRole('button', { name: '11', exact: true }));
-    await userEvent.click(screen.getByRole('button', { name: /^continue/i }));
-    await userEvent.click(await screen.findByRole('radio', { name: /science/i }));
-    await userEvent.click(screen.getByRole('button', { name: /start studying/i }));
+    // Class and group are asked once, on the welcome screen.
+    await startWorkspace();
 
     // The dashboard greets the student and seeded rows are clearly labelled.
     expect(await screen.findByText(/welcome,|good to see you/i, {}, { timeout: 15000 })).toBeInTheDocument();
@@ -89,7 +84,7 @@ describe('first run (local demo mode)', () => {
 
   it('navigates between screens without losing the workspace', async () => {
     render(<App />);
-    await startAndOnboard();
+    await startWorkspace();
     await screen.findByText(/welcome,|good to see you/i, {}, { timeout: 15000 });
 
     // Ionic briefly hides the shell while a page settles in jsdom, so wait for
@@ -116,7 +111,7 @@ describe('first run (local demo mode)', () => {
 
   it('renders every Phase 1 screen without a crash', async () => {
     render(<App />);
-    await startAndOnboard();
+    await startWorkspace();
     await screen.findByText(/welcome,|good to see you/i, {}, { timeout: 15000 });
 
     const paths = [

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -22,6 +22,7 @@ const appGradle = read('android/app/build.gradle');
 const variablesGradle = read('android/variables.gradle');
 const manifest = read('android/app/src/main/AndroidManifest.xml');
 const strings = read('android/app/src/main/res/values/strings.xml');
+const styles = read('android/app/src/main/res/values/styles.xml');
 const wrapper = read('android/gradle/wrapper/gradle-wrapper.properties');
 const pkg = JSON.parse(read('package.json')) as {
   dependencies: Record<string, string>;
@@ -83,6 +84,56 @@ describe('Capacitor ↔ Android project', () => {
       expect(plugin).toContain('android.permission.POST_NOTIFICATIONS');
       expect(plugin).toContain('android.permission.RECEIVE_BOOT_COMPLETED');
     }
+  });
+
+  it('hands the splash screen over to the app theme', () => {
+    // Without postSplashScreenTheme the launch activity keeps the splash window
+    // background over the WebView, which looks like a frozen logo on some devices.
+    expect(styles).toMatch(/postSplashScreenTheme">@style\/AppTheme\.NoActionBar</);
+    expect(styles).toMatch(/<style name="AppTheme\.NoActionBar"/);
+    // Every resource the launch theme references must exist, or the build fails.
+    const icon = styles.match(/windowSplashScreenAnimatedIcon">@mipmap\/(\w+)/)?.[1];
+    expect(icon).toBeTruthy();
+    expect(
+      existsSync(join(ROOT, 'android/app/src/main/res/mipmap-anydpi-v26', `${icon}.xml`)) ||
+        existsSync(join(ROOT, 'android/app/src/main/res/mipmap-hdpi', `${icon}.png`)),
+    ).toBe(true);
+    const color = styles.match(/windowSplashScreenBackground">@color\/(\w+)/)?.[1];
+    expect(color).toBeTruthy();
+    expect(read('android/app/src/main/res/values/ic_launcher_background.xml')).toContain(
+      `<color name="${color}">`,
+    );
+    // The activity actually uses the launch theme.
+    expect(manifest).toContain('android:theme="@style/AppTheme.NoActionBarLaunch"');
+  });
+
+  it('ships the project splash, not the Capacitor template', () => {
+    /*
+     * `npx cap add android` writes a white splash with a blue X. Nothing fails
+     * when it stays: the app launches with somebody else's logo. The generated
+     * files are full-bleed gradients rendered at each density, so they are much
+     * larger than the 4-17 kB template PNGs; `scripts/generate-splash.mjs`
+     * regenerates them from public/logo-mark.svg.
+     */
+    const densities = [
+      'drawable',
+      'drawable-land-mdpi',
+      'drawable-port-mdpi',
+      'drawable-land-hdpi',
+      'drawable-port-hdpi',
+      'drawable-land-xhdpi',
+      'drawable-port-xhdpi',
+      'drawable-land-xxhdpi',
+      'drawable-port-xxhdpi',
+      'drawable-land-xxxhdpi',
+      'drawable-port-xxxhdpi',
+    ];
+    for (const density of densities) {
+      const file = join(ROOT, 'android/app/src/main/res', density, 'splash.png');
+      expect(existsSync(file), file).toBe(true);
+      expect(statSync(file).size, `${density}/splash.png still looks like the template`).toBeGreaterThan(20_000);
+    }
+    expect(existsSync(join(ROOT, 'scripts/generate-splash.mjs'))).toBe(true);
   });
 
   it('keeps the Android test stubs on the real package name', () => {

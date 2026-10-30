@@ -13,9 +13,11 @@
  *                        fails if the audit does not catch it.
  *
  * Usage: npm run dev (port 5173), then `node scripts/route-audit.mjs`.
+ * Set AUDIT_BASE to audit another origin, e.g. a production preview.
  */
 import { chromium } from 'playwright';
 import { chromiumExecutablePath, chromiumEnv } from './playwright-browser.mjs';
+const BASE = process.env.AUDIT_BASE ?? 'http://127.0.0.1:5173';
 // Every route declared in src/app/AppRoutes.tsx, plus the wildcard.
 const ROUTES = ['/','/curriculum','/curriculum/templates','/subjects','/lectures','/sessions','/revisions','/revisions/smart','/tasks','/difficulties','/mistakes','/exams','/exams/prep','/notes','/vault','/reports','/reminders','/settings','/syllabus','/time','/planner','/weakness','/practice','/focus','/insights','/export','/more'];
 
@@ -27,9 +29,19 @@ const ROUTES = ['/','/curriculum','/curriculum/templates','/subjects','/lectures
  * rather than reporting success on a screen it never reached.
  */
 async function boot(pg) {
-  await pg.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' });
-  const start = pg.getByRole('button', { name: /start local workspace/i });
-  if (await start.count()) await start.first().click();
+  await pg.goto(BASE + '/', { waitUntil: 'networkidle' });
+  /*
+   * Since v1.0.0 the welcome screen asks for the class (and group) itself, so
+   * this is the real first-run path. The older onboarding flow is kept as a
+   * fallback for a build that still asks after sign-in.
+   */
+  const start = pg.getByRole('button', { name: /start on this device|start local workspace/i });
+  if (await start.count()) {
+    await pg.getByRole('button', { name: 'Class 11', exact: true }).click().catch(() => {});
+    const groupChip = pg.getByRole('radio', { name: 'Science', exact: true });
+    if (await groupChip.count()) await groupChip.click();
+    await start.first().click();
+  }
 
   const onboarding = pg.getByRole('heading', { name: /which class do you study in/i });
   await Promise.race([onboarding.waitFor({ timeout: 6000 }).catch(() => {}), pg.waitForTimeout(6200)]);
@@ -47,6 +59,9 @@ async function boot(pg) {
   if (/which class do you study in/i.test(heading ?? '')) {
     throw new Error('route audit is stuck on onboarding; every route would be measured as the same screen');
   }
+  if (!(await pg.getByRole('main').count())) {
+    throw new Error('route audit could not open the workspace; a green run would measure the welcome screen');
+  }
 }
 const browser = await chromium.launch({ executablePath: await chromiumExecutablePath(), env: chromiumEnv(), args: ['--no-sandbox','--disable-dev-shm-usage','--disable-gpu'] });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -59,7 +74,7 @@ await boot(page);
 const report = [];
 for (const route of ROUTES) {
   errors.length = 0;
-  await page.goto('http://127.0.0.1:5173/#' + route, { waitUntil: 'networkidle' });
+  await page.goto(BASE + '/#' + route, { waitUntil: 'networkidle' });
   await page.waitForTimeout(700);
   const info = await page.evaluate(() => {
     const main = document.querySelector('main');
@@ -76,7 +91,7 @@ const mp = await mobile.newPage();
 await boot(mp);
 let mobileBad = [];
 for (const route of ROUTES) {
-  await mp.goto('http://127.0.0.1:5173/#' + route, { waitUntil: 'networkidle' });
+  await mp.goto(BASE + '/#' + route, { waitUntil: 'networkidle' });
   await mp.waitForTimeout(500);
   const o = await mp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (o > 0) mobileBad.push(`${route}: ${o}px`);

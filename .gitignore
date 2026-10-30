@@ -41,6 +41,11 @@ android/capacitor-cordova-android-plugins/
 *.aab
 *.keystore
 *.jks
+*.p12
+android/keystore.properties
+android/app/keystore.properties
+android/keystore/
+android/app/release/
 
 # Supabase CLI temp
 supabase/.temp/

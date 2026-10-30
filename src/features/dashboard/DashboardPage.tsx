@@ -14,6 +14,7 @@ import {
 } from 'ionicons/icons';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
 import { useAuth } from '@/app/AppProviders';
+import { demoFixturesEnabled } from '@/config/release';
 import {
   Badge,
   DataFreshness,
@@ -137,9 +138,21 @@ export function DashboardPage() {
       await mutate((repo) =>
         repo.update('study_tasks', id, { status: 'done', completed_at: new Date().toISOString() }),
       );
-      await toast({ message: 'Task marked done.', duration: 1500, color: 'success', position: 'bottom' });
+      await toast({
+        message: 'Task marked done.',
+        duration: 1500,
+        color: 'success',
+        position: 'bottom',
+        cssClass: 'app-toast',
+      });
     } catch (taskError) {
-      await toast({ message: errorMessage(taskError), duration: 2500, color: 'danger', position: 'bottom' });
+      await toast({
+        message: errorMessage(taskError),
+        duration: 2500,
+        color: 'danger',
+        position: 'bottom',
+        cssClass: 'app-toast',
+      });
     } finally {
       setBusyTask(null);
     }
@@ -151,9 +164,21 @@ export function DashboardPage() {
         await repo.seedDemoWorkspace();
       });
       await queryClient.invalidateQueries();
-      await toast({ message: 'Demo data loaded and labelled.', duration: 2000, color: 'success', position: 'bottom' });
+      await toast({
+        message: 'Demo data loaded and labelled.',
+        duration: 2000,
+        color: 'success',
+        position: 'bottom',
+        cssClass: 'app-toast',
+      });
     } catch (demoError) {
-      await toast({ message: errorMessage(demoError), duration: 2500, color: 'danger', position: 'bottom' });
+      await toast({
+        message: errorMessage(demoError),
+        duration: 2500,
+        color: 'danger',
+        position: 'bottom',
+        cssClass: 'app-toast',
+      });
     }
   };
 
@@ -190,9 +215,11 @@ export function DashboardPage() {
                 <Link to="/curriculum" className="btn btn--primary">
                   Add subject
                 </Link>
-                <button type="button" className="btn btn--secondary" onClick={loadDemo}>
-                  Load demo data
-                </button>
+                {demoFixturesEnabled() ? (
+                  <button type="button" className="btn btn--secondary" onClick={loadDemo}>
+                    Load demo data
+                  </button>
+                ) : null}
               </div>
             }
           />

@@ -29,6 +29,7 @@ export function useNotify() {
         duration: color === 'danger' ? 3500 : 2000,
         color,
         position: 'bottom',
+        cssClass: 'app-toast',
         buttons: [{ text: 'Dismiss', role: 'cancel' }],
       });
     },

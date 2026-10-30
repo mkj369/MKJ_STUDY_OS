@@ -23,11 +23,23 @@ import '@fontsource/noto-sans-bengali/600.css';
 import './styles/theme.css';
 
 import { App } from './app/App';
+import { hydrateDurableStorage } from './services/local/durableStorage';
 
 setupIonicReact({ mode: 'md' });
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+
+/*
+ * Before the first render, copy any record the synchronous store has lost back
+ * from its IndexedDB mirror. The worst outcome is a slow first frame — the
+ * promise never rejects — so the app still opens if IndexedDB is unavailable.
+ */
+void hydrateDurableStorage()
+  .catch(() => ({ restored: [], durable: true }))
+  .finally(() => {
+    root.render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>,
+    );
+  });

@@ -24,10 +24,21 @@ export interface AuthClient {
   signUp(email: string, password: string, displayName: string): Promise<SignUpResult>;
   signOut(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
+  /**
+   * Finish a reset: set a new password for the session created by the recovery
+   * link. Cloud only — the local workspace has no password to reset.
+   */
+  updatePassword?(password: string): Promise<void>;
   /** Subscribe to auth changes; returns an unsubscribe function. */
   onChange(callback: (user: AuthUser | null) => void): () => void;
   /** Local mode only: create a device-local workspace without an account. */
-  startLocalWorkspace?(displayName: string): Promise<AuthUser>;
+  startLocalWorkspace?(displayName?: string): Promise<AuthUser>;
+  /**
+   * Local mode only: is there already a workspace on this device that
+   * "Start on this device" would reopen? Used to warn the student before they
+   * disconnect, and to label the button honestly.
+   */
+  hasLocalAccount?(): Promise<boolean>;
   /** Permanently delete the cloud account and its records (server-side). */
   deleteAccount?(): Promise<void>;
 }

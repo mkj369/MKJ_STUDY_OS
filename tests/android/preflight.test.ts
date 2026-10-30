@@ -7,6 +7,7 @@ import {
   checkGradleWrapper,
   checkJava,
   checkNode,
+  checkReleaseSigning,
   checkWebAssets,
   compareVersions,
   parseJavaMajorVersion,
@@ -155,11 +156,69 @@ describe('wrapper and synced assets', () => {
   });
 });
 
+describe('release signing material', () => {
+  it('warns, without failing, when there is no key: debug builds are legitimate', () => {
+    const dir = sandbox();
+    const result = checkReleaseSigning({ dir, env: {} });
+    expect(result.status).toBe('warn');
+    expect(result.remedy).toContain('generate-keystore.sh');
+    // The report may never leak a password, even a placeholder one.
+    expect(result.found).not.toMatch(/password=/i);
+  });
+
+  it('passes when keystore.properties points at a real key file', () => {
+    const dir = sandbox();
+    const jks = join(dir, 'mkj-release.jks');
+    writeFileSync(jks, 'not a real key, only the presence matters here');
+    writeFileSync(
+      join(dir, 'keystore.properties'),
+      `storeFile=${jks}\nstorePassword=secret-value-123\nkeyAlias=mkj-release\nkeyPassword=secret-value-123\n`,
+    );
+    const result = checkReleaseSigning({ dir, env: {} });
+    expect(result.status).toBe('pass');
+    expect(result.found).toContain('mkj-release');
+    expect(JSON.stringify(result)).not.toContain('secret-value-123');
+  });
+
+  it('fails when the properties file names a key that is not on disk', () => {
+    const dir = sandbox();
+    writeFileSync(
+      join(dir, 'keystore.properties'),
+      `storeFile=${join(dir, 'gone.jks')}\nstorePassword=x\nkeyAlias=mkj-release\nkeyPassword=x\n`,
+    );
+    const result = checkReleaseSigning({ dir, env: {} });
+    expect(result.status).toBe('fail');
+    expect(result.found).toContain('does not exist');
+  });
+
+  it('accepts CI environment variables, and names the ones that are missing', () => {
+    const dir = sandbox();
+    const file = join(dir, 'ci.jks');
+    writeFileSync(file, '');
+    const complete = checkReleaseSigning({
+      dir,
+      env: {
+        MKJ_KEYSTORE_FILE: file,
+        MKJ_KEYSTORE_PASSWORD: 'a',
+        MKJ_KEY_ALIAS: 'mkj-release',
+        MKJ_KEY_PASSWORD: 'a',
+      },
+    });
+    expect(complete.status).toBe('pass');
+    expect(complete.found).not.toContain('MKJ_KEYSTORE_PASSWORD=');
+
+    const partial = checkReleaseSigning({ dir, env: { MKJ_KEYSTORE_FILE: file, MKJ_KEY_ALIAS: 'mkj' } });
+    expect(partial.status).toBe('fail');
+    expect(partial.found).toContain('MKJ_KEYSTORE_PASSWORD');
+    expect(partial.found).not.toContain('MKJ_KEY_PASSWORD, MKJ_KEY_ALIAS');
+  });
+});
+
 describe('the report itself', () => {
-  it('is stable: five unique checks with a status and a reason', () => {
+  it('is stable: six unique checks with a status and a reason', () => {
     const checks = runPreflight();
-    expect(checks).toHaveLength(5);
-    expect(new Set(checks.map((check) => check.id)).size).toBe(5);
+    expect(checks).toHaveLength(6);
+    expect(new Set(checks.map((check) => check.id)).size).toBe(6);
     for (const check of checks) {
       expect(['pass', 'fail', 'warn']).toContain(check.status);
       expect(check.found.length).toBeGreaterThan(0);

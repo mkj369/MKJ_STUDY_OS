@@ -3,7 +3,8 @@ import { SupabaseAuthClient } from '@/services/auth/supabaseAuth';
 import { LocalAuthClient } from '@/services/auth/localAuth';
 import { SupabaseRepository } from '@/services/supabase/supabaseRepository';
 import { LocalRepository } from '@/services/local/localRepository';
-import { getDefaultStorage, type KeyValueStorage } from '@/services/local/storage';
+import { type KeyValueStorage } from '@/services/local/storage';
+import { getDurableStorage } from '@/services/local/durableStorage';
 import { SupabaseAIProvider, UnavailableAIProvider, type AIProvider } from '@/services/ai/aiClient';
 import type { AuthClient } from '@/services/auth/types';
 import type { Repository } from '@/services/repository';
@@ -18,7 +19,7 @@ export interface AppServices {
 
 export function createAppServices(env?: Record<string, string | undefined>, storage?: KeyValueStorage): AppServices {
   const config = readConfig(env);
-  const kv = storage ?? getDefaultStorage();
+  const kv = storage ?? getDurableStorage();
 
   if (config.mode === 'cloud' && config.cloud) {
     const client = getSupabaseClient(config.cloud);

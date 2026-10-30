@@ -11,11 +11,17 @@ import { describe, expect, it } from 'vitest';
  * server-only identifier appears, and independently checks that the Edge Functions do
  * not read client variables.
  *
- * Run `npm run build` first; the test skips (visibly) when `dist/` is absent.
+ * The scan reads the real bundle, so `dist/` must exist. It used to *skip*
+ * silently when the folder was absent — which meant a green `npx vitest run` on a
+ * fresh clone asserted nothing at all about secrets. It now fails with an
+ * instruction instead. `ALLOW_MISSING_DIST=1` exists only for a deliberate
+ * unit-only run; the release gate (`npm run verify`) builds first, so it never
+ * needs the escape hatch.
  */
 
 const DIST = join(process.cwd(), 'dist');
 const hasDist = existsSync(DIST);
+const allowMissing = process.env.ALLOW_MISSING_DIST === '1';
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -38,6 +44,25 @@ const FORBIDDEN_PATTERNS: { label: string; regex: RegExp }[] = [
   { label: 'Anthropic key (sk-ant-…)', regex: /\bsk-ant-[A-Za-z0-9_-]{20,}/ },
   { label: 'JWT claiming service_role', regex: /["']role["']\s*:\s*["']service_role["']/ },
 ];
+
+describe('the scan itself', () => {
+  it('refuses to pass when the production bundle it must inspect is missing', () => {
+    /*
+     * Guard against the original failure mode: "0 tests affected, suite green".
+     * If this assertion is ever true and the scan still reports success, the
+     * scan is not protecting anything.
+     */
+    if (hasDist || allowMissing) {
+      expect(true).toBe(true);
+      return;
+    }
+    throw new Error(
+      'The production bundle is missing, so the secret scan has nothing to inspect. ' +
+        'Run `npm run build` first (or `npm run verify`, which builds and then tests). ' +
+        'Set ALLOW_MISSING_DIST=1 only for a deliberate unit-only run.',
+    );
+  });
+});
 
 describe.skipIf(!hasDist)('production bundle', () => {
   const files = hasDist ? walk(DIST).filter((file) => /\.(js|css|html|json)$/.test(file)) : [];

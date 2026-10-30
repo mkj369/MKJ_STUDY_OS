@@ -767,6 +767,7 @@ ion-app {
 }
 
 .field__optional {
+  margin-left: 0.4em;
   font-weight: 400;
   color: var(--muted-soft);
 }
@@ -3394,24 +3395,56 @@ textarea {
 }
 
 /* ---------------------------------------------------------------------------
- * Inline overflow menu
+ * Toasts (Ionic)
  *
- * <details> rather than a popover library: no portal, no focus trap to fight,
- * and it closes on Escape for free. Used where a card has one primary action
- * and a couple of rare, destructive ones.
+ * A toast is a card that carries a sentence, not a full-bleed green banner.
+ * Ionic's default success green sat beside the Sky Blue surfaces like a piece of
+ * another app; here the status moves to a left stripe and the surface keeps the
+ * theme's own elevation and type.
+ * ------------------------------------------------------------------------- */
+
+ion-toast.app-toast {
+  --background: var(--surface-elevated);
+  --color: var(--ink);
+  --button-color: var(--accent-strong);
+  --border-radius: var(--radius);
+  --box-shadow: var(--shadow-lg);
+  font-family: var(--font);
+  font-weight: 560;
+}
+
+ion-toast.app-toast::part(container) {
+  /* `!important` is required, not lazy: Ionic colours a toast with
+     `:host(.ion-color) .toast-container { background: var(--ion-color-base) }`
+     inside its shadow root, which out-specifies the custom properties above. */
+  background: var(--surface-elevated) !important;
+  color: var(--ink);
+  border-left: 4px solid var(--accent);
+}
+
+ion-toast.app-toast.ion-color-success::part(container) {
+  border-left-color: var(--success);
+}
+
+ion-toast.app-toast.ion-color-danger::part(container) {
+  border-left-color: var(--danger);
+}
+
+ion-toast.app-toast.ion-color-warning::part(container) {
+  border-left-color: var(--warning);
+}
+
+/* ---------------------------------------------------------------------------
+ * Inline overflow menu (src/components/ui/InlineMenu.tsx)
+ *
+ * A real button plus an absolutely positioned panel — no portal and no popover
+ * dependency. The component closes it on Escape or an outside click. Used where
+ * a card has one frequent action and a couple of rare, destructive ones.
  * ------------------------------------------------------------------------- */
 
 .menu-inline {
   position: relative;
-}
-
-.menu-inline > summary {
-  list-style: none;
-  cursor: pointer;
-}
-
-.menu-inline > summary::-webkit-details-marker {
-  display: none;
+  display: flex;
 }
 
 .menu-inline__panel {
@@ -3447,4 +3480,22 @@ textarea {
   .card__header > :last-child {
     align-self: flex-start;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Public pages (privacy, terms)
+ *
+ * Rendered before any workspace exists, so they cannot rely on the app shell's
+ * grid. Same readable column width, no sidebar.
+ * ------------------------------------------------------------------------- */
+
+.public-page {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.public-page__content {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: var(--s-5) var(--s-4) var(--s-7);
 }

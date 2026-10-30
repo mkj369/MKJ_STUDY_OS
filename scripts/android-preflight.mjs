@@ -16,7 +16,7 @@
  *
  * This script never downloads anything and never edits your environment.
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -194,6 +194,72 @@ export function checkWebAssets({ dir = ANDROID_DIR } = {}) {
   };
 }
 
+/**
+ * Release signing material.
+ *
+ * A debug APK builds without this, which is exactly why it is worth a separate
+ * line in the report: the mistake this catches is someone running
+ * `assembleRelease` an hour before publishing and getting an unsigned file that
+ * Android refuses to install.
+ *
+ * Status is `warn` rather than `fail` because a debug build is legitimate, and
+ * the secrets are never printed — only the path and the alias.
+ */
+export function checkReleaseSigning({ dir = ANDROID_DIR, env = process.env } = {}) {
+  const propertiesPath = join(dir, 'keystore.properties');
+  const file = env.MKJ_KEYSTORE_FILE ?? null;
+
+  if (existsSync(propertiesPath)) {
+    const text = readFileSync(propertiesPath, 'utf8');
+    const storeFile = text.match(/^storeFile=(.*)$/m)?.[1]?.trim() ?? '';
+    const alias = text.match(/^keyAlias=(.*)$/m)?.[1]?.trim() ?? '';
+    const hasPassword = /^storePassword=.+$/m.test(text) && /^keyPassword=.+$/m.test(text);
+    const resolved = storeFile.startsWith('/') ? storeFile : join(dir, storeFile);
+    const keyPresent = storeFile.length > 0 && existsSync(resolved);
+    if (keyPresent && hasPassword) {
+      return {
+        id: 'release-signing',
+        label: 'Release signing key',
+        status: 'pass',
+        found: `android/keystore.properties → ${alias || 'alias unset'} · ${resolved}`,
+        remedy: null,
+      };
+    }
+    return {
+      id: 'release-signing',
+      label: 'Release signing key',
+      status: 'fail',
+      found: keyPresent
+        ? 'android/keystore.properties is missing storePassword or keyPassword'
+        : `android/keystore.properties points at ${resolved || '(empty storeFile)'}, which does not exist`,
+      remedy: 'Run ./scripts/generate-keystore.sh, or copy android/keystore.properties.example and fill it in.',
+    };
+  }
+
+  if (file && existsSync(file)) {
+    const missing = ['MKJ_KEYSTORE_PASSWORD', 'MKJ_KEY_ALIAS', 'MKJ_KEY_PASSWORD'].filter(
+      (name) => !env[name],
+    );
+    return {
+      id: 'release-signing',
+      label: 'Release signing key',
+      status: missing.length === 0 ? 'pass' : 'fail',
+      found: missing.length === 0 ? `${file} (from MKJ_KEYSTORE_FILE)` : `${file}, missing env: ${missing.join(', ')}`,
+      remedy: missing.length === 0 ? null : `Set ${missing.join(', ')} in the CI environment (masked secrets).`,
+    };
+  }
+
+  return {
+    id: 'release-signing',
+    label: 'Release signing key',
+    status: 'warn',
+    found: 'no android/keystore.properties and no MKJ_KEYSTORE_FILE',
+    remedy:
+      'Debug builds work without it; a release build would be unsigned. Run ./scripts/generate-keystore.sh ' +
+      'once and back the .jks up — the same key must sign every future update.',
+  };
+}
+
 export function runPreflight() {
   return [
     checkNode(),
@@ -201,6 +267,7 @@ export function runPreflight() {
     checkAndroidSdk(),
     checkGradleWrapper(),
     checkWebAssets(),
+    checkReleaseSigning(),
   ];
 }
 
@@ -213,11 +280,20 @@ function printReport(checks) {
     if (check.remedy) console.log(`         fix:   ${check.remedy}`);
   }
   const failed = checks.filter((check) => check.status === 'fail');
+  const signing = checks.find((check) => check.id === 'release-signing');
   console.log('');
   if (failed.length === 0) {
     console.log('Ready. Build the APK with:');
-    console.log('  npm run android:sync && npm run android:build');
-    console.log('Output: android/app/build/outputs/apk/debug/app-debug.apk\n');
+    if (signing?.status === 'pass') {
+      console.log('  npm run android:sync && npm run android:build:release');
+      console.log('Output: android/app/build/outputs/apk/release/app-release.apk');
+      console.log('Check it: ./scripts/verify-apk.sh');
+    } else {
+      console.log('  npm run android:sync && npm run android:build');
+      console.log('Output: android/app/build/outputs/apk/debug/app-debug.apk');
+      console.log('(release needs a keystore — see ./scripts/generate-keystore.sh)');
+    }
+    console.log('');
     return 0;
   }
   console.log(`${failed.length} requirement(s) missing — fix the lines above, then re-run:`);

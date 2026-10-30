@@ -16,7 +16,14 @@
     </style>
 
 
+    <!-- Launch theme: core-splashscreen draws the splash, then hands over to the
+         app theme. Without postSplashScreenTheme the activity keeps the splash
+         window background on top of the WebView (white/black flash or a frozen
+         logo depending on the device), which is why it is required here. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

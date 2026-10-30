@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,6 +11,17 @@ import { FormError, TextField } from '@/components/ui/Form';
 import { Notice } from '@/components/ui/Page';
 import { errorMessage } from '@/utils/errors';
 import { LogoLockup } from '@/components/brand/Logo';
+import { ClassPicker } from '@/features/curriculum/ClassPicker';
+import { classLabel, type ClassLevel } from '@/domain/classLevels';
+import {
+  STUDY_GROUPS,
+  STUDY_GROUP_LABELS,
+  groupAppliesToClass,
+  groupRequiredForClass,
+  type StudyGroup,
+} from '@/domain/studentProfile';
+import { savePendingProfile } from '@/services/auth/pendingProfile';
+import { demoFixturesEnabled } from '@/config/release';
 
 type Mode = 'signin' | 'signup';
 
@@ -37,9 +49,78 @@ function GoogleGlyph() {
   );
 }
 
+/** Class + group, asked once and stored on the profile. */
+function ClassAndGroup({
+  classLevel,
+  group,
+  onClass,
+  onGroup,
+  idPrefix,
+}: {
+  classLevel: ClassLevel | null;
+  group: StudyGroup | null;
+  onClass: (level: ClassLevel) => void;
+  onGroup: (group: StudyGroup | null) => void;
+  idPrefix: string;
+}) {
+  return (
+    <div className="stack">
+      <div className="field">
+        <span className="field__label" id={`${idPrefix}-class-label`}>
+          Your class
+        </span>
+        <ClassPicker
+          active={classLevel}
+          classesWithSubjects={new Set<number>()}
+          onChange={onClass}
+        />
+        <span className="field__help">
+          Class 1–8 works from your own subject list; 9–10 (SSC) and 11–12 (HSC) include the official subject
+          structure for your group.
+        </span>
+      </div>
+
+      {groupAppliesToClass(classLevel) ? (
+        <div className="field">
+          <span className="field__label">
+            Group {groupRequiredForClass(classLevel) ? null : <span className="field__optional">optional</span>}
+          </span>
+          <div className="chip-row" role="radiogroup" aria-label="Study group">
+            {STUDY_GROUPS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={group === option}
+                className={`chip chip--action${group === option ? ' chip--active' : ''}`}
+                onClick={() => onGroup(group === option ? null : option)}
+              >
+                {STUDY_GROUP_LABELS[option].label}
+              </button>
+            ))}
+          </div>
+          <span className="field__help">
+            {groupRequiredForClass(classLevel)
+              ? 'Choose the group you sit exams in. It decides which papers are offered.'
+              : 'Optional for Class 9–10. You can set it later from Settings.'}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AuthPage() {
-  const { mode: appMode, localReason, signIn, signUp, startLocalWorkspace, sendPasswordReset, signInWithGoogle } =
-    useAuth();
+  const {
+    mode: appMode,
+    localReason,
+    signIn,
+    signUp,
+    startLocalWorkspace,
+    hasLocalWorkspace,
+    sendPasswordReset,
+    signInWithGoogle,
+  } = useAuth();
   const services = useServices();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>('signin');
@@ -47,7 +128,11 @@ export function AuthPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [localName, setLocalName] = useState('');
-  const [withDemo, setWithDemo] = useState(true);
+  const [classLevel, setClassLevel] = useState<ClassLevel | null>(null);
+  const [group, setGroup] = useState<StudyGroup | null>(null);
+  // Fixtures only: a store build opens empty and never offers sample rows.
+  const fixtures = demoFixturesEnabled();
+  const [withDemo, setWithDemo] = useState(fixtures);
 
   const signInForm = useForm<SignInValues>({
     resolver: zodResolver(signInSchema) as Resolver<SignInValues>,
@@ -57,6 +142,8 @@ export function AuthPage() {
     resolver: zodResolver(signUpSchema) as Resolver<SignUpValues>,
     defaultValues: { email: '', password: '', displayName: '' },
   });
+
+  const chosenGroup = groupAppliesToClass(classLevel) ? group : null;
 
   const onSignIn = signInForm.handleSubmit(async (values) => {
     setFormError(null);
@@ -72,8 +159,22 @@ export function AuthPage() {
 
   const onSignUp = signUpForm.handleSubmit(async (values) => {
     setFormError(null);
+    if (!classLevel) {
+      setFormError('Choose your class to continue.');
+      return;
+    }
+    if (groupRequiredForClass(classLevel) && !group) {
+      setFormError('Choose your group to continue.');
+      return;
+    }
     setBusy(true);
     try {
+      /*
+       * The profile row can only be written once a session exists, and with
+       * email confirmation that may be minutes later. The choice is parked in
+       * device storage and applied by onboarding on the first signed-in load.
+       */
+      savePendingProfile({ classLevel, group: chosenGroup });
       const result = await signUp(values.email, values.password, values.displayName);
       if (result.needsEmailConfirmation) {
         setInfo(result.message ?? 'Check your email to confirm the account, then sign in.');
@@ -110,8 +211,6 @@ export function AuthPage() {
     setBusy(true);
     try {
       await signInWithGoogle();
-      // A successful OAuth call navigates away; reaching here means the browser
-      // was not redirected, so tell the student rather than pretend it worked.
       setInfo('Google sign-in was started. If nothing happened, allow pop-ups and try again.');
     } catch (error) {
       setFormError(errorMessage(error));
@@ -122,20 +221,57 @@ export function AuthPage() {
 
   const startLocal = async () => {
     setFormError(null);
+    /*
+     * Reopening an existing workspace must not re-ask for the class: the profile
+     * on this device already holds it, and re-picking it would either be busywork
+     * or, worse, silently switch the student's class. A first run still has to
+     * answer, because there is nothing to go on.
+     */
+    if (!hasLocalWorkspace) {
+      if (!classLevel) {
+        setFormError('Choose your class to continue.');
+        return;
+      }
+      if (groupRequiredForClass(classLevel) && !group) {
+        setFormError('Choose your group to continue.');
+        return;
+      }
+    }
     setBusy(true);
     try {
-      const user = await startLocalWorkspace(localName.trim() || 'Student');
-      if (withDemo) {
+      const user = await startLocalWorkspace(hasLocalWorkspace ? '' : localName.trim() || 'Student');
+      const repository = services.createRepository(user.id);
+      /*
+       * The class chosen on this screen is written to the profile straight
+       * away, so onboarding never asks for it a second time. If the write
+       * fails the student still lands in the app and onboarding asks once,
+       * which is why the failure is reported rather than swallowed.
+       */
+      // On resume the stored profile is authoritative; overwriting it with an
+      // unanswered picker would blank the student's class.
+      if (!hasLocalWorkspace) {
+        await repository.updateProfile({
+          active_class: classLevel,
+          active_group: chosenGroup,
+          onboarded_at: new Date().toISOString(),
+        });
+      }
+      if (!hasLocalWorkspace && fixtures && withDemo) {
         try {
-          const repository = services.createRepository(user.id);
           await repository.seedDemoWorkspace();
-          await queryClient.invalidateQueries();
         } catch (seedError) {
-          setInfo(
-            `Workspace created, but demo data could not be loaded: ${errorMessage(seedError)}. You can start empty.`,
-          );
+          setInfo(`Workspace created, but sample data could not be loaded: ${errorMessage(seedError)}.`);
         }
       }
+      /*
+       * The workspace query is already mounted by the theme provider, so it can
+       * be mid-flight while this write lands. Marking it stale is not enough in
+       * that race: cancel whatever is running and fetch again, or the student
+       * sees the onboarding screen they just answered.
+       */
+      await queryClient.cancelQueries({ queryKey: ['workspace'] });
+      await queryClient.invalidateQueries({ queryKey: ['workspace'] });
+      await queryClient.refetchQueries({ queryKey: ['workspace'], type: 'all' });
     } catch (error) {
       setFormError(errorMessage(error));
     } finally {
@@ -154,10 +290,10 @@ export function AuthPage() {
             Your class, your subjects, your chapters — planned and recorded in one place.
           </h2>
           <ul className="auth-points">
-            <li>Classes 1–12, with Science, Humanities and Business Studies for 9–12.</li>
-            <li>Generate twelve chapters in one tap, then rename them in English or Bengali.</li>
+            <li>Classes 1–12, with Science, Humanities and Business Studies where they apply.</li>
+            <li>Subjects and chapters you build yourself, in English or Bengali.</li>
             <li>Every percentage shows its denominator, or says “not recorded”.</li>
-            <li>Works offline on this device; accounts sync when you sign in.</li>
+            <li>Works offline. Everything stays on this phone unless you export it.</li>
           </ul>
         </aside>
 
@@ -169,47 +305,79 @@ export function AuthPage() {
           {!isCloud ? (
             <>
               <div className="auth-heading">
-                <h1>Start on this device</h1>
+                <h1>{hasLocalWorkspace ? 'Welcome back' : 'Welcome'}</h1>
                 <p className="small muted">
-                  No account needed. Everything you record stays in this browser until you connect a cloud
-                  account.
+                  {hasLocalWorkspace
+                    ? 'This device already holds your workspace. Reopen it to pick up exactly where you stopped.'
+                    : 'Set up your workspace on this device. No account, no email — your records stay in this app.'}
                 </p>
               </div>
 
               <div className="form">
-                <TextField
-                  label="Your name"
-                  name="localName"
-                  placeholder="e.g. Mahin"
-                  value={localName}
-                  onChange={(event) => setLocalName(event.target.value)}
-                  autoComplete="name"
-                  maxLength={60}
-                />
-                <label className="checkbox">
-                  <input type="checkbox" checked={withDemo} onChange={(e) => setWithDemo(e.target.checked)} />
-                  <span>Include clearly-labelled demo data to explore. Remove it any time in Settings.</span>
-                </label>
+                {/*
+                 * Name and class are first-run questions. On resume they are
+                 * already answered — by the profile and the account record — so
+                 * asking again would be busywork at best, and at worst would let
+                 * a stray tap move the student to a different class.
+                 */}
+                {!hasLocalWorkspace ? (
+                  <>
+                    <TextField
+                      label="Your name"
+                      name="localName"
+                      placeholder="e.g. Mahin"
+                      value={localName}
+                      onChange={(event) => setLocalName(event.target.value)}
+                      autoComplete="name"
+                      maxLength={60}
+                      optional
+                      help="Only used to greet you. You can change it later."
+                    />
+
+                    <ClassAndGroup
+                      classLevel={classLevel}
+                      group={group}
+                      onClass={(level) => {
+                        setClassLevel(level);
+                        if (!groupAppliesToClass(level)) setGroup(null);
+                      }}
+                      onGroup={setGroup}
+                      idPrefix="local"
+                    />
+                  </>
+                ) : null}
+
+                {!hasLocalWorkspace && fixtures ? (
+                  <label className="checkbox">
+                    <input type="checkbox" checked={withDemo} onChange={(e) => setWithDemo(e.target.checked)} />
+                    <span>Include clearly-labelled sample data to explore. Remove it any time in Settings.</span>
+                  </label>
+                ) : null}
+
+                {/*
+                 * A student who signed out still owns every record on this
+                 * device. Saying "start" made that read like a fresh install,
+                 * and pressing it used to open an empty workspace. Both the
+                 * label and the notice now name what will actually happen.
+                 */}
+                {hasLocalWorkspace ? (
+                  <Notice tone="info">
+                    Your existing workspace on this device will be reopened — subjects, chapters, tasks, notes and
+                    sessions all stay exactly as you left them.
+                  </Notice>
+                ) : null}
+
                 <FormError message={formError} />
                 <button type="button" className="btn btn--primary btn--block" onClick={startLocal} disabled={busy}>
-                  {busy ? 'Preparing…' : 'Start local workspace'}
+                  {busy ? 'Preparing…' : hasLocalWorkspace ? 'Continue on this device' : 'Start on this device'}
                 </button>
               </div>
 
-              <details className="auth-advanced">
-                <summary>Sign in with Google or email</summary>
-                <p className="small muted">
-                  Cloud accounts appear here once this build has Supabase credentials. Add{' '}
-                  <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to{' '}
-                  <code>.env.local</code>, then enable Google in Supabase → Authentication → Providers.
-                </p>
-                {localReason ? <p className="tiny muted">{localReason}</p> : null}
-              </details>
-
-              <div className="auth-switch">
-                <IonIcon icon={cloudOfflineOutline} aria-hidden="true" /> Stored in this browser only · no account
-                required
-              </div>
+              <Notice tone="neutral" icon={<IonIcon icon={cloudOfflineOutline} />}>
+                Cloud accounts are not configured in this build, so everything works offline. Your records are
+                stored in this app only.
+              </Notice>
+              {import.meta.env.DEV && localReason ? <p className="tiny muted">{localReason}</p> : null}
             </>
           ) : (
             <>
@@ -309,6 +477,16 @@ export function AuthPage() {
                     error={signUpForm.formState.errors.password?.message}
                     help="At least 6 characters. Use something unique, not your college password."
                   />
+                  <ClassAndGroup
+                    classLevel={classLevel}
+                    group={group}
+                    onClass={(level) => {
+                      setClassLevel(level);
+                      if (!groupAppliesToClass(level)) setGroup(null);
+                    }}
+                    onGroup={setGroup}
+                    idPrefix="cloud"
+                  />
                   <button type="submit" className="btn btn--primary btn--block" disabled={busy}>
                     {busy ? 'Creating…' : 'Create account'}
                   </button>
@@ -321,6 +499,11 @@ export function AuthPage() {
               </div>
             </>
           )}
+
+          <p className="tiny muted auth-legal">
+            <Link to="/privacy">Privacy</Link> · <Link to="/terms">Terms</Link>
+            {classLevel && !isCloud ? <span className="sr-only">Class {classLabel(classLevel)} selected</span> : null}
+          </p>
         </div>
       </div>
     </div>
