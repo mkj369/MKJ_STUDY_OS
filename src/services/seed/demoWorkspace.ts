@@ -53,6 +53,9 @@ export function buildDemoWorkspace(today: DateOnly = todayISO()): DemoWorkspaceR
       custom_name: null,
       custom_paper_label: null,
       status: 'active',
+      // The demo curriculum is the HSC state, so its subjects are Class 11.
+      // Leaving them unassigned hid every demo row from a class-scoped view.
+      class_level: 11,
       color: '#1d4ed8',
       sort_order: 1,
       is_demo: true,
@@ -66,6 +69,9 @@ export function buildDemoWorkspace(today: DateOnly = todayISO()): DemoWorkspaceR
       custom_name: null,
       custom_paper_label: null,
       status: 'active',
+      // The demo curriculum is the HSC state, so its subjects are Class 11.
+      // Leaving them unassigned hid every demo row from a class-scoped view.
+      class_level: 11,
       color: '#b45309',
       sort_order: 2,
       is_demo: true,
@@ -79,6 +85,9 @@ export function buildDemoWorkspace(today: DateOnly = todayISO()): DemoWorkspaceR
       custom_name: null,
       custom_paper_label: null,
       status: 'active',
+      // The demo curriculum is the HSC state, so its subjects are Class 11.
+      // Leaving them unassigned hid every demo row from a class-scoped view.
+      class_level: 11,
       color: '#0f766e',
       sort_order: 3,
       is_demo: true,

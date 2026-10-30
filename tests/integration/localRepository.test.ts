@@ -197,6 +197,45 @@ describe('curriculum adoption', () => {
     expect(await repoA.list('user_subjects')).toHaveLength(1);
   });
 
+  it('puts an adopted subject in the class it was adopted for', async () => {
+    /*
+     * The regression this pins: adoption used to write no class at all, so the
+     * copy was immediately invisible on every class-scoped screen and the
+     * student saw "No subjects yet" right after adding Physics.
+     */
+    const version = DEMO_CURRICULUM.version;
+    const subject = DEMO_CURRICULUM.subjects[0]!;
+    const adopted = await repoA.adoptCurriculumSubject(version.id, subject.id, 11);
+    expect(adopted.class_level).toBe(11);
+
+    const rows = await repoA.list('user_subjects');
+    expect(rows.filter((row) => row.class_level === 11)).toHaveLength(1);
+  });
+
+  it('moves a re-adopted subject instead of duplicating it', async () => {
+    const version = DEMO_CURRICULUM.version;
+    const subject = DEMO_CURRICULUM.subjects[0]!;
+    const first = await repoA.adoptCurriculumSubject(version.id, subject.id, 11);
+    const again = await repoA.adoptCurriculumSubject(version.id, subject.id, 12);
+    expect(again.id).toBe(first.id);
+    expect(again.class_level).toBe(12);
+    expect(await repoA.list('user_subjects')).toHaveLength(1);
+  });
+
+  it('numbers a new subject after the ones already in its class', async () => {
+    await repoA.createPersonalSubject({ classLevel: 9, name: 'Physics' });
+    await repoA.createPersonalSubject({ classLevel: 9, name: 'Chemistry' });
+    const otherClass = await repoA.createPersonalSubject({ classLevel: 10, name: 'Physics' });
+    const rows = await repoA.list('user_subjects');
+    const inClass9 = rows.filter((row) => row.class_level === 9);
+    expect(inClass9.map((row) => row.sort_order)).toEqual([1, 2]);
+    // A same-named subject in another class is not a duplicate.
+    expect(otherClass.class_level).toBe(10);
+    await expect(repoA.createPersonalSubject({ classLevel: 9, name: 'physics' })).rejects.toMatchObject({
+      code: 'duplicate',
+    });
+  });
+
   it('adds selected chapters, skips duplicates, and supports rollback', async () => {
     const version = DEMO_CURRICULUM.version;
     const subject = DEMO_CURRICULUM.subjects[0]!;

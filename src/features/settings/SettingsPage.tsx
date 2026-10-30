@@ -13,6 +13,11 @@ import { profileSchema } from '@/domain/schemas';
 import { TIMEZONE_OPTIONS } from '@/services/reminderDefaults';
 import { errorMessage } from '@/utils/errors';
 import type { Locale } from '@/types/domain';
+import { AppearanceSection } from '@/features/settings/AppearanceSection';
+import { ClassAndGroupSection } from '@/features/settings/ClassAndGroupSection';
+import { SupportDialog } from '@/features/settings/SupportDialog';
+import { LogoMark } from '@/components/brand/Logo';
+import { heartOutline } from 'ionicons/icons';
 
 function SettingsContent() {
   const { data } = useWorkspaceQuery();
@@ -32,6 +37,7 @@ function SettingsContent() {
   const [deletingData, setDeletingData] = useState(false);
   const [deleteAccountAlert, setDeleteAccountAlert] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   if (!data) return null;
   const { bundle, view } = data;
@@ -152,6 +158,10 @@ function SettingsContent() {
         description="Your records, your control. Export or delete at any time. Minimum data collected."
         actions={<Badge tone={auth.mode === 'cloud' ? 'good' : 'info'}>{auth.mode === 'cloud' ? 'Cloud account' : 'Local demo'}</Badge>}
       />
+
+      <AppearanceSection />
+
+      <ClassAndGroupSection />
 
       <div className="grid grid--two">
         <SectionCard title="Profile" hint="Only what the app needs to personalise your plan">
@@ -338,9 +348,21 @@ function SettingsContent() {
 
       <div style={{ height: 16 }} />
 
-      <SectionCard title="About this build" hint="Honest status, not marketing">
+      <SectionCard title="About MKJ StudyOS" hint="Honest status, not marketing">
         <div className="stack">
-          <p className="small">MKJ StudyOS · version 0.1.0 (Phase 1)</p>
+          <div className="logo-lockup">
+            <LogoMark size={44} />
+            <div className="logo-lockup__text">
+              <span className="logo-lockup__name">MKJ StudyOS</span>
+              <span className="logo-lockup__tagline">Study smarter. Stay consistent. · v0.1.0</span>
+            </div>
+          </div>
+          <div className="row">
+            <button type="button" className="btn btn--secondary btn--sm" onClick={() => setSupportOpen(true)}>
+              <IonIcon icon={heartOutline} aria-hidden="true" /> Support MKJ StudyOS
+            </button>
+            <span className="tiny muted">A contact request, not a payment.</span>
+          </div>
           <p className="small">
             Storage mode: <strong>{auth.mode === 'cloud' ? 'Supabase cloud' : 'browser local storage'}</strong>
             {auth.mode === 'local' ? ` — ${auth.localReason ?? ''}` : ''}
@@ -355,6 +377,8 @@ function SettingsContent() {
           </p>
         </div>
       </SectionCard>
+
+      <SupportDialog open={supportOpen} onClose={() => setSupportOpen(false)} />
 
       <IonAlert
         isOpen={deleteAccountAlert}

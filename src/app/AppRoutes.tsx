@@ -17,6 +17,7 @@ function lazyPage<T extends Record<string, unknown>, K extends keyof T>(loader: 
 
 const DashboardPage = lazyPage(() => import('@/features/dashboard/DashboardPage'), 'DashboardPage');
 const CurriculumPage = lazyPage(() => import('@/features/curriculum/CurriculumPage'), 'CurriculumPage');
+const OfficialTemplatesPage = lazyPage(() => import('@/features/curriculum/OfficialTemplatesPage'), 'OfficialTemplatesPage');
 const SubjectsPage = lazyPage(() => import('@/features/subjects/SubjectsPage'), 'SubjectsPage');
 const ChapterDetailPage = lazyPage(() => import('@/features/subjects/ChapterDetailPage'), 'ChapterDetailPage');
 const LecturesPage = lazyPage(() => import('@/features/lectures/LecturesPage'), 'LecturesPage');
@@ -31,6 +32,7 @@ const ReportsPage = lazyPage(() => import('@/features/reports/ReportsPage'), 'Re
 const RemindersPage = lazyPage(() => import('@/features/reminders/RemindersPage'), 'RemindersPage');
 const SettingsPage = lazyPage(() => import('@/features/settings/SettingsPage'), 'SettingsPage');
 const NotFoundPage = lazyPage(() => import('@/features/shared/NotFoundPage'), 'NotFoundPage');
+const MorePage = lazyPage(() => import('@/features/shared/MorePage'), 'MorePage');
 
 const SyllabusPage = lazyPage(() => import('@/features/syllabus/SyllabusPage'), 'SyllabusPage');
 const TimeTrackerPage = lazyPage(() => import('@/features/time/TimeTrackerPage'), 'TimeTrackerPage');
@@ -51,6 +53,8 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="curriculum" element={<CurriculumPage />} />
+          <Route path="curriculum/templates" element={<OfficialTemplatesPage />} />
+          <Route path="more" element={<MorePage />} />
           <Route path="subjects" element={<SubjectsPage />} />
           <Route path="subjects/:subjectId" element={<SubjectsPage />} />
           <Route path="chapters/:chapterId" element={<ChapterDetailPage />} />

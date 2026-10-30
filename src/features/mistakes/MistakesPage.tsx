@@ -33,7 +33,7 @@ function MistakesContent() {
   const [editing, setEditing] = useState<MistakeLog | null>(null);
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const mistakes = [...bundle.mistakes].sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
   const unresolved = mistakes.filter((m) => !m.is_resolved);
   const questionById = new Map(bundle.practiceQuestions.map((question) => [question.id, question]));

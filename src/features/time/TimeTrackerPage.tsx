@@ -95,8 +95,10 @@ function TimeTrackerContent() {
     else localStorage.removeItem(TIMER_KEY);
   }, [timer]);
 
-  const sessionsSource = data?.bundle.sessions;
-  const blocksSource = data?.bundle.dailyBlocks;
+  // Class-scoped sessions and blocks: a week total should not include minutes
+  // logged against a subject from another class.
+  const sessionsSource = data?.scoped.sessions;
+  const blocksSource = data?.scoped.dailyBlocks;
   const sessions = useMemo(() => sessionsSource ?? [], [sessionsSource]);
   const blocks = useMemo(() => blocksSource ?? [], [blocksSource]);
   const timezone = data?.bundle.profile.timezone ?? 'Asia/Dhaka';

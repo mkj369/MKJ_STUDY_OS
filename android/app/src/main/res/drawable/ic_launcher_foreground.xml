@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon foreground: the MKJ StudyOS open book with a rising path.
+
+  Kept inside the 66dp safe zone (108dp canvas) so no launcher mask clips it.
+  White only, because the background layer supplies the Sky Blue tile.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M27,62.2c9.4,-5.1 18.5,-5.1 27.9,0 9.4,-5.1 18.5,-5.1 27.9,0v17.8c-9.4,-5.1 -18.5,-5.1 -27.9,0 -9.4,-5.1 -18.5,-5.1 -27.9,0V62.2Z" />
+    <path
+        android:fillColor="#B3FFFFFF"
+        android:pathData="M54,62.2h1.4v18.4H54z" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="5.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M36,50.6l12.2,-12.2 7.8,7.8 11,-11" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="5.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M59,34.6h10v10" />
+</vector>

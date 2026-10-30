@@ -27,10 +27,12 @@ function RemindersContent() {
 
   const plan = useMemo(() => {
     if (!data || !prefs) return null;
-    const weekOpenTasks = data.bundle.tasks.filter((t) => t.status === 'todo' || t.status === 'in_progress');
+    // Reminders follow the class you are in, not every task you have ever made.
+    const tasks = data.scoped.tasks;
+    const weekOpenTasks = tasks.filter((t) => t.status === 'todo' || t.status === 'in_progress');
     return planReminders({
       prefs,
-      tasks: data.bundle.tasks,
+      tasks,
       revisionQueue: data.view.revisionQueue,
       existingKeys: data.bundle.reminderEvents.filter((e) => e.status !== 'failed').map((e) => e.reminder_key),
       existingEvents: data.bundle.reminderEvents.map((e) => ({ scheduled_for: e.scheduled_for, status: e.status })),

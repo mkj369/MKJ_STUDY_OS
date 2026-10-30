@@ -143,6 +143,21 @@ export interface Profile {
   academic_level: string | null;
   /** Minutes available per weekday, keys "0" (Sun) … "6" (Sat). */
   study_windows: Record<string, number> | null;
+  /**
+   * Appearance, stored per student. `theme_preset` is a key from
+   * `src/domain/theme.ts`, never a hex value, so a palette can be improved
+   * without rewriting every profile.
+   */
+  theme_mode?: 'light' | 'dark' | 'system';
+  theme_preset?: string;
+  theme_accent?: string | null;
+  /** Class 1–12 the curriculum screen opens on. A view preference only. */
+  active_class?: number | null;
+  /**
+   * Science / Humanities / Business Studies for Classes 9–12. A view preference:
+   * switching group never moves a subject or deletes a record.
+   */
+  active_group?: string | null;
   onboarded_at: Timestamp | null;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -218,6 +233,10 @@ export interface UserSubject {
   curriculum_version_id: ID | null;
   custom_name: string | null;
   custom_paper_label: string | null;
+  /** Optional Bengali name the student typed for a personal subject. */
+  name_bn?: string | null;
+  /** Class 1–12. Null only for rows created before classes existed. */
+  class_level?: number | null;
   status: 'active' | 'archived';
   color: string;
   sort_order: number;
@@ -233,6 +252,12 @@ export interface UserChapter {
   curriculum_chapter_id: ID | null;
   curriculum_version_id: ID | null;
   custom_title: string | null;
+  /** Student-visible number; generated when the student adds chapters. */
+  chapter_number?: number | null;
+  /** Optional Bengali title the student typed. Never machine-generated. */
+  chapter_title_bn?: string | null;
+  /** Manual order. Reordering rewrites this only. */
+  sort_order?: number;
   status: ChapterStatus;
   lecture_target_count: number | null;
   import_batch_id: string | null;

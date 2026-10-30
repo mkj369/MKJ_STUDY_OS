@@ -7,21 +7,51 @@ import {
   type ReminderPreferences,
   type RepositoryTable,
   type TableMap,
+  type UserChapter,
+  type UserSubject,
   type WeeklySummary,
 } from '@/types/domain';
 import type {
   AddChaptersResult,
+  ChapterPatch,
   DemoWorkspaceResult,
   NewRow,
+  PersonalChapterInput,
+  PersonalSubjectInput,
   Repository,
   UserDataBundle,
 } from '@/services/repository';
 import { RepositoryError } from '@/services/repository';
 import { DEFAULT_CHECKLIST } from '@/services/seed/checklistDefaults';
+import {
+  nextChapterNumber,
+  placeholderTitle,
+  planChapterGeneration,
+  findDuplicateSubject,
+  type ExistingChapter,
+} from '@/domain/chapterGeneration';
 import { buildDemoWorkspace, DEMO_WORKSPACE_TABLES, newId } from '@/services/seed/demoWorkspace';
 import { defaultReminderPreferences } from '@/services/reminderDefaults';
 import { LocalDatabase, type Row } from './localDatabase';
 import type { KeyValueStorage } from './storage';
+
+/**
+ * New subjects start on the default accent. Kept as a constant rather than the
+ * old hardcoded green so the palette and the seed cannot drift apart.
+ */
+const DEFAULT_SUBJECT_COLOR = '#38BDF8';
+
+/** Adapt stored chapter rows to the shape the numbering helpers expect. */
+function toExistingChapters(
+  rows: { id: string; chapter_number?: number | null; custom_title: string | null; sort_order?: number }[],
+): ExistingChapter[] {
+  return rows.map((row) => ({
+    id: row.id,
+    chapter_number: row.chapter_number ?? null,
+    title: row.custom_title ?? '',
+    sort_order: row.sort_order ?? 0,
+  }));
+}
 
 const USER_KEYED: RepositoryTable[] = ['reminder_preferences'];
 const CURRICULUM: RepositoryTable[] = [...CURRICULUM_TABLES];
@@ -273,6 +303,147 @@ export class LocalRepository implements Repository {
     return chapters.length;
   }
 
+  /* --------------------- personal curriculum (round 9) -------------------- */
+
+  async createPersonalSubject(input: PersonalSubjectInput): Promise<UserSubject> {
+    const name = input.name.trim();
+    if (!name) throw new RepositoryError('Give the subject a name.', 'invalid');
+
+    const existing = await this.list('user_subjects');
+    const duplicate = findDuplicateSubject(
+      existing
+        .filter((subject) => subject.status === 'active')
+        .map((subject) => ({
+          id: subject.id,
+          name: subject.custom_name ?? '',
+          paperLabel: subject.custom_paper_label,
+          classLevel: subject.class_level ?? null,
+        })),
+      { name, paperLabel: input.paperLabel ?? null, classLevel: input.classLevel },
+    );
+    if (duplicate) {
+      throw new RepositoryError(`"${duplicate.name}" is already in this class.`, 'duplicate');
+    }
+
+    const sameClass = existing.filter((subject) => subject.class_level === input.classLevel);
+    const created = await this.create('user_subjects', {
+      curriculum_subject_id: null,
+      curriculum_version_id: null,
+      custom_name: name,
+      custom_paper_label: input.paperLabel?.trim() || null,
+      class_level: input.classLevel,
+      name_bn: input.nameBn?.trim() || null,
+      status: 'active',
+      // Colour follows the student's theme unless they pick one, so a new
+      // subject never fights the palette they chose.
+      color: input.color ?? DEFAULT_SUBJECT_COLOR,
+      sort_order: sameClass.reduce((max, subject) => Math.max(max, subject.sort_order), 0) + 1,
+      is_demo: false,
+    } as NewRow<'user_subjects'>);
+    return created;
+  }
+
+  async createPersonalChapter(input: PersonalChapterInput): Promise<UserChapter> {
+    const subject = (await this.list('user_subjects')).find((row) => row.id === input.subjectId);
+    if (!subject) throw new RepositoryError('That subject no longer exists.', 'not_found');
+
+    const existing = (await this.list('user_chapters')).filter(
+      (chapter) => chapter.user_subject_id === input.subjectId,
+    );
+    const shaped = toExistingChapters(existing);
+    const number = input.chapterNumber ?? nextChapterNumber(shaped);
+
+    const created = await this.create('user_chapters', {
+      user_subject_id: input.subjectId,
+      curriculum_chapter_id: null,
+      curriculum_version_id: null,
+      custom_title: input.title?.trim() || placeholderTitle(number),
+      chapter_title_bn: input.titleBn?.trim() || null,
+      chapter_number: number,
+      sort_order: shaped.reduce((max, chapter) => Math.max(max, chapter.sort_order), 0) + 1,
+      status: 'not_recorded',
+      lecture_target_count: null,
+      import_batch_id: null,
+      is_demo: false,
+    } as NewRow<'user_chapters'>);
+    await this.ensureChecklistDefaults(created.id);
+    return created;
+  }
+
+  async generateChapters(subjectId: ID, count: number): Promise<UserChapter[]> {
+    const subject = (await this.list('user_subjects')).find((row) => row.id === subjectId);
+    if (!subject) throw new RepositoryError('That subject no longer exists.', 'not_found');
+
+    const existing = (await this.list('user_chapters')).filter(
+      (chapter) => chapter.user_subject_id === subjectId,
+    );
+    const planned = planChapterGeneration(toExistingChapters(existing), count);
+    const batchId = newId();
+    const created: UserChapter[] = [];
+    for (const spec of planned) {
+      const row = await this.create('user_chapters', {
+        user_subject_id: subjectId,
+        curriculum_chapter_id: null,
+        curriculum_version_id: null,
+        custom_title: spec.title,
+        chapter_title_bn: null,
+        chapter_number: spec.chapter_number,
+        sort_order: spec.sort_order,
+        status: 'not_recorded',
+        lecture_target_count: null,
+        import_batch_id: batchId,
+        is_demo: false,
+      } as NewRow<'user_chapters'>);
+      await this.ensureChecklistDefaults(row.id);
+      created.push(row);
+    }
+    return created;
+  }
+
+  async updateChapter(chapterId: ID, patch: ChapterPatch): Promise<UserChapter> {
+    const chapters = await this.list('user_chapters');
+    const existing = chapters.find((chapter) => chapter.id === chapterId);
+    if (!existing) throw new RepositoryError('That chapter no longer exists.', 'not_found');
+
+    /*
+     * In-place update. The row id, and therefore every record that points at it
+     * (checklist progress, lectures, sessions, revisions, tasks, notes), stays
+     * exactly as it was. Deleting and recreating would silently orphan all of it.
+     */
+    const changes: Partial<NewRow<'user_chapters'>> = {};
+    if (patch.title !== undefined) changes.custom_title = patch.title?.trim() || null;
+    if (patch.titleBn !== undefined) changes.chapter_title_bn = patch.titleBn?.trim() || null;
+    if (patch.chapterNumber !== undefined) changes.chapter_number = patch.chapterNumber;
+    if (patch.status !== undefined) changes.status = patch.status as UserChapter['status'];
+    if (Object.keys(changes).length === 0) return existing;
+    return this.update('user_chapters', chapterId, changes);
+  }
+
+  async reorderChapters(subjectId: ID, orderedIds: ID[]): Promise<void> {
+    const chapters = (await this.list('user_chapters')).filter(
+      (chapter) => chapter.user_subject_id === subjectId,
+    );
+    const byId = new Map(chapters.map((chapter) => [chapter.id, chapter]));
+    let order = 1;
+    for (const id of orderedIds) {
+      if (!byId.has(id)) continue;
+      await this.update('user_chapters', id, { sort_order: order });
+      order += 1;
+    }
+  }
+
+  async setSubjectArchived(subjectId: ID, archived: boolean): Promise<UserSubject> {
+    return this.update('user_subjects', subjectId, { status: archived ? 'archived' : 'active' });
+  }
+
+  async setSubjectClass(subjectId: ID, classLevel: number | null): Promise<UserSubject> {
+    return this.update('user_subjects', subjectId, { class_level: classLevel } as Partial<NewRow<'user_subjects'>>);
+  }
+
+  async setActiveClass(classLevel: number | null): Promise<Profile> {
+    return this.updateProfile({ active_class: classLevel });
+  }
+
   /* ------------------------------- profile ------------------------------- */
 
   async getProfile(): Promise<Profile> {
@@ -307,22 +478,37 @@ export class LocalRepository implements Repository {
     return { versions, subjects, chapters, topics, sources, requirements };
   }
 
-  async adoptCurriculumSubject(versionId: ID, subjectId: ID): Promise<TableMap['user_subjects']> {
+  async adoptCurriculumSubject(
+    versionId: ID,
+    subjectId: ID,
+    classLevel: number | null = null,
+  ): Promise<TableMap['user_subjects']> {
     const subjects = await this.list('curriculum_subjects');
     const subject = subjects.find((s) => s.id === subjectId && s.curriculum_version_id === versionId);
     if (!subject) throw new RepositoryError('That curriculum subject was not found.', 'not_found');
     const existing = (await this.list('user_subjects')).find((s) => s.curriculum_subject_id === subjectId);
-    if (existing) return existing;
-    const palette = ['#1d4ed8', '#b45309', '#0f766e', '#7c3aed', '#be123c', '#0369a1'];
-    const count = (await this.list('user_subjects')).length;
+    if (existing) {
+      // Re-adopting the same paper under a different class moves the copy
+      // rather than making a second one; chapters and records follow the row.
+      if (classLevel !== null && existing.class_level !== classLevel) {
+        return this.update('user_subjects', existing.id, { class_level: classLevel } as Partial<
+          NewRow<'user_subjects'>
+        >);
+      }
+      return existing;
+    }
+    const palette = ['#0EA5E9', '#8B5CF6', '#F59E0B', '#10B981', '#F43F5E', '#2563EB'];
+    const all = await this.list('user_subjects');
+    const sameClass = all.filter((row) => (row.class_level ?? null) === classLevel);
     return this.create('user_subjects', {
       curriculum_subject_id: subjectId,
       curriculum_version_id: versionId,
       custom_name: null,
       custom_paper_label: null,
+      class_level: classLevel,
       status: 'active',
-      color: palette[count % palette.length] ?? '#0f5132',
-      sort_order: count + 1,
+      color: palette[all.length % palette.length] ?? '#38BDF8',
+      sort_order: sameClass.reduce((max, row) => Math.max(max, row.sort_order), 0) + 1,
       is_demo: false,
     } as NewRow<'user_subjects'>);
   }

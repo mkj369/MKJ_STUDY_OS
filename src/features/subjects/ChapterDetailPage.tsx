@@ -47,7 +47,7 @@ function ChapterContent() {
   const [resetting, setResetting] = useState(false);
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const chapterView = chapterId ? view.chapterById.get(chapterId) : undefined;
   if (!chapterView) {
     return (

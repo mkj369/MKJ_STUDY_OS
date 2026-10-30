@@ -5,6 +5,8 @@ import { Badge, EmptyState, Notice, PageHeader, ProgressBar, SectionCard } from 
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { ConfirmDeleteButton } from '@/components/ui/ConfirmDeleteButton';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
+import { isClassLevel, type ClassLevel as Level } from '@/domain/classLevels';
+import { normaliseGroup, versionBelongsToProfile } from '@/domain/studentProfile';
 import { userChapterSchema, userTopicSchema, type ChapterFormValues, type UserTopicValues } from '@/domain/schemas';
 import { TOPIC_STATUS_LABELS, estimateCompletion } from '@/domain/syllabus';
 import { TOPIC_STATUSES, type TopicStatus, type UserTopic } from '@/types/domain';
@@ -42,21 +44,36 @@ function SyllabusContent() {
     () => [...new Set(versions.map((version) => version.stream).filter((value): value is string => Boolean(value)))].sort(),
     [versions],
   );
+  /*
+   * Official lists are filtered by the student's class and group before the
+   * page's own level/year/stream filters, so a Class 11 Science student cannot
+   * browse into a Class 10 Humanities list by accident.
+   */
+  const scope = useMemo(() => {
+    const profile = data?.bundle.profile;
+    return {
+      activeClass: isClassLevel(profile?.active_class) ? (profile?.active_class as Level) : null,
+      activeGroup: normaliseGroup(profile?.active_group),
+    };
+  }, [data]);
+
   const versionOptions = useMemo(
     () =>
-      versions.filter(
-        (version) =>
-          (!level || version.education_level === level) &&
-          (!year || version.academic_year === year) &&
-          (!stream || version.stream === stream),
-      ),
-    [versions, level, year, stream],
+      versions
+        .filter((version) => versionBelongsToProfile(version, scope.activeClass, scope.activeGroup))
+        .filter(
+          (version) =>
+            (!level || version.education_level === level) &&
+            (!year || version.academic_year === year) &&
+            (!stream || version.stream === stream),
+        ),
+    [versions, level, year, stream, scope],
   );
   const version = versionOptions.find((candidate) => candidate.id === versionId) ?? null;
   const curriculumTopics = data?.bundle.curriculum.topics ?? [];
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const { phase2 } = view;
   const subjects = view.subjects.filter(
     (subject) =>

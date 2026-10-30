@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth, useRepository } from '@/app/AppProviders';
+import { useAuth, useRepository, useRepositoryOptional } from '@/app/AppProviders';
 import { buildWorkspaceView, type WorkspaceView } from '@/features/shared/selectors';
+import { scopeBundleToClass } from '@/domain/classScope';
 import type { Repository, UserDataBundle } from '@/services/repository';
 import type { DateOnly } from '@/types/domain';
 
@@ -10,20 +11,38 @@ export function workspaceQueryKey(mode: string, userId: string): [string, string
 }
 
 export interface WorkspaceQueryResult {
+  /**
+   * Every record the student owns, across all classes. Needed by export (a
+   * backup must be complete), by settings (changing class) and by archive
+   * restore, which has to reach subjects of the class you are not in.
+   */
   bundle: UserDataBundle;
+  /**
+   * The same bundle narrowed to the active class, so totals, timelines and
+   * record lists do not mix a Class 9 week into a Class 11 one. Records with
+   * no subject (a walk, a sleep block) are kept — they belong to no class.
+   */
+  scoped: UserDataBundle;
   view: WorkspaceView;
 }
 
 export function useWorkspaceQuery() {
-  const repository = useRepository();
+  /*
+   * Optional repository: this hook is mounted by ThemeProvider, which lives
+   * *above* the auth gate (so the sign-in screen is already themed). Throwing
+   * there would crash the whole provider tree before anyone signed in.
+   */
+  const repository = useRepositoryOptional();
   const { user, mode } = useAuth();
   return useQuery<WorkspaceQueryResult>({
     queryKey: workspaceQueryKey(mode, user?.id ?? 'anonymous'),
     queryFn: async () => {
+      if (!repository) throw new Error('No active session');
       const bundle = await repository.listAllUserData();
-      return { bundle, view: buildWorkspaceView(bundle) };
+      const view = buildWorkspaceView(bundle);
+      return { bundle, scoped: scopeBundleToClass(bundle, view.profileClass), view };
     },
-    enabled: Boolean(user),
+    enabled: Boolean(user) && Boolean(repository),
   });
 }
 

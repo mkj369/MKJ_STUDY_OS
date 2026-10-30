@@ -53,7 +53,7 @@ function TasksContent() {
   const { data } = useWorkspaceQuery();
   const mutate = useMutate();
   const notify = useNotify();
-  const bundle = data?.bundle;
+  const bundle = data?.scoped; // planning stays inside the active class
   const view = data?.view;
   const [filter, setFilter] = useState<Filter>('open');
   const [taskDialog, setTaskDialog] = useState(false);
@@ -67,7 +67,7 @@ function TasksContent() {
   );
   const [savingAvailability, setSavingAvailability] = useState(false);
 
-  const allTasks = useMemo(() => data?.bundle.tasks ?? [], [data?.bundle.tasks]);
+  const allTasks = useMemo(() => data?.scoped.tasks ?? [], [data?.scoped.tasks]);
   const earlyToday = data?.view.today ?? todayISO();
   const earlyWeekStart = addDaysISO(earlyToday, weekOffset * 7);
 

@@ -1,13 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="MKJ StudyOS">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MKJ StudyOS">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0f5132" />
-      <stop offset="1" stop-color="#1d7a4c" />
+    <linearGradient id="mkjTile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38BDF8" />
+      <stop offset="1" stop-color="#2563EB" />
     </linearGradient>
   </defs>
-  <rect width="128" height="128" rx="28" fill="url(#g)" />
-  <path d="M26 84V44h10l14 22 14-22h10v40H62V61L48 82h-4L30 61v23z" fill="#f3fff8" />
-  <circle cx="94" cy="50" r="8" fill="#a7e8c1" />
-  <rect x="86" y="66" width="16" height="18" rx="4" fill="#a7e8c1" />
-  <rect x="86" y="88" width="16" height="6" rx="3" fill="#dfeee5" opacity="0.75" />
+  <rect width="64" height="64" rx="18" fill="url(#mkjTile)" />
+  <!-- Open book: the two pages a student actually works from. -->
+  <path d="M13 38.2c6.4-3.5 12.6-3.5 19 0 6.4-3.5 12.6-3.5 19 0v12.1c-6.4-3.5-12.6-3.5-19 0-6.4-3.5-12.6-3.5-19 0V38.2Z" fill="#FFFFFF" />
+  <path d="M32 38.2v12.1" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round" opacity=".38" />
+  <!-- Forward path: progress rising out of the pages. -->
+  <path d="M20.5 30.5l8-8 5.2 5.2 7.3-7.3" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M35.5 20h6.5v6.5" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
 </svg>

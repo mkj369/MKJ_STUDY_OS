@@ -1,779 +1,532 @@
-import { useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { IonIcon } from '@ionic/react';
-import { addOutline, cloudUploadOutline, libraryOutline, openOutline, shieldCheckmarkOutline } from 'ionicons/icons';
-import { useMutate } from '@/hooks/useWorkspace';
-import { useWorkspaceQuery } from '@/hooks/useWorkspace';
-import { useAuth } from '@/app/AppProviders';
-import { Badge, DemoBadge, EmptyState, Notice, PageHeader, SectionCard } from '@/components/ui/Page';
-import { RecordDialog } from '@/components/ui/RecordDialog';
-import { CoveragePanel } from '@/features/curriculum/CoveragePanel';
-import { PaperRow } from '@/features/curriculum/PaperRow';
-import { levelRank } from '@/domain/curriculumCoverage';
-import { FormError } from '@/components/ui/Form';
-import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
-import { userSubjectSchema, type SubjectFormValues } from '@/domain/schemas';
-import {
-  buildImportPreview,
-  importCsvExample,
-  importJsonExample,
-  parseImportText,
-  type ImportPreview,
-  type ParsedImport,
-} from '@/domain/import';
-import { errorMessage } from '@/utils/errors';
-import { newId } from '@/services/seed/demoWorkspace';
-import type { Repository } from '@/services/repository';
-import {
-  COVERAGE_LABEL,
-  EMPTY_FILTERS,
-  SCOPE_LABEL,
-  VERIFICATION_LABEL,
-  chapterCoverage,
-  filterCurriculum,
-  groupOptions,
-  levelOptions,
-  summariseCurriculum,
-  yearOptions,
-  type CurriculumFilters,
-} from '@/domain/curriculum';
+import { addOutline } from 'ionicons/icons';
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
+import { PageHeader } from '@/components/ui/Page';
+import { useMutate, useWorkspaceQuery } from '@/hooks/useWorkspace';
+import { useNotify, WorkspaceGate } from '@/features/shared/WorkspaceGate';
+import { ClassPicker } from '@/features/curriculum/ClassPicker';
+import { AddSubjectDialog, type SubjectDraft } from '@/features/curriculum/AddSubjectDialog';
+import { SubjectLibraryDialog, type LibraryPick } from '@/features/curriculum/SubjectLibraryDialog';
+import { AddChapterDialog } from '@/features/curriculum/AddChapterDialog';
+import { NoSubjects, SubjectCard, type ChapterRow } from '@/features/curriculum/SubjectCard';
+import { isPlaceholderTitle, planReorder, type ExistingChapter } from '@/domain/chapterGeneration';
+import { classLabel, parseClassLevel, DEFAULT_CLASS, type ClassLevel } from '@/domain/classLevels';
+import type { UserChapter, UserSubject } from '@/types/domain';
 
+/**
+ * My Curriculum — the class-based subject and chapter manager.
+ *
+ * One job: pick a class, add subjects, generate chapters, rename them. Official
+ * templates live on their own page; this one is entirely the student's own data.
+ */
 function CurriculumContent() {
   const { data } = useWorkspaceQuery();
   const mutate = useMutate();
-  const auth = useAuth();
   const notify = useNotify();
   const navigate = useNavigate();
+
+  const [classOverride, setClassOverride] = useState<ClassLevel | null>(null);
+  const [subjectDialog, setSubjectDialog] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [customSeed, setCustomSeed] = useState<string | null>(null);
+  const [editingSubject, setEditingSubject] = useState<UserSubject | null>(null);
+  const [chapterDialogFor, setChapterDialogFor] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ kind: 'subject' | 'chapter'; id: string; label: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
   const bundle = data?.bundle;
   const view = data?.view;
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [importText, setImportText] = useState('');
-  const [importFileName, setImportFileName] = useState('');
-  const [parsed, setParsed] = useState<ParsedImport | null>(null);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [lastBatchId, setLastBatchId] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [filters, setFilters] = useState<CurriculumFilters>(EMPTY_FILTERS);
-  const importRef = useRef<HTMLDivElement>(null);
 
-  const versions = useMemo(() => {
+  const activeClass: ClassLevel = classOverride ?? parseClassLevel(bundle?.profile.active_class) ?? DEFAULT_CLASS;
+
+  const subjectsForClass = useMemo(() => {
     if (!bundle) return [];
-    // Demo versions last, then HSC before SSC — this student sits HSC, and the
-    // level they are examined on should not be below a level they finished.
-    return [...bundle.curriculum.versions].sort(
-      (a, b) =>
-        Number(a.is_demo) - Number(b.is_demo) ||
-        levelRank(a.education_level) - levelRank(b.education_level) ||
-        (a.stream ?? '').localeCompare(b.stream ?? ''),
-    );
+    return bundle.subjects
+      .filter((subject) => subject.status === 'active')
+      .filter((subject) => (subject.class_level ?? null) === activeClass)
+      .sort((a, b) => a.sort_order - b.sort_order || (a.custom_name ?? '').localeCompare(b.custom_name ?? ''));
+  }, [bundle, activeClass]);
+
+  const classesWithSubjects = useMemo(() => {
+    const set = new Set<number>();
+    for (const subject of bundle?.subjects ?? []) {
+      if (subject.status !== 'active') continue;
+      if (typeof subject.class_level === 'number') set.add(subject.class_level);
+    }
+    return set;
   }, [bundle]);
 
-  const filtersToShow = useMemo(
-    () => ({
-      levels: levelOptions(versions),
-      years: yearOptions(versions, filters.level),
-      groups: groupOptions(versions, filters.level, filters.year),
-    }),
-    [versions, filters.level, filters.year],
+  /**
+   * Subjects created before classes existed (imported, demo, or an older
+   * account) have no `class_level`. They are never hidden: the migration only
+   * added the column, it did not decide which class a real subject belongs to.
+   */
+  const unassignedSubjects = useMemo(
+    () =>
+      (bundle?.subjects ?? [])
+        .filter((subject) => subject.status === 'active' && (subject.class_level ?? null) === null)
+        .sort((a, b) => a.sort_order - b.sort_order || (a.custom_name ?? '').localeCompare(b.custom_name ?? '')),
+    [bundle],
   );
 
-  const filtered = useMemo(() => {
-    if (!bundle) return [];
-    const { versions: allVersions, subjects, chapters } = bundle.curriculum;
-    return filterCurriculum(allVersions, subjects, chapters, filters);
-  }, [bundle, filters]);
-
-  const summary = useMemo(
+  /** Archived subjects stay visible so archiving never looks like deletion. */
+  const archivedForClass = useMemo(
     () =>
-      bundle
-        ? summariseCurriculum(bundle.curriculum.versions, bundle.curriculum.subjects, bundle.curriculum.chapters)
-        : null,
-    [bundle],
+      (bundle?.subjects ?? []).filter(
+        (subject) => subject.status === 'archived' && (subject.class_level ?? null) === activeClass,
+      ),
+    [bundle, activeClass],
   );
 
   if (!bundle || !view) return null;
 
-  /*
-   * Official (non-demo) subjects that actually carry a chapter list, plus the
-   * official subject total. Plain values, not `useMemo`: this sits after an
-   * early return, and a hook here would run in a different order on the first
-   * render than on later ones.
-   */
-  const demoVersionIds = new Set(
-    bundle.curriculum.versions.filter((version) => version.is_demo).map((version) => version.id),
-  );
-  const officialSubjects = bundle.curriculum.subjects.filter(
-    (subject) => !demoVersionIds.has(subject.curriculum_version_id),
-  );
-  const chaptersBySubject = new Map<string, number>();
-  for (const chapter of bundle.curriculum.chapters) {
-    chaptersBySubject.set(
-      chapter.curriculum_subject_id,
-      (chaptersBySubject.get(chapter.curriculum_subject_id) ?? 0) + 1,
-    );
-  }
-  const sourcedSubjects = officialSubjects
-    .filter((subject) => (chaptersBySubject.get(subject.id) ?? 0) > 0)
-    .map((subject) => ({
-      label: `${subject.name}${subject.paper_label ? ` ${subject.paper_label}` : ''}`,
-      chapters: chaptersBySubject.get(subject.id) ?? 0,
-    }))
-    .sort((a, b) => b.chapters - a.chapters);
-  const officialSubjectCount = officialSubjects.length;
+  const chapterRowsFor = (subjectId: string): ChapterRow[] =>
+    bundle.chapters
+      .filter((chapter) => chapter.user_subject_id === subjectId)
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+          (a.chapter_number ?? 9999) - (b.chapter_number ?? 9999),
+      )
+      .map((chapter) => {
+        const curriculumChapter = chapter.curriculum_chapter_id
+          ? bundle.curriculum.chapters.find((c) => c.id === chapter.curriculum_chapter_id) ?? null
+          : null;
+        const viewChapter = view.subjects
+          .flatMap((subject) => subject.chapters)
+          .find((candidate) => candidate.chapter.id === chapter.id);
+        const title = chapter.custom_title ?? curriculumChapter?.title ?? 'Chapter';
+        const number = chapter.chapter_number ?? null;
+        return {
+          chapter,
+          title,
+          titleBn: chapter.chapter_title_bn ?? curriculumChapter?.title_bn ?? null,
+          number: number ?? (curriculumChapter?.chapter_number ? Number(curriculumChapter.chapter_number) : null),
+          progress: viewChapter?.progress ?? null,
+          isPlaceholder: isPlaceholderTitle(title),
+          sourceLabel: curriculumChapter?.source_document ?? null,
+          sourceUrl: curriculumChapter?.source_url ?? null,
+        } satisfies ChapterRow;
+      });
 
-  const adoptedCurriculumSubjectIds = new Set(
-    bundle.subjects.map((s) => s.curriculum_subject_id).filter((id): id is string => Boolean(id)),
-  );
-  /*
-   * Saved progress, keyed by the curriculum subject it belongs to. This is what
-   * lets a paper card show 3/15 instead of a hopeful zero: the numbers come from
-   * chapter records the student actually owns.
-   */
-  const progressByCurriculumSubject = new Map(
-    (view.subjects ?? [])
-      .filter((subject) => subject.subject.curriculum_subject_id)
-      .map((subject) => [subject.subject.curriculum_subject_id as string, subject]),
-  );
-  const chapterViewsByCurriculumSubject = new Map<string, typeof view.subjects[number]['chapters']>();
-  for (const subject of view.subjects ?? []) {
-    const curriculumSubjectId = subject.subject.curriculum_subject_id;
-    if (!curriculumSubjectId) continue;
-    chapterViewsByCurriculumSubject.set(curriculumSubjectId, subject.chapters);
-  }
-  const userChaptersByCurriculumChapter = new Set(
-    bundle.chapters.map((c) => c.curriculum_chapter_id).filter((id): id is string => Boolean(id)),
-  );
+  const existingFor = (subjectId: string): ExistingChapter[] =>
+    bundle.chapters
+      .filter((chapter) => chapter.user_subject_id === subjectId)
+      .map((chapter) => ({
+        id: chapter.id,
+        chapter_number: chapter.chapter_number ?? null,
+        title: chapter.custom_title ?? '',
+        sort_order: chapter.sort_order ?? 0,
+      }));
 
-  /**
-   * One click must leave a usable subject. Adopting a subject on its own gives
-   * you a card with 0 chapters in the syllabus tracker, which reads like the
-   * curriculum is empty — so the chapters that exist are attached in the same
-   * action. A subject with no chapter list is still adoptable; it just says so.
-   */
-  const adoptSubject = async (versionId: string, subjectId: string, subjectName: string) => {
-    setBusyKey(subjectId);
+  const changeClass = async (level: ClassLevel) => {
+    setClassOverride(level);
     try {
-      await mutate((repo) => repo.adoptCurriculumSubject(versionId, subjectId));
-      const chapterIds = bundle.curriculum.chapters
-        .filter((c) => c.curriculum_subject_id === subjectId && !userChaptersByCurriculumChapter.has(c.id))
-        .map((c) => c.id);
-      if (chapterIds.length === 0) {
-        await notify(
-          `${subjectName} added. NCTB's chapter list for this subject has not been recovered yet, so it starts with no chapters.`,
-          'warning',
-        );
-        return;
-      }
-      const result = await mutate((repo) => repo.addChaptersFromCurriculum(versionId, subjectId, chapterIds));
-      await notify(`${subjectName} added with ${result.created} chapter(s).`);
-    } catch (error) {
-      await notify(errorMessage(error), 'danger');
-    } finally {
-      setBusyKey(null);
+      await mutate(async (repository) => {
+        await repository.setActiveClass(level);
+      });
+    } catch {
+      // The view already changed; the preference will save next time.
     }
   };
 
   /**
-   * Coverage-driven entry into the topic screens. The coverage report knows which
-   * subjects actually have a chapter list; this adopts one of them, attaches its
-   * real chapters, and lands the student in Subjects & Chapters, where a topic is
-   * recorded against an existing chapter. It adds rows — it never removes any.
+   * Add one or more reference subjects in a single action.
+   *
+   * Each pick adopts the subject under the class being edited and attaches
+   * whatever real chapters exist for it. Adding twenty subjects one at a time
+   * from a second page was the actual reason the main Add flow felt incomplete.
    */
-  const studySubject = async (versionId: string, subjectId: string, subjectName: string) => {
-    setBusyKey(`study-${subjectId}`);
+  const addFromLibrary = async (picks: LibraryPick[]) => {
+    setBusy(true);
     try {
-      if (!adoptedCurriculumSubjectIds.has(subjectId)) {
-        await mutate((repo) => repo.adoptCurriculumSubject(versionId, subjectId));
-      }
-      const chapterIds = bundle.curriculum.chapters
-        .filter((c) => c.curriculum_subject_id === subjectId && !userChaptersByCurriculumChapter.has(c.id))
-        .map((c) => c.id);
-      if (chapterIds.length > 0) {
-        await mutate((repo) => repo.addChaptersFromCurriculum(versionId, subjectId, chapterIds));
-        await notify(`${subjectName}: ${chapterIds.length} chapter(s) ready. Record a topic on any chapter.`);
-      } else {
-        await notify(`${subjectName} is already in your subjects. Open a chapter to record a topic.`);
-      }
-      navigate('/syllabus');
+      let chapters = 0;
+      await mutate(async (repository) => {
+        for (const pick of picks) {
+          await repository.adoptCurriculumSubject(pick.versionId, pick.subjectId, activeClass);
+          const missing = pick.chapterIds.filter(
+            (id) => !bundle.chapters.some((chapter) => chapter.curriculum_chapter_id === id),
+          );
+          if (missing.length > 0) {
+            const result = await repository.addChaptersFromCurriculum(pick.versionId, pick.subjectId, missing);
+            chapters += result.created;
+          }
+        }
+      });
+      setLibraryOpen(false);
+      notify(
+        `${picks.length} subject${picks.length === 1 ? '' : 's'} added to ${classLabel(activeClass)}${
+          chapters > 0 ? ` with ${chapters} chapter(s)` : ''
+        }.`,
+      );
     } catch (error) {
-      await notify(errorMessage(error), 'danger');
+      notify(error instanceof Error ? error.message : 'Could not add those subjects.', 'danger');
     } finally {
-      setBusyKey(null);
+      setBusy(false);
     }
   };
 
-  const addAllChapters = async (versionId: string, subjectId: string, subjectName: string) => {
-    setBusyKey(`chapters-${subjectId}`);
+  const openCustom = (seed?: string) => {
+    setLibraryOpen(false);
+    setCustomSeed(seed ?? null);
+    setSubjectDialog(true);
+  };
+
+  const addSubject = async (draft: SubjectDraft) => {
+    await mutate(async (repository) => {
+      await repository.createPersonalSubject({
+        classLevel: activeClass,
+        name: draft.name,
+        nameBn: draft.nameBn || null,
+        paperLabel: draft.paperLabel || null,
+        color: draft.color,
+      });
+    });
+    notify(`${draft.name} added to ${classLabel(activeClass)}.`);
+  };
+
+  const editSubject = async (draft: SubjectDraft) => {
+    if (!editingSubject) return;
+    await mutate(async (repository) => {
+      await repository.update('user_subjects', editingSubject.id, {
+        custom_name: draft.name,
+        name_bn: draft.nameBn || null,
+        custom_paper_label: draft.paperLabel || null,
+        color: draft.color,
+      } as Partial<UserSubject>);
+    });
+    setEditingSubject(null);
+    notify('Subject updated.');
+  };
+
+  const generateChapters = async (subjectId: string, count: number) => {
+    setBusy(true);
     try {
-      const chapterIds = bundle.curriculum.chapters
-        .filter((c) => c.curriculum_subject_id === subjectId && !userChaptersByCurriculumChapter.has(c.id))
-        .map((c) => c.id);
-      if (chapterIds.length === 0) {
-        await notify('All chapters from this subject are already in your workspace.', 'warning');
-        return;
-      }
-      const result = await mutate((repo) => repo.addChaptersFromCurriculum(versionId, subjectId, chapterIds));
-      await notify(`${result.created} chapter(s) added to ${subjectName}; ${result.skipped} skipped as duplicates.`);
-    } catch (error) {
-      await notify(errorMessage(error), 'danger');
+      const created = await mutate(async (repository) => repository.generateChapters(subjectId, count));
+      notify(created.length === 1 ? '1 chapter added.' : `${created.length} chapters added.`);
     } finally {
-      setBusyKey(null);
+      setBusy(false);
     }
   };
 
-  const createCustomSubject = async (values: SubjectFormValues) => {
-    await mutate((repo) =>
-      repo.create('user_subjects', {
-        curriculum_subject_id: null,
-        curriculum_version_id: null,
-        custom_name: values.custom_name ?? 'My subject',
-        custom_paper_label: values.custom_paper_label ?? null,
-        status: 'active',
-        color: values.color,
-        sort_order: bundle.subjects.length + 1,
-        is_demo: false,
-      }),
+  const createCustomChapter = async (subjectId: string, title: string, titleBn: string) => {
+    setBusy(true);
+    try {
+      await mutate(async (repository) =>
+        repository.createPersonalChapter({ subjectId, title, titleBn: titleBn || null }),
+      );
+      notify('Chapter added.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const renameChapter = async (chapterId: string, title: string, titleBn: string, number: number | null) => {
+    await mutate(async (repository) =>
+      repository.updateChapter(chapterId, { title, titleBn: titleBn || null, chapterNumber: number }),
     );
-    setDialogOpen(false);
-    await notify('Custom subject created. Add chapters under Subjects & Chapters.');
   };
 
-  const existingChapterKeys = view.subjects.flatMap((subject) =>
-    subject.chapters.map((chapter) => ({ subjectName: subject.label, chapterTitle: chapter.title })),
-  );
-
-  const runPreview = (text: string, fileName: string) => {
-    setImportError(null);
-    setLastBatchId(null);
-    const result = parseImportText(text, fileName);
-    setParsed(result);
-    setPreview(buildImportPreview(result, existingChapterKeys, view.subjects.map((s) => s.label)));
-  };
-
-  const handleFile = async (file: File | null) => {
-    if (!file) return;
-    setImportFileName(file.name);
-    if (file.size > 512_000) {
-      setImportError('That file is larger than 500 KB. Split it into smaller imports.');
-      return;
-    }
-    const text = await file.text();
-    setImportText(text);
-    runPreview(text, file.name);
-  };
-
-  const executeImport = async (repo: Repository): Promise<number> => {
-    if (!preview) return 0;
-    const importBatchId = newId();
-    const subjectIdByName = new Map<string, string>();
-    for (const subject of view.subjects) subjectIdByName.set(subject.label.trim().toLowerCase(), subject.subject.id);
-    let created = 0;
-    for (const row of preview.ready) {
-      const key = row.subject.trim().toLowerCase();
-      let subjectId = subjectIdByName.get(key);
-      if (!subjectId) {
-        const createdSubject = await repo.create('user_subjects', {
-          curriculum_subject_id: null,
-          curriculum_version_id: null,
-          custom_name: row.subject.trim(),
-          custom_paper_label: null,
-          status: 'active',
-          color: '#0f5132',
-          sort_order: (await repo.list('user_subjects')).length + 1,
-          is_demo: false,
-        });
-        subjectId = createdSubject.id;
-        subjectIdByName.set(key, subjectId);
+  const toggleDone = async (chapter: UserChapter, done: boolean) => {
+    await mutate(async (repository) => {
+      await repository.updateChapter(chapter.id, { status: done ? 'complete' : 'not_recorded' });
+      /*
+       * Completion is mirrored onto the checklist, because that is what every
+       * other screen reads (dashboard, reports, progress bars). Writing only the
+       * status column would make this tick invisible everywhere else.
+       */
+      const items = await repository.ensureChecklistDefaults(chapter.id);
+      for (const item of items) {
+        await repository.setChecklistProgress(chapter.id, item.id, done);
       }
-      const chapter = await repo.create('user_chapters', {
-        user_subject_id: subjectId,
-        curriculum_chapter_id: null,
-        curriculum_version_id: null,
-        custom_title: row.chapter.trim(),
-        status: 'not_recorded',
-        lecture_target_count: row.lecture_target,
-        import_batch_id: importBatchId,
-        is_demo: false,
-      });
-      await repo.ensureChecklistDefaults(chapter.id);
-      created += 1;
-    }
-    setLastBatchId(importBatchId);
-    return created;
+    });
   };
 
-  const importNow = async () => {
-    if (!preview || preview.readyCount === 0) return;
-    setImporting(true);
-    setImportError(null);
-    try {
-      let created = 0;
-      await mutate(async (repo) => {
-        created = await executeImport(repo);
-        return created;
-      });
-      await notify(`${created} chapter(s) imported. You can undo this batch below.`);
-      setPreview(null);
-      setParsed(null);
-    } catch (error) {
-      setImportError(errorMessage(error));
-    } finally {
-      setImporting(false);
-    }
+  const moveChapter = async (subjectId: string, chapterId: string, direction: -1 | 1) => {
+    const rows = chapterRowsFor(subjectId);
+    const index = rows.findIndex((row) => row.chapter.id === chapterId);
+    if (index < 0) return;
+    const next = planReorder(
+      rows.map((row, position) => ({
+        id: row.chapter.id,
+        chapter_number: row.number,
+        title: row.title,
+        sort_order: position,
+      })),
+      index,
+      index + direction,
+    );
+    if (next.length === 0) return;
+    await mutate(async (repository) => {
+      await repository.reorderChapters(
+        subjectId,
+        next.map((entry) => entry.id),
+      );
+    });
   };
 
-  const undoImport = async () => {
-    if (!lastBatchId) return;
-    try {
-      const removed = await mutate((repo) => repo.rollbackImport(lastBatchId));
-      setLastBatchId(null);
-      await notify(`Import undone: ${removed} chapter(s) removed. Records attached to them were kept.`);
-    } catch (error) {
-      await notify(errorMessage(error), 'danger');
-    }
+  const removeChapter = async (chapterId: string) => {
+    await mutate(async (repository) => {
+      await repository.remove('user_chapters', chapterId);
+    });
+    notify('Chapter removed.');
+  };
+
+  const archiveSubject = async (subjectId: string) => {
+    await mutate(async (repository) => {
+      await repository.setSubjectArchived(subjectId, true);
+    });
+    notify('Archived. Chapters and records are kept.');
+  };
+
+  const restoreSubject = async (subjectId: string) => {
+    await mutate(async (repository) => {
+      await repository.setSubjectArchived(subjectId, false);
+    });
+    notify('Subject restored.');
+  };
+
+  const deleteSubject = async (subjectId: string) => {
+    await mutate(async (repository) => {
+      await repository.remove('user_subjects', subjectId);
+    });
+    notify('Subject deleted.');
+  };
+
+  const dialogSubject = chapterDialogFor
+    ? (bundle.subjects.find((subject) => subject.id === chapterDialogFor) ?? null)
+    : null;
+
+  const setSubjectClass = async (subjectId: string, level: number) => {
+    await mutate(async (repository) => {
+      await repository.setSubjectClass(subjectId, level);
+    });
+    notify(`Moved to Class ${level}.`);
+  };
+
+  const renderCard = (subject: (typeof bundle.subjects)[number]) => {
+    const curriculumSubject = subject.curriculum_subject_id
+      ? (bundle.curriculum.subjects.find((candidate) => candidate.id === subject.curriculum_subject_id) ?? null)
+      : null;
+    return (
+    <SubjectCard
+      key={subject.id}
+      subject={subject}
+      classLevel={subject.class_level ?? null}
+      displayName={subject.custom_name ?? curriculumSubject?.name ?? 'Subject'}
+      paperLabel={subject.custom_paper_label ?? curriculumSubject?.paper_label ?? null}
+      chapters={chapterRowsFor(subject.id)}
+      busy={busy}
+      onAddChapter={() => setChapterDialogFor(subject.id)}
+      onOpenChapter={(chapterId) => navigate(`/chapters/${chapterId}`)}
+      onOpenSubject={() => navigate(`/subjects/${subject.id}`)}
+      onRename={renameChapter}
+      onToggleDone={(chapterId, done) => {
+        const chapter = bundle.chapters.find((candidate) => candidate.id === chapterId);
+        return chapter ? toggleDone(chapter, done) : Promise.resolve();
+      }}
+      onRemoveChapter={(chapterId, title) => setConfirm({ kind: 'chapter', id: chapterId, label: title })}
+      onMoveChapter={(chapterId, direction) => void moveChapter(subject.id, chapterId, direction)}
+      onArchive={() => void archiveSubject(subject.id)}
+      onEdit={() => setEditingSubject(subject)}
+      onSetClass={(level) => setSubjectClass(subject.id, level)}
+      onDelete={() =>
+        setConfirm({
+          kind: 'subject',
+          id: subject.id,
+          label: subject.custom_name ?? curriculumSubject?.name ?? 'this subject',
+        })
+      }
+    />
+    );
   };
 
   return (
     <>
       <PageHeader
         title="My Curriculum"
-        description="A flexible, versioned syllabus. Official subject structure is seeded for SSC and HSC; chapter lists stay unverified until someone checks them against the cited NCTB source. You control what you study."
+        description="Pick your class, then add subjects and chapters."
         actions={
-          <>
-            <button type="button" className="btn btn--primary btn--sm" onClick={() => setDialogOpen(true)}>
-              <IonIcon icon={addOutline} aria-hidden="true" /> Custom subject
-            </button>
-            <button
-              type="button"
-              className="btn btn--secondary btn--sm"
-              onClick={() => importRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              Import chapters
-            </button>
-          </>
+          <button type="button" className="btn btn--primary" onClick={() => setLibraryOpen(true)}>
+            <IonIcon icon={addOutline} aria-hidden="true" /> Add subject
+          </button>
         }
       />
 
-      {/*
-        The numbers in this notice are computed from the loaded data, not typed
-        into the sentence. Two earlier versions of this copy went stale the
-        moment an import landed — a warning that overstates (or understates) the
-        gap is exactly the failure it exists to prevent.
-      */}
-      <Notice tone="warn" title="No fabricated syllabus.">
-        Curriculum rows carry their authority, academic year, version and verification status. The subject
-        lists below come from the official NCTB subject structure.{' '}
-        <strong>
-          {sourcedSubjects.length} of {officialSubjectCount} subjects have a chapter list
-        </strong>{' '}
-        ({sourcedSubjects.map((entry) => `${entry.label} (${entry.chapters})`).join(', ')}), each read from a
-        printed textbook contents page and marked <em>partially verified</em> — every one still has a named
-        limitation, so none is verified. The other {officialSubjectCount - sourcedSubjects.length} subjects have{' '}
-        <strong>no chapters and no topics</strong>, and nothing is invented to fill the gap. The demo version
-        is placeholder structure only.
-      </Notice>
-
-      <CoveragePanel
-        curriculum={bundle.curriculum}
-        adoptedSubjectIds={adoptedCurriculumSubjectIds}
-        onStudySubject={studySubject}
-        busyKey={busyKey}
+      <ClassPicker
+        active={activeClass}
+        classesWithSubjects={classesWithSubjects}
+        onChange={(level) => void changeClass(level)}
       />
 
-      {summary ? (
-        <SectionCard title="What is actually loaded" hint="Counted from your database, not estimated">
-          <div className="grid grid--two">
-            <div className="stack" style={{ gap: 2 }}>
-              <p className="small">
-                <strong>{summary.versions}</strong> curriculum version(s) · <strong>{summary.subjects}</strong> subject(s)
-              </p>
-              <p className="small">
-                <strong>{summary.chapters}</strong> chapter row(s), of which{' '}
-                <strong>{summary.verifiedChapters}</strong> verified
-              </p>
-              <p className="tiny muted">
-                {summary.demoVersions} version(s) are demo placeholders. Official subject lists carry no chapter
-                rows, so their progress bars start empty — that is a missing source, not a finished syllabus.
-              </p>
-            </div>
-          </div>
-        </SectionCard>
-      ) : null}
+      <div className="row row--between">
+        <h2 className="strong" style={{ fontSize: '1rem' }}>
+          {classLabel(activeClass)}
+        </h2>
+        <span className="tiny muted">
+          {subjectsForClass.length} {subjectsForClass.length === 1 ? 'subject' : 'subjects'}
+        </span>
+      </div>
 
-      <SectionCard title="Filter the reference curriculum" hint="Filters change what you browse, never your records.">
-        <div className="grid grid--two">
-          <label className="field">
-            <span className="field__label">Level</span>
-            <select
-              className="input"
-              value={filters.level}
-              onChange={(event) =>
-                setFilters((current) => ({ ...current, level: event.target.value, year: '', group: '' }))
-              }
-            >
-              <option value="">All levels</option>
-              {filtersToShow.levels.map((level) => (
-                <option key={level} value={level}>
-                  {level}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field__label">Academic year</span>
-            <select
-              className="input"
-              value={filters.year}
-              onChange={(event) => setFilters((current) => ({ ...current, year: event.target.value, group: '' }))}
-            >
-              <option value="">All years</option>
-              {filtersToShow.years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field__label">Group / stream</span>
-            <select
-              className="input"
-              value={filters.group}
-              onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value }))}
-            >
-              <option value="">All groups</option>
-              {filtersToShow.groups.map((group) => (
-                <option key={group} value={group}>
-                  {group}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field__label">Subject</span>
-            <input
-              className="input"
-              type="search"
-              placeholder="Physics 2nd Paper, পদার্থবিজ্ঞান ২য়, …"
-              value={filters.subjectQuery}
-              onChange={(event) => setFilters((current) => ({ ...current, subjectQuery: event.target.value }))}
-            />
-            <span className="field__help">Matches English or Bangla names.</span>
-          </label>
-        </div>
-        {filters.level || filters.year || filters.group || filters.subjectQuery ? (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setFilters(EMPTY_FILTERS)}>
-            Clear filters
-          </button>
-        ) : null}
-      </SectionCard>
-
-      <div style={{ height: 16 }} />
-
-      {versions.length === 0 ? (
-        <SectionCard>
-          <EmptyState
-            icon={<IonIcon icon={libraryOutline} aria-hidden="true" />}
-            title="No curriculum versions available"
-            message="In cloud mode the starter curriculum is created by the database migrations. In local mode it ships with the app. You can always create custom subjects and chapters."
-          />
-        </SectionCard>
-      ) : filtered.length === 0 ? (
-        <SectionCard>
-          <EmptyState
-            title="No curriculum versions match these filters"
-            message="Clear the filters to see every level, year and group that is loaded. Nothing was deleted."
-            action={
-              <button type="button" className="btn btn--secondary btn--sm" onClick={() => setFilters(EMPTY_FILTERS)}>
-                Clear filters
-              </button>
-            }
-          />
-        </SectionCard>
+      {subjectsForClass.length === 0 ? (
+        <NoSubjects onAdd={() => setLibraryOpen(true)} />
       ) : (
-        <div className="stack">
-          {filtered.map(({ version, subjects, chapterCount }) => {
-            const verification = VERIFICATION_LABEL[version.verification_status];
-            const coverage = chapterCoverage(
-              version,
-              bundle.curriculum.subjects.filter((s) => s.curriculum_version_id === version.id),
-              bundle.curriculum.chapters,
-            );
-            return (
-              <SectionCard
-                key={version.id}
-                title={version.title}
-                hint={`${version.authority} · ${version.country} · ${version.class_grade}${
-                  version.stream ? ` · ${version.stream}` : ''
-                } · ${version.academic_year} · ${version.version_label}`}
-                action={
-                  <div className="row" style={{ gap: 6 }}>
-                    <Badge tone={verification.tone}>{verification.text}</Badge>
-                    {version.is_demo ? <DemoBadge /> : null}
-                  </div>
-                }
-              >
-                <div className="list-row__meta" style={{ marginBottom: 10 }}>
-                  <Badge tone={version.scope === 'textbook' ? 'info' : 'neutral'}>{SCOPE_LABEL[version.scope]}</Badge>
-                  <Badge tone={coverage === 'complete' ? 'good' : coverage === 'partial' ? 'info' : 'warn'}>
-                    {COVERAGE_LABEL[coverage]}
-                  </Badge>
-                  <span>{subjects.length} subject(s)</span>
-                  <span>{chapterCount} chapter row(s)</span>
-                  {version.source_checked_at ? <span>source checked {version.source_checked_at}</span> : null}
-                </div>
-                {version.source_url ? (
-                  <p className="small" style={{ marginBottom: 10 }}>
-                    <a href={version.source_url} target="_blank" rel="noreferrer noopener">
-                      Source <IonIcon icon={openOutline} aria-hidden="true" />
-                    </a>
-                  </p>
-                ) : (
-                  <p className="tiny muted" style={{ marginBottom: 10 }}>
-                    No source URL recorded for this version.
-                  </p>
-                )}
-                {version.source_note ? <p className="tiny muted" style={{ marginBottom: 10 }}>{version.source_note}</p> : null}
-                <div className="list">
-                  {subjects.map((subject) => {
-                    const chapters = bundle.curriculum.chapters
-                      .filter((c) => c.curriculum_subject_id === subject.id)
-                      .sort((a, b) => a.sort_order - b.sort_order);
-                    const adopted = adoptedCurriculumSubjectIds.has(subject.id);
-                    const missingChapters = chapters.filter(
-                      (c) => !userChaptersByCurriculumChapter.has(c.id),
-                    ).length;
-                    const subjectView = progressByCurriculumSubject.get(subject.id);
-                    return (
-                      <PaperRow
-                        key={subject.id}
-                        subject={subject}
-                        version={version}
-                        chapters={chapters}
-                        adopted={adopted}
-                        missingChapters={missingChapters}
-                        busy={busyKey}
-                        onAdopt={() => void adoptSubject(version.id, subject.id, subject.name)}
-                        onAddChapters={() => void addAllChapters(version.id, subject.id, subject.name)}
-                        progress={subjectView?.progress ?? null}
-                        chapterViews={chapterViewsByCurriculumSubject.get(subject.id) ?? []}
-                        adoptedChapterIds={userChaptersByCurriculumChapter}
-                      />
-                    );
-                  })}
-                </div>
-              </SectionCard>
-            );
-          })}
-        </div>
+        <div className="grid grid--two">{subjectsForClass.map((subject) => renderCard(subject))}</div>
       )}
 
-      <div style={{ height: 16 }} />
+      {unassignedSubjects.length > 0 ? (
+        <section className="stack">
+          <div className="row row--between">
+            <h2 className="strong" style={{ fontSize: '1rem' }}>
+              Not in a class yet
+            </h2>
+            <span className="tiny muted">{unassignedSubjects.length}</span>
+          </div>
+          <p className="tiny muted">
+            These subjects came from before classes existed. Their chapters and records are intact — set a class
+            from the subject menu whenever you like.
+          </p>
+          <div className="grid grid--two">{unassignedSubjects.map((subject) => renderCard(subject))}</div>
+        </section>
+      ) : null}
 
-      <SectionCard
-        title="Your subjects"
-        hint="Subjects you have added from a curriculum or created yourself"
-        action={
-          <Link to="/subjects" className="btn btn--ghost btn--sm">
-            Manage chapters
-          </Link>
-        }
-      >
-        {view.subjects.length === 0 ? (
-          <EmptyState
-            icon={<IonIcon icon={libraryOutline} aria-hidden="true" />}
-            title="No subjects yet"
-            message="Add a subject above, create a custom subject, or import chapters from a file."
-            action={
-              <button type="button" className="btn btn--secondary btn--sm" onClick={() => setDialogOpen(true)}>
-                Create custom subject
-              </button>
-            }
-          />
-        ) : (
+      {archivedForClass.length > 0 ? (
+        <section className="card">
+          <h2 className="card__title" style={{ marginBottom: 8 }}>
+            Archived
+          </h2>
           <div className="list">
-            {view.subjects.map((subject) => (
-              <div className="list-row" key={subject.subject.id}>
-                <div style={{ width: 10, alignSelf: 'stretch', borderRadius: 6, background: subject.color }} aria-hidden="true" />
+            {archivedForClass.map((subject) => (
+              <div className="list-row" key={subject.id}>
                 <div className="list-row__main">
-                  <div className="list-row__title">{subject.label}</div>
+                  <div className="list-row__title">
+                    {subject.custom_name}
+                    {subject.custom_paper_label ? ` · ${subject.custom_paper_label}` : ''}
+                  </div>
                   <div className="list-row__meta">
-                    <span>{subject.chapters.length} chapter(s)</span>
-                    <span>
-                      checklist {subject.progress.checklistPercent !== null ? `${subject.progress.checklistPercent}%` : 'not recorded'}
-                    </span>
-                    <span>{subject.progress.overdueTasks} overdue task(s)</span>
+                    {bundle.chapters.filter((chapter) => chapter.user_subject_id === subject.id).length} chapters ·
+                    records kept
                   </div>
                 </div>
-                {subject.subject.is_demo ? <DemoBadge /> : null}
-                <Link to={`/subjects#subject-${subject.subject.id}`} className="btn btn--ghost btn--sm">
-                  Open
-                </Link>
+                <div className="list-row__actions">
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    onClick={() => void restoreSubject(subject.id)}
+                  >
+                    Restore
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-        )}
-      </SectionCard>
+        </section>
+      ) : null}
 
-      <div style={{ height: 16 }} ref={importRef} />
+      <p className="tiny muted">
+        Official chapter lists are optional.{' '}
+        <button type="button" className="link-button" onClick={() => navigate('/curriculum/templates')}>
+          Browse templates
+        </button>
+      </p>
 
-      <SectionCard
-        title="Import chapters (CSV or JSON)"
-        hint="Preview, validation, duplicate detection and one-click undo — no silent writes"
-        action={<Badge tone="info">User content</Badge>}
-      >
-        <div className="stack">
-          <Notice tone="neutral">
-            Imported chapters are your own content: they are marked as not verified, never as official
-            curriculum. Columns: <code>subject, chapter, lecture_target</code>. Values in{' '}
-            <code>lecture_target</code> stay empty unless you set them.
-          </Notice>
-          <div className="grid grid--two">
-            <div className="field">
-              <label className="field__label" htmlFor="import-file">
-                Choose a file
-              </label>
-              <input
-                id="import-file"
-                className="input"
-                type="file"
-                accept=".csv,.json,text/csv,application/json"
-                onChange={(event) => void handleFile(event.target.files?.[0] ?? null)}
-              />
-              <span className="field__help">
-                {importFileName ? `Selected: ${importFileName}` : 'CSV or JSON. Max 500 rows per import.'}
-              </span>
-            </div>
-            <div className="field">
-              <label className="field__label" htmlFor="import-text">
-                …or paste the text directly
-              </label>
-              <textarea
-                id="import-text"
-                className="textarea"
-                rows={4}
-                value={importText}
-                onChange={(event) => setImportText(event.target.value)}
-                placeholder={importCsvExample}
-              />
-              <span className="field__help">
-                Example JSON: <code>{importJsonExample.split('\n').slice(0, 3).join(' ')} …</code>
-              </span>
-            </div>
-          </div>
-          <div className="row">
-            <button type="button" className="btn btn--secondary" onClick={() => runPreview(importText, importFileName)} disabled={!importText.trim()}>
-              <IonIcon icon={cloudUploadOutline} aria-hidden="true" /> Preview import
-            </button>
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => void importNow()}
-              disabled={!preview || preview.readyCount === 0 || importing}
-            >
-              {importing ? 'Importing…' : `Import ${preview?.readyCount ?? 0} chapter(s)`}
-            </button>
-            {lastBatchId ? (
-              <button type="button" className="btn btn--danger" onClick={() => void undoImport()}>
-                Undo last import
-              </button>
-            ) : null}
-          </div>
-          <FormError message={importError} />
-          {parsed && parsed.errors.length > 0 ? (
-            <Notice tone="danger" title="Rows that could not be read:">
-              <ul className="report-list">
-                {parsed.errors.slice(0, 10).map((error, index) => (
-                  <li key={`${error.rowNumber}-${index}`}>
-                    Row {error.rowNumber || '?'}: {error.message}
-                  </li>
-                ))}
-              </ul>
-            </Notice>
-          ) : null}
-          {preview ? (
-            <>
-              <div className="row">
-                <Badge tone="good">{preview.readyCount} ready</Badge>
-                <Badge tone="warn">{preview.duplicateCount} duplicate</Badge>
-                <Badge tone="danger">{preview.invalidCount} invalid</Badge>
-                <span className="tiny muted">
-                  New subjects to create: {preview.subjects.filter((s) => !s.existingSubject).map((s) => s.name).join(', ') || 'none'}
-                </span>
-              </div>
-              <div className="table-scroll">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Subject</th>
-                      <th>Chapter</th>
-                      <th>Lecture target</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.rows.slice(0, 60).map((row) => (
-                      <tr key={row.rowNumber}>
-                        <td>{row.rowNumber}</td>
-                        <td>{row.subject}</td>
-                        <td>{row.chapter}</td>
-                        <td>{row.lectureTarget ?? '—'}</td>
-                        <td>
-                          <Badge tone={row.status === 'ready' ? 'good' : row.status === 'duplicate' ? 'warn' : 'danger'}>
-                            {row.status}
-                          </Badge>
-                          {row.message ? <div className="tiny muted">{row.message}</div> : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {preview.rows.length > 60 ? (
-                <p className="tiny muted">Showing the first 60 preview rows of {preview.rows.length}.</p>
-              ) : null}
-            </>
-          ) : null}
-          {auth.mode === 'cloud' ? (
-            <p className="tiny muted">
-              <IonIcon icon={shieldCheckmarkOutline} aria-hidden="true" /> Imports are written to your account
-              only, protected by row-level security.
-            </p>
-          ) : (
-            <p className="tiny muted">
-              <IonIcon icon={shieldCheckmarkOutline} aria-hidden="true" /> Local mode: imports are stored in this
-              browser only.
-            </p>
-          )}
-        </div>
-      </SectionCard>
+      <SubjectLibraryDialog
+        open={libraryOpen}
+        classLevel={activeClass}
+        group={bundle.profile.active_group ?? null}
+        versions={bundle.curriculum.versions}
+        subjects={bundle.curriculum.subjects}
+        chapters={bundle.curriculum.chapters}
+        adoptedSubjectIds={
+          new Set(
+            bundle.subjects
+              .map((subject) => subject.curriculum_subject_id)
+              .filter((id): id is string => Boolean(id)),
+          )
+        }
+        busy={busy}
+        onAdd={addFromLibrary}
+        onCustom={openCustom}
+        onClose={() => setLibraryOpen(false)}
+      />
 
-      {dialogOpen ? (
-        <RecordDialog<SubjectFormValues>
-          title="Create a custom subject"
-          description="Use this when your subject is not in a curriculum version, or when you want your own title."
-          schema={userSubjectSchema}
-          defaultValues={{ mode: 'custom', custom_name: '', custom_paper_label: '', color: '#0f5132' }}
-          submitLabel="Create subject"
-          fields={[
-            { name: 'mode', label: 'Source', type: 'select', options: [{ value: 'custom', label: 'My own subject' }] },
-            { name: 'custom_name', label: 'Subject name', type: 'text', placeholder: 'e.g. Physics' },
-            { name: 'custom_paper_label', label: 'Paper / label', type: 'text', placeholder: 'e.g. 1st Paper', optional: true },
-            { name: 'color', label: 'Colour', type: 'text', help: 'Hex colour, e.g. #0f5132' },
-          ]}
-          onSubmit={createCustomSubject}
-          onClose={() => setDialogOpen(false)}
+      <AddSubjectDialog
+        open={subjectDialog}
+        classLevel={activeClass}
+        initialName={customSeed}
+        onClose={() => {
+          setSubjectDialog(false);
+          setCustomSeed(null);
+        }}
+        existing={subjectsForClass.map((subject) => ({
+          id: subject.id,
+          name: subject.custom_name ?? '',
+          paperLabel: subject.custom_paper_label,
+        }))}
+        onSave={addSubject}
+      />
+
+      <AddSubjectDialog
+        open={editingSubject !== null}
+        classLevel={activeClass}
+        existing={subjectsForClass.map((subject) => ({
+          id: subject.id,
+          name: subject.custom_name ?? '',
+          paperLabel: subject.custom_paper_label,
+        }))}
+        initial={
+          editingSubject
+            ? {
+                name: editingSubject.custom_name ?? '',
+                nameBn: editingSubject.name_bn ?? '',
+                paperLabel: editingSubject.custom_paper_label ?? '',
+                color: editingSubject.color,
+              }
+            : null
+        }
+        onClose={() => setEditingSubject(null)}
+        onSave={editSubject}
+      />
+
+      {dialogSubject ? (
+        <AddChapterDialog
+          open
+          subjectName={`${dialogSubject.custom_name ?? 'Subject'}${
+            dialogSubject.custom_paper_label ? ` · ${dialogSubject.custom_paper_label}` : ''
+          }`}
+          existing={existingFor(dialogSubject.id)}
+          onClose={() => setChapterDialogFor(null)}
+          onGenerate={(count) => generateChapters(dialogSubject.id, count)}
+          onCreateCustom={(title, titleBn) => createCustomChapter(dialogSubject.id, title, titleBn)}
         />
       ) : null}
+
+      <ConfirmSheet
+        open={confirm !== null}
+        title={confirm?.kind === 'chapter' ? 'Delete chapter?' : 'Delete subject?'}
+        message={
+          confirm?.kind === 'chapter'
+            ? `"${confirm.label}" and the study records attached to it will be removed. This cannot be undone.`
+            : `"${confirm?.label}" and all of its chapters will be removed. Archive it instead to keep the records.`
+        }
+        confirmLabel={confirm?.kind === 'chapter' ? 'Delete chapter' : 'Delete subject'}
+        destructive
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          const target = confirm;
+          setConfirm(null);
+          if (!target) return;
+          if (target.kind === 'chapter') void removeChapter(target.id);
+          else void deleteSubject(target.id);
+        }}
+      />
     </>
   );
 }
 
 export function CurriculumPage() {
-  return (
-    <WorkspaceGate>{() => <CurriculumContent />}</WorkspaceGate>
-  );
+  return <WorkspaceGate>{() => <CurriculumContent />}</WorkspaceGate>;
 }

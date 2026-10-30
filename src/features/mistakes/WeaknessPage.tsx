@@ -14,7 +14,7 @@ function WeaknessContent() {
   const [busy, setBusy] = useState<string | null>(null);
 
   if (!data) return null;
-  const { bundle, view } = data;
+  const { scoped: bundle, view } = data;
   const analysis = view.phase2.mistakeAnalysis;
   const followUps = buildMistakeFollowUps(analysis, 4);
 

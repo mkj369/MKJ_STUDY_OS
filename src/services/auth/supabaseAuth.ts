@@ -11,7 +11,13 @@ function mapUser(user: User | null | undefined): AuthUser | null {
   };
 }
 
-function mapError(message: string): AuthError {
+/**
+ * Turn a Supabase auth message into a sentence a student can act on.
+ *
+ * Exported for tests: the mapping is the part that can be verified without a
+ * live provider, and it is the part that used to fail silently.
+ */
+export function mapAuthError(message: string): AuthError {
   if (/invalid login credentials/i.test(message)) {
     return new AuthError('Email or password is incorrect.', 'invalid_credentials');
   }
@@ -24,8 +30,38 @@ function mapError(message: string): AuthError {
   if (/password should be at least/i.test(message)) {
     return new AuthError('Use a password with at least 6 characters.', 'weak_password');
   }
+  /*
+   * The provider is configured in the Supabase dashboard, not in this code. When
+   * it is missing, say so plainly — a silent redirect failure reads as "the
+   * button is broken", and a cloud project without Google enabled is the normal
+   * starting state, not an error the student can fix.
+   */
+  if (/provider is not enabled|unsupported provider|provider .* not enabled/i.test(message)) {
+    return new AuthError(
+      'Google sign-in is not enabled for this project yet. Use email, or start a local workspace — it works without any cloud setup.',
+      'provider_not_enabled',
+    );
+  }
+  if (/redirect_uri_mismatch|invalid redirect/i.test(message)) {
+    return new AuthError(
+      'Google rejected the redirect address. The Supabase project must list this site as a redirect URL in Authentication → URL Configuration.',
+      'redirect_mismatch',
+    );
+  }
   if (/rate limit|too many/i.test(message)) {
     return new AuthError('Too many attempts. Wait a moment and try again.', 'rate_limited');
+  }
+  if (/provider is not enabled|unsupported provider|missing oauth secret/i.test(message)) {
+    return new AuthError(
+      'Google sign-in is not enabled for this Supabase project yet. Enable the Google provider (Authentication → Providers) and add the OAuth client ID and secret, then try again. Email sign-in keeps working.',
+      'provider_not_configured',
+    );
+  }
+  if (/redirect.*not allowed|redirect_uri_mismatch/i.test(message)) {
+    return new AuthError(
+      'Google rejected the redirect URL. Add this site’s URL to Supabase → Authentication → URL Configuration → Redirect URLs, and to the Google OAuth client.',
+      'redirect_not_allowed',
+    );
   }
   return new AuthError(message, 'auth_error');
 }
@@ -49,10 +85,21 @@ export class SupabaseAuthClient implements AuthClient {
       email: email.trim().toLowerCase(),
       password,
     });
-    if (error) throw mapError(error.message);
+    if (error) throw mapAuthError(error.message);
     const user = mapUser(data.user);
     if (!user) throw new AuthError('Sign-in succeeded but no user was returned.', 'no_user');
     return user;
+  }
+
+  async signInWithGoogle(): Promise<void> {
+    const { error } = await this.client.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/` : undefined,
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+    if (error) throw mapAuthError(error.message);
   }
 
   async signUp(email: string, password: string, displayName: string): Promise<SignUpResult> {
@@ -61,7 +108,7 @@ export class SupabaseAuthClient implements AuthClient {
       password,
       options: { data: { display_name: displayName.trim() } },
     });
-    if (error) throw mapError(error.message);
+    if (error) throw mapAuthError(error.message);
     const needsEmailConfirmation = !data.session;
     return {
       user: mapUser(data.user),
@@ -75,7 +122,7 @@ export class SupabaseAuthClient implements AuthClient {
   async signOut(): Promise<void> {
     const { error } = await this.client.auth.signOut();
     if (error && !/session missing|not found/i.test(error.message)) {
-      throw mapError(error.message);
+      throw mapAuthError(error.message);
     }
   }
 
@@ -84,7 +131,7 @@ export class SupabaseAuthClient implements AuthClient {
     const { error } = await this.client.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       ...(redirectTo ? { redirectTo } : {}),
     });
-    if (error) throw mapError(error.message);
+    if (error) throw mapAuthError(error.message);
   }
 
   async deleteAccount(): Promise<void> {

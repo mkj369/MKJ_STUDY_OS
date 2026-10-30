@@ -18,11 +18,12 @@ Last run: **2026-10-30**, Node v22.22.3, npm 10.9.8, Vite 6.4.5, Linux sandbox.
 npm ci                      # 397 packages, lockfile respected
 npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
-npm run build               # tsc -b && vite build    -> built in 4.94s
-npx vitest run              # 45 files, 532 tests passed
-npx playwright test         # 46 tests passed (Chromium, production bundle)
-npm run audit:routes        # 25/25 routes: heading, no console error, no overflow @1440 & @390
-npm run audit:contrast      # no text below WCAG AA (self-testing: plants a 1.07:1 element)
+npm run build               # tsc -b && vite build    -> built in 5.93s
+npx vitest run              # 53 files, 631 tests passed
+npx vitest run tests/db     # 8 files, 94 tests passed (PGlite applies 0001-0019 twice)
+npx playwright test         # 54 tests passed (Chromium, production bundle)
+npm run audit:routes        # 27/27 routes: own heading, no console error, no overflow @1440 & @390
+npm run audit:contrast      # 15 routes x 6 schemes, no text below WCAG AA (self-testing: plants a 1.07:1 element)
 ```
 
 The two audit scripts were added in Round 8 because a green suite does not prove a
@@ -37,7 +38,7 @@ matters: `tests/bundle/secrets.test.ts` skips four assertions when `dist/` is ab
 because it greps the real bundle for leaked keys. Without a build you get
 `508 passed | 4 skipped` — not a failure, but it has not checked the secrets.
 
-### Test suite composition (512)
+### Test suite composition (631)
 
 | Area | Files | What it proves |
 | --- | --- | --- |
@@ -48,7 +49,7 @@ because it greps the real bundle for leaked keys. Without a build you get
 | `tests/bundle` | 1 | No service-role key or AI provider key in the built assets |
 | `tests/functions`, `tests/android` | — | Weekly-summary function with a stubbed provider (no live call), Capacitor config assertions |
 
-### Browser suite (43)
+### Browser suite (54)
 
 `npx playwright test` runs against `npm run build && npm run preview --port 4173`
 (baseURL `http://127.0.0.1:4173`), one worker, real localStorage. Covers:

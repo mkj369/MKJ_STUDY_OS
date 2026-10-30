@@ -20,6 +20,8 @@ import { buildPracticeQueue, summarizePractice, type PracticeSummary, type Revie
 import { countdownFor, type ExamCountdown } from '@/domain/preparation';
 import { summarizeTasks, todayTasks, type TaskCounts } from '@/domain/tasks';
 import type { UserDataBundle } from '@/services/repository';
+import { isClassLevel, type ClassLevel } from '@/domain/classLevels';
+import { subjectBelongsToClass } from '@/domain/studentProfile';
 import type {
   ChapterChecklistItem,
   CurriculumChapter,
@@ -52,6 +54,14 @@ export interface SubjectView {
 
 export interface WorkspaceView {
   today: DateOnly;
+  /**
+   * The class every screen is showing, or null before one is chosen.
+   *
+   * Exposed on the view so a page can scope raw records (study sessions, notes,
+   * tasks) with the same rule the subject list already uses, instead of
+   * re-deriving it and drifting.
+   */
+  profileClass: ClassLevel | null;
   subjects: SubjectView[];
   chapterById: Map<string, ChapterView>;
   subjectById: Map<string, SubjectView>;
@@ -109,8 +119,19 @@ export function buildWorkspaceView(bundle: UserDataBundle, todayOverride?: DateO
   }
 
   const chapterViewsById = new Map<string, ChapterView>();
+  /*
+   * Class scoping happens here, once, so every screen and every calculation
+   * downstream (dashboard totals, revision queue, planner, reports, subject
+   * pickers, export summaries) sees the same class. Filtering in the components
+   * instead would leave cross-class numbers in the totals.
+   *
+   * `active_class` null means the student has not chosen yet, so nothing is
+   * hidden — the safe default for a workspace that already held records.
+   */
+  const activeClass = isClassLevel(bundle.profile.active_class) ? bundle.profile.active_class : null;
   const subjects: SubjectView[] = bundle.subjects
     .filter((s) => s.status === 'active')
+    .filter((s) => subjectBelongsToClass(s.class_level, activeClass))
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((subject) => {
       const curriculumSubject = subject.curriculum_subject_id
@@ -214,6 +235,7 @@ export function buildWorkspaceView(bundle: UserDataBundle, todayOverride?: DateO
 
   const base: Omit<WorkspaceView, 'phase2'> = {
     today,
+    profileClass: activeClass,
     subjects,
     chapterById: chapterViewsById,
     subjectById: new Map(subjects.map((s) => [s.subject.id, s])),

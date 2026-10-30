@@ -34,7 +34,7 @@ function SmartRevisionContent() {
   const [bucket, setBucket] = useState<Bucket | 'all'>('all');
   const [dialog, setDialog] = useState<{ editing: RevisionSession | null; chapterId?: string; subjectId?: string } | null>(null);
 
-  const revisions = data?.bundle.revisions ?? [];
+  const revisions = data?.scoped.revisions ?? [];
   const queue = useMemo(() => {
     if (!data) return [];
     return buildRevisionQueue(
@@ -52,7 +52,7 @@ function SmartRevisionContent() {
   }, [data]);
 
   if (!data) return null;
-  const { bundle, view } = data;
+  const { scoped: bundle, view } = data;
   const today = view.today;
   const history = [...revisions].sort((a, b) => (a.revised_at < b.revised_at ? 1 : -1));
   const visible = bucket === 'all' ? queue : queue.filter((entry) => entry.bucket === bucket);

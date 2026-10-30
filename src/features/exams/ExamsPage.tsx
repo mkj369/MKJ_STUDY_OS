@@ -30,7 +30,7 @@ function ExamsContent() {
   const [editing, setEditing] = useState<ExamResult | null>(null);
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const exams = [...bundle.exams].sort((a, b) => (a.exam_date < b.exam_date ? 1 : -1));
 
   const save = async (values: ExamValues) => {

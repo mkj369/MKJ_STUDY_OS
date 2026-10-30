@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { bootWorkspace } from './onboarding';
 
 /**
  * The HSC Science journey, driven through the real browser UI against the local
@@ -9,22 +10,27 @@ import { expect, test, type Page } from '@playwright/test';
  * intentionally supports one local workspace at a time.
  */
 
+/* Onboarding is answered by the shared helper, exactly as a student would. */
 async function bootLocalWorkspace(page: Page) {
-  await page.goto('/');
-  await expect(page.getByText(/Local demo mode/i).first()).toBeVisible();
-  await page.getByRole('button', { name: /start local workspace/i }).click();
-  await expect(page.getByText(/good to see you|welcome,/i).first()).toBeVisible({ timeout: 20_000 });
+  await bootWorkspace(page);
 }
 
 test('journey A/B: open the syllabus and keep a checklist tick after a reload', async ({ page }) => {
   await bootLocalWorkspace(page);
 
   // A — the curriculum is reachable from the navigation and states its status.
-  await page.getByRole('navigation').getByRole('link', { name: /my curriculum/i }).click();
+  await page
+    .getByRole('navigation', { name: /study shortcuts/i })
+    .getByRole('link', { name: 'Curriculum', exact: true })
+    .click();
   await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
     timeout: 20_000,
   });
-  await expect(page.getByText(/needs verification|demo/i).first()).toBeVisible();
+  // Demo rows are labelled as demo, never presented as official data, and they
+  // arrive already in the demo class (HSC Science) rather than floating unassigned.
+  await expect(page.getByText('Demo').first()).toBeVisible();
+  // Demo rows live in the class they were seeded for, not in limbo.
+  await expect(page.getByRole('heading', { level: 3, name: /Physics/ }).first()).toBeVisible();
 
   // B — open a chapter and tick a checklist item (saved, not cosmetic).
   await page.goto('/#/subjects');
@@ -36,13 +42,11 @@ test('journey A/B: open the syllabus and keep a checklist tick after a reload', 
   await firstItem.check();
   await expect(firstItem).toBeChecked();
 
+  // The chapter reports the same fact: checked items are a denominator, not mastery.
+  await expect(page.getByText('Checklist completion').first()).toBeVisible();
+
   await page.reload();
   await expect(page.locator('.checklist input[type="checkbox"]').first()).toBeChecked({ timeout: 20_000 });
-
-  // The dashboard reports the same fact (checked items are a denominator, not mastery).
-  await page.goto('/#/');
-  await expect(page.getByText('Checklist completion').first()).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(/\d+ of \d+ items · separate from mastery/)).toBeVisible();
 });
 
 test('journey D: create a task, complete it, then reschedule another', async ({ page }) => {
@@ -201,50 +205,53 @@ test('quick capture saves a note that the vault can find', async ({ page }) => {
   await expect(page.getByText('E2E — escape velocity').first()).toBeVisible({ timeout: 20_000 });
 });
 
-test('journey C: curriculum filters narrow by SSC/HSC, group and Bangla subject name', async ({ page }) => {
+test("journey C: official templates are scoped to the student's class and group", async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+  await page.goto('/#/curriculum/templates');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Official templates' })).toBeVisible({
     timeout: 20_000,
   });
-
   const main = page.getByRole('main');
 
-  // Both levels ship, and the page says what it really contains.
-  await expect(main.getByLabel('Level').locator('option', { hasText: 'SSC' })).toHaveCount(1);
-  await expect(main.getByLabel('Level').locator('option', { hasText: 'HSC' })).toHaveCount(1);
-  await expect(main.getByText(/curriculum version\(s\)/)).toBeVisible();
+  // This student is Class 11 Science: HSC only, and only the Science stream.
+  const levelOptions = await main
+    .getByRole('combobox', { name: 'Level', exact: true })
+    .locator('option')
+    .allInnerTexts();
+  expect(levelOptions).toEqual(['All levels', 'HSC']);
 
-  await main.getByLabel('Level').selectOption('SSC');
-  await main.getByLabel('Group / stream').selectOption('Science');
-  await expect(main.getByRole('heading', { name: /SSC Science — official subject structure/ })).toBeVisible();
-  await expect(main.getByRole('heading', { name: /HSC/ })).toHaveCount(0);
+  const groupOptions = await main
+    .getByRole('combobox', { name: 'Group / stream', exact: true })
+    .locator('option')
+    .allInnerTexts();
+  expect(groupOptions).toEqual(['All groups', 'Science']);
 
-  // Physics carries a Bangla name and — since migration 0010 — a real chapter
-  // list read from the printed contents page. It is partly recorded, never
-  // verified: the scan is a 2022 reprint and the 2025 edition is unopened.
-  await main.getByPlaceholder(/Physics 2nd Paper/).fill('পদার্থ');
-  await expect(main.getByText('Physics · পদার্থবিজ্ঞান').first()).toBeVisible();
-  await expect(main.getByText('Chapter list partly recorded').first()).toBeVisible();
-  await expect(main.getByText('14 chapter row(s)').first()).toBeVisible();
-  // The page reports the whole truth, not just the good half: 41 chapter rows
-  // exist across the whole curriculum, and not one of them is verified.
-  await expect(main.getByText('41 chapter(s)', { exact: true }).first()).toBeVisible();
-  await expect(main.getByText('0 verified chapter(s)', { exact: true }).first()).toBeVisible();
+  // Not one paper card belongs to another class or stream.
+  const scopes = await page.locator('.paper-row__sub').allInnerTexts();
+  expect(scopes.length).toBeGreaterThan(0);
+  expect(scopes.every((text) => text.includes('HSC') && text.includes('Science'))).toBe(true);
+  await expect(page.locator('.paper-row__sub').filter({ hasText: 'Humanities' })).toHaveCount(0);
+  await expect(page.locator('.paper-row__sub').filter({ hasText: 'Business Studies' })).toHaveCount(0);
 
-  // Filtering never deletes or hides the user's own records.
-  await main.getByRole('button', { name: /clear filters/i }).first().click();
-  await expect(main.getByRole('heading', { name: 'Your subjects' })).toBeVisible();
-  await expect(main.getByText('Physics — 1st Paper').first()).toBeVisible();
+  // The coverage report is scoped the same way, so its numbers are this
+  // student's numbers and not the whole reference library's.
+  const coverageRow = await main.locator('table').first().locator('tbody tr').first().innerText();
+  expect(coverageRow).toContain('HSC');
+  expect(coverageRow).toContain('Science');
 });
 
-test('journey C2: a modelled chapter keeps its status when the curriculum seed re-runs', async ({ page }) => {
+test('journey C2: a curriculum chapter keeps its status when the reference seed re-runs', async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/syllabus');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
+
+  // Adopt the one HSC Science paper that carries a real chapter list.
+  await page.goto('/#/curriculum/templates');
+  const paper = page.locator('.paper-row').filter({ hasText: 'Show 15 chapter(s)' }).first();
+  await paper.getByRole('button', { name: /Add subject \+ 15 chapter/ }).click();
+  await expect(paper.getByText('All chapters added')).toBeVisible({ timeout: 20_000 });
 
   // Record progress against a curriculum-backed chapter.
-  await page.getByRole('link', { name: /Demo chapter 1 — mechanics/ }).first().click();
+  await page.goto('/#/syllabus');
+  await page.getByRole('link', { name: /Electrostatics or Static Electricity/ }).first().click();
   await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
   const firstItem = page.locator('.checklist input[type="checkbox"]').first();
   await firstItem.check();
@@ -254,50 +261,32 @@ test('journey C2: a modelled chapter keeps its status when the curriculum seed r
   await page.reload();
   await expect(page.locator('.checklist input[type="checkbox"]').first()).toBeChecked({ timeout: 20_000 });
 
-  // The official subject structure is still present and still unverified.
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByText(/Chapter list not yet verified/).first()).toBeVisible({
-    timeout: 20_000,
-  });
+  // The reference list is still described honestly: fifteen rows, none verified.
+  await page.goto('/#/curriculum/templates');
+  const samePaper = page.locator('.paper-row').filter({ hasText: 'Show 15 chapter(s)' }).first();
+  await expect(samePaper.getByText(/15 chapter row\(s\)/)).toBeVisible();
+  await expect(samePaper.getByText(/0 verified/)).toBeVisible();
 });
 
-test('journey C3: HSC leads, and the coverage report counts papers separately', async ({ page }) => {
+test('journey C3: the coverage report counts HSC papers separately, 1st before 2nd', async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+  await page.goto('/#/curriculum/templates');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Official templates' })).toBeVisible({
     timeout: 20_000,
   });
   const main = page.getByRole('main');
 
-  // The notice is computed from the data, not typed into the sentence: it must
-  // agree with the badges next to it.
-  await expect(main.getByText(/3 of 86 subjects have a chapter list/)).toBeVisible();
-  await expect(main.getByText('41 chapter(s)', { exact: true }).first()).toBeVisible();
-  await expect(main.getByText('0 verified chapter(s)', { exact: true }).first()).toBeVisible();
+  // One class+group is on file: HSC Science 2026–2027, 13 subjects, 15 chapters.
+  const rows = main.locator('table').first().locator('tbody tr');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('HSC');
+  await expect(rows.first()).toContainText('Science');
+  await expect(rows.first()).toContainText('13');
+  await expect(rows.first()).toContainText('15');
+  await expect(main.getByText(/0 verified chapter\(s\)/)).toBeVisible();
 
-  // HSC comes first in the level filter and in the group table — but SSC is
-  // still present, not hidden behind it.
-  //
-  // Address the control by role, not getByLabel: the wrapping <label> also
-  // contains the <option> texts, so its label string is "Level All levels HSC
-  // SSC" and getByLabel('Level', { exact: true }) matches nothing.
-  const levelSelect = main.getByRole('combobox', { name: 'Level', exact: true });
-  await expect(levelSelect).toBeVisible({ timeout: 15_000 });
-  const levelOptions = await levelSelect
-    .locator('option')
-    .evaluateAll((options) => options.map((option) => option.textContent ?? ''));
-  expect(levelOptions.findIndex((text) => text.includes('HSC'))).toBeLessThan(
-    levelOptions.findIndex((text) => text.includes('SSC')),
-  );
-
-  const groupTable = main.locator('table').first();
-  const firstGroupRow = await groupTable.locator('tbody tr').first().innerText();
-  expect(firstGroupRow).toContain('HSC');
-  // toContainText is case-sensitive on textContent; the CSS uppercases it.
-  await expect(groupTable.locator('thead')).toContainText(/no chapters/i);
-
-  // HSC Physics is two subjects, and only 2nd Paper has a chapter list.
-  await page.getByRole('button', { name: /show per-subject coverage/i }).click();
+  // HSC Physics is two papers, and only 2nd Paper has a chapter list.
+  await main.getByRole('button', { name: /show per-subject coverage/i }).click();
   const physicsRows = main.locator('tbody tr').filter({ hasText: 'Physics' });
   await expect(physicsRows.filter({ hasText: '2nd Paper' }).first()).toContainText('15');
   await expect(physicsRows.filter({ hasText: '1st Paper' }).first()).toContainText('No chapter list yet');
@@ -305,20 +294,15 @@ test('journey C3: HSC leads, and the coverage report counts papers separately', 
 
 test('journey C4: the syllabus labels a partly verified chapter list instead of hiding it', async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+  await page.goto('/#/curriculum/templates');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Official templates' })).toBeVisible({
     timeout: 20_000,
   });
 
-  // Adopt the one HSC subject-paper that has a real chapter list.
-  await page.getByRole('button', { name: /show per-subject coverage/i }).click();
-  const secondPaper = page
-    .getByRole('main')
-    .locator('tbody tr')
-    .filter({ hasText: 'Physics' })
-    .filter({ hasText: '2nd Paper' })
-    .first();
-  await secondPaper.getByRole('button', { name: /add to my subjects/i }).click();
+  // Adopt the one HSC paper that has a real chapter list.
+  const paper = page.locator('.paper-row').filter({ hasText: 'Show 15 chapter(s)' }).first();
+  await paper.getByRole('button', { name: /Add subject \+ 15 chapter/ }).click();
+  await expect(paper.getByText('All chapters added')).toBeVisible({ timeout: 20_000 });
 
   await page.goto('/#/syllabus');
   const main = page.getByRole('main');
@@ -328,21 +312,18 @@ test('journey C4: the syllabus labels a partly verified chapter list instead of 
   await expect(main.getByRole('link', { name: /Electrostatics or Static Electricity/ }).first()).toBeVisible();
 });
 
-test('journey C5: one click on a version row leaves a subject with its real chapters', async ({ page }) => {
+test('journey C5: one click on a paper leaves a subject with its real chapters', async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+  await page.goto('/#/curriculum/templates');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Official templates' })).toBeVisible({
     timeout: 20_000,
   });
 
-  // The version list is the other way in, and it must not leave a subject that
-  // looks empty. The button names the chapter count it will attach.
-  const row = page.getByRole('main').locator('.list-row').filter({ hasText: '15 chapter row(s)' }).first();
-  const addButton = row.getByRole('button', { name: /Add subject \+ 15 chapter\(s\)/ });
-  await expect(addButton).toBeVisible();
-  await addButton.click();
-
-  await expect(row.getByText('All chapters added')).toBeVisible({ timeout: 20_000 });
+  // The button names the chapter count it will attach, and one click must not
+  // leave a subject that only looks empty.
+  const paper = page.locator('.paper-row').filter({ hasText: 'Show 15 chapter(s)' }).first();
+  await paper.getByRole('button', { name: /Add subject \+ 15 chapter\(s\)/ }).click();
+  await expect(paper.getByText('All chapters added')).toBeVisible({ timeout: 20_000 });
 
   // And the syllabus shows the chapters without a second visit to this page.
   await page.goto('/#/syllabus');
@@ -351,28 +332,27 @@ test('journey C5: one click on a version row leaves a subject with its real chap
   await expect(main.getByRole('link', { name: /Electrostatics or Static Electricity/ }).first()).toBeVisible();
 });
 
-test('journey C6: a subject with no recovered chapter list says so instead of looking empty', async ({ page }) => {
+test('journey C6: a paper with no recovered chapter list says so instead of looking empty', async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+  await page.goto('/#/curriculum/templates');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Official templates' })).toBeVisible({
     timeout: 20_000,
   });
 
-  const row = page.getByRole('main').locator('.list-row').filter({ hasText: 'no chapter list yet' }).first();
-  await expect(row.getByRole('button', { name: /^Add subject$/ })).toBeVisible();
-  await row.getByRole('button', { name: /^Add subject$/ }).click();
+  const card = page.locator('.paper-row').filter({ hasText: 'No chapter list yet' }).first();
+  await card.getByRole('button', { name: /^Add subject$/ }).click();
 
   // Adopted, but honest about why nothing came with it.
-  await expect(row.getByText('Track chapters you add yourself')).toBeVisible({ timeout: 20_000 });
+  await expect(card.getByText('Track chapters you add yourself')).toBeVisible({ timeout: 20_000 });
   // The paper card states it in the body as well as the actions, so the empty
   // paper never looks like a complete one with nothing in it yet.
-  await expect(row.getByText(/no chapter list yet/i).first()).toBeVisible();
+  await expect(card.getByText(/NCTB has not published a contents page/i)).toBeVisible();
 });
 
 test('journey C7: a paper card states its verification and expands to its chapters', async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+  await page.goto('/#/curriculum/templates');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Official templates' })).toBeVisible({
     timeout: 20_000,
   });
 
@@ -398,8 +378,8 @@ test('journey C7: a paper card states its verification and expands to its chapte
 
 test('journey C8: a paper with no official list says so and never looks empty-but-fine', async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+  await page.goto('/#/curriculum/templates');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Official templates' })).toBeVisible({
     timeout: 20_000,
   });
 
@@ -413,8 +393,8 @@ test('journey C8: a paper with no official list says so and never looks empty-bu
 
 test('journey C9: searching by Bengali paper name finds the same paper as the English one', async ({ page }) => {
   await bootLocalWorkspace(page);
-  await page.goto('/#/curriculum');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'My Curriculum' })).toBeVisible({
+  await page.goto('/#/curriculum/templates');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Official templates' })).toBeVisible({
     timeout: 20_000,
   });
 
@@ -434,9 +414,9 @@ test('journey C9: searching by Bengali paper name finds the same paper as the En
   expect(bengaliTitles.some((title) => title.includes('পদার্থবিজ্ঞান') && title.includes('2nd Paper'))).toBe(true);
   expect(bengaliTitles.every((title) => title.includes('2nd Paper'))).toBe(true);
 
-  // It can legitimately return fewer cards: a demo subject row has no Bengali
-  // name to match, and inventing one to make the counts agree would be worse
-  // than the smaller list.
+  // It can legitimately return fewer cards: a version row has no Bengali name to
+  // match, and inventing one to make the counts agree would be worse than the
+  // smaller list.
   expect(bengaliTitles.length).toBeLessThanOrEqual(englishCount);
   expect(englishTitles.length).toBeGreaterThan(0);
 });

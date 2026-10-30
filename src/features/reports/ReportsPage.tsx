@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n';
 import { Badge, EmptyState, Notice, PageHeader, SectionCard } from '@/components/ui/Page';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { buildWeeklyReport, type WeeklyReportPayload } from '@/domain/reports';
+import { scopeBundleToClass } from '@/domain/classScope';
 import { addDaysISO, formatDateTime, weekRange } from '@/domain/dates';
 import { errorMessage } from '@/utils/errors';
 import type { AIStatus } from '@/services/ai/aiClient';
@@ -125,7 +126,12 @@ function ReportsContent() {
 
   const report = useMemo(() => {
     if (!data) return null;
-    const { bundle, view } = data;
+    const { view } = data;
+    /*
+     * Class-scoped projection: a Class 9 session must never be counted in a
+     * Class 11 week. Records with no subject stay (they belong to no class).
+     */
+    const bundle = scopeBundleToClass(data.bundle, view.profileClass);
     const weekStart = addDaysISO(view.today, weekOffset * 7);
     return buildWeeklyReport({
       weekStart,
@@ -147,7 +153,7 @@ function ReportsContent() {
   }, [data, weekOffset]);
 
   if (!data || !report) return null;
-  const { bundle, view } = data;
+  const { scoped: bundle, view } = data;
   const payload = report.payload;
   const week = weekRange(payload.week.start);
 

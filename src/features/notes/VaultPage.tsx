@@ -27,7 +27,7 @@ function VaultContent() {
   const [onlyPinned, setOnlyPinned] = useState(false);
   const [dialog, setDialog] = useState<{ editing: StudyNote | null } | null>(null);
 
-  const notesSource = data?.bundle.notes;
+  const notesSource = data?.scoped.notes;
   const notes = useMemo(() => notesSource ?? [], [notesSource]);
   const results = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -46,7 +46,7 @@ function VaultContent() {
   }, [notes, kind, subjectId, onlyPinned, query]);
 
   if (!data) return null;
-  const { bundle, view } = data;
+  const { scoped: bundle, view } = data;
 
   const saveNote = async (values: NoteValues) => {
     const chapterId = values.user_chapter_id || null;

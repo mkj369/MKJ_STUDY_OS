@@ -98,8 +98,8 @@ export const userSubjectSchema = z
     custom_paper_label: trimmedText(40).optional(),
     color: z
       .string()
-      .regex(/^#[0-9a-fA-F]{6}$/, 'Use a hex colour like #0f5132.')
-      .default('#0f5132'),
+      .regex(/^#[0-9a-fA-F]{6}$/, 'Use a hex colour like #38BDF8.')
+      .default('#38BDF8'),
   })
   .superRefine((value, ctx) => {
     if (value.mode === 'curriculum' && !value.curriculum_subject_id) {

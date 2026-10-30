@@ -14,7 +14,7 @@ function InsightsContent() {
 
   const prepared = useMemo(() => {
     if (!data) return null;
-    const { bundle, view } = data;
+    const { scoped: bundle, view } = data; // class-scoped: never average across classes
     const todayEntries = buildTimeline(
       { sessions: bundle.sessions, blocks: bundle.dailyBlocks, subjectLabels: view.phase2.subjectLabels },
       view.today,

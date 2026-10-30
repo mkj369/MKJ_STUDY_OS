@@ -21,7 +21,7 @@ function PlannerContent() {
 
   const suggestions = useMemo(() => {
     if (!data) return [];
-    const { bundle, view } = data;
+    const { scoped: bundle, view } = data; // the planner only plans the active class
     const revisionQueue = buildRevisionQueue(
       view.subjects.flatMap((subject) =>
         subject.chapters.map((chapter) => ({
@@ -70,7 +70,7 @@ function PlannerContent() {
   }, [data]);
 
   if (!data) return null;
-  const { bundle, view } = data;
+  const { scoped: bundle, view } = data;
   const today = view.today;
   const availability = bundle.profile.study_windows ?? null;
   const availableToday = availability ? Math.round(availability[String(new Date(`${today}T00:00:00Z`).getUTCDay())] ?? 0) : 0;

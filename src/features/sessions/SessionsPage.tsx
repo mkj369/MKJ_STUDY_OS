@@ -36,7 +36,7 @@ function SessionsContent() {
   const [editing, setEditing] = useState<StudySession | null>(null);
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const week = weekRange(view.today);
   const sessions = [...bundle.sessions].sort((a, b) => (a.session_date < b.session_date ? 1 : -1));
   const weekSessions = sessions.filter((s) => s.session_date >= week.start && s.session_date <= week.end);

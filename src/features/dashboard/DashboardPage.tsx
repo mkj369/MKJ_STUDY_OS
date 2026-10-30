@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useIonToast, IonIcon } from '@ionic/react';
 import {
   addOutline,
@@ -6,9 +6,9 @@ import {
   calendarOutline,
   checkmarkCircleOutline,
   chevronForwardOutline,
-  cloudDoneOutline,
+  schoolOutline,
+  layersOutline,
   flaskOutline,
-  phonePortraitOutline,
   refreshOutline,
   timeOutline,
 } from 'ionicons/icons';
@@ -22,7 +22,6 @@ import {
   Notice,
   ProgressBar,
   SectionCard,
-  StatCard,
   StatusBadge,
 } from '@/components/ui/Page';
 import { ErrorState, LoadingState } from '@/components/ui/States';
@@ -37,7 +36,6 @@ export function DashboardPage() {
   const { data, isLoading, error, refetch } = useWorkspaceQuery();
   const mutate = useMutate();
   const auth = useAuth();
-  const navigate = useNavigate();
   const [toast] = useIonToast();
   const queryClient = useQueryClient();
   const [busyTask, setBusyTask] = useState<string | null>(null);
@@ -52,7 +50,7 @@ export function DashboardPage() {
     );
   }
 
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data; // class-scoped: totals must not mix classes
   const today = view.today;
   const week = weekRange(today);
   const sessionsThisWeek = bundle.sessions.filter(
@@ -82,6 +80,14 @@ export function DashboardPage() {
   const peakDayMinutes = Math.max(0, ...weekDays.map((day) => day.minutes));
   const weekLectures = bundle.lectures.filter((l) => l.lecture_date >= week.start && l.lecture_date <= week.end).length;
   const profile = bundle.profile;
+  const classScope = (() => {
+    const level = typeof profile.active_class === 'number' ? profile.active_class : null;
+    if (!level) return null;
+    const group = profile.active_group
+      ? String(profile.active_group).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+      : null;
+    return `Class ${level}${group ? ` · ${group}` : ''}`;
+  })();
   const displayName = auth.user?.displayName || profile.display_name;
 
   const dueRevisions = view.revisionQueue.filter((r) => r.bucket === 'overdue' || r.bucket === 'today');
@@ -109,6 +115,17 @@ export function DashboardPage() {
       today,
     ),
   );
+  /*
+   * "Continue studying" is driven by the student's own record dates: the
+   * chapters with the most recent logged activity come first. A chapter with no
+   * record is never shown here, because there is nothing to continue.
+   */
+  const recentChapters = view.subjects
+    .flatMap((subject) => subject.chapters.map((chapter) => ({ subject, chapter })))
+    .filter(({ chapter }) => chapter.progress.lastActivityDate !== null)
+    .sort((a, b) => (b.chapter.progress.lastActivityDate ?? '').localeCompare(a.chapter.progress.lastActivityDate ?? ''))
+    .slice(0, 4);
+  const openTasks = view.dashboardTasks.filter((task) => task.status === 'todo' || task.status === 'in_progress');
   const nextExam = view.phase2.countdowns.find((countdown) => !countdown.isPast) ?? null;
   const nextAction = view.dashboardTasks[0];
   const examPercentLabel =
@@ -141,6 +158,7 @@ export function DashboardPage() {
   };
 
   if (view.totals.subjects === 0) {
+    const scope = classScope;
     return (
       <div className="dash">
         <header className="hero">
@@ -150,25 +168,27 @@ export function DashboardPage() {
               <span className="hero__chip">
                 <IonIcon icon={calendarOutline} aria-hidden="true" /> {today}
               </span>
-              <span className="hero__chip">
-                <IonIcon icon={phonePortraitOutline} aria-hidden="true" /> Local demo mode
-              </span>
-              <span className="tiny muted">
-                MKJ StudyOS remembers what you record, shows what is still unknown, and helps you choose the
-                next useful action.
-              </span>
+              {scope ? (
+                <span className="hero__chip">
+                  <IonIcon icon={layersOutline} aria-hidden="true" /> {scope}
+                </span>
+              ) : null}
             </div>
           </div>
         </header>
-        <SectionCard title="Start with one subject">
+        <SectionCard title={scope ?? 'Your subjects'}>
           <EmptyState
             icon={<IonIcon icon={addOutline} aria-hidden="true" />}
-            title="Your workspace is empty"
-            message="Add an HSC Science subject from the starter curriculum, create your own subject, or load clearly-labelled demo data to explore the workflow."
+            title="No subjects yet"
+            message={
+              scope
+                ? `Nothing is saved for ${scope} yet. Add a subject and generate its chapters in one tap.`
+                : 'Add your first subject, then generate its chapters in one tap.'
+            }
             action={
               <div className="row" style={{ justifyContent: 'center' }}>
                 <Link to="/curriculum" className="btn btn--primary">
-                  Choose subjects
+                  Add subject
                 </Link>
                 <button type="button" className="btn btn--secondary" onClick={loadDemo}>
                   Load demo data
@@ -177,10 +197,6 @@ export function DashboardPage() {
             }
           />
         </SectionCard>
-        <Notice tone="neutral" title="What this app will not do.">
-          It will not invent study history, lecture counts, marks or predicted results. Missing records always
-          say “not recorded”, never “you did not study”.
-        </Notice>
       </div>
     );
   }
@@ -195,16 +211,14 @@ export function DashboardPage() {
               <IonIcon icon={calendarOutline} aria-hidden="true" /> {today}
             </span>
             <span className="hero__chip">
-              <IonIcon icon={timeOutline} aria-hidden="true" /> {profile.timezone || 'Asia/Dhaka'}
+              <IonIcon icon={layersOutline} aria-hidden="true" /> {view.subjects.length}{' '}
+              {view.subjects.length === 1 ? 'subject' : 'subjects'}
             </span>
-            <span className="hero__chip">
-              <IonIcon
-                icon={auth.mode === 'cloud' ? cloudDoneOutline : phonePortraitOutline}
-                aria-hidden="true"
-              />
-              {auth.mode === 'cloud' ? 'Supabase cloud' : 'Local demo mode'}
-            </span>
-            <span className="tiny muted">Everything below comes from records you entered.</span>
+            {classScope ? (
+              <span className="hero__chip">
+                <IonIcon icon={schoolOutline} aria-hidden="true" /> {classScope}
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="hero__actions">
@@ -219,106 +233,120 @@ export function DashboardPage() {
 
       {view.demoActive ? (
         <Notice tone="warn" title="Demo data is loaded.">
-          Every demo row is labelled <DemoBadge />. Remove it from{' '}
-          <Link to="/settings">Settings → Data</Link> before entering real records.{' '}
-          <button type="button" className="link-button" onClick={() => navigate('/settings')}>
-            Manage
-          </button>
+          Demo rows are labelled <DemoBadge />. Clear them in <Link to="/settings">Settings</Link> before adding
+          your own.
         </Notice>
       ) : null}
 
-      {/* What to do next comes first: the action outranks reference numbers. */}
+      {/* 1. What to study next */}
+      <SectionCard
+        title="Today's focus"
+        hint="The one thing to start with"
+        action={
+          <Link to="/tasks" className="btn btn--ghost btn--sm">
+            All tasks
+          </Link>
+        }
+      >
+        {nextAction ? (
+          <div className="row row--between" style={{ alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div className="strong">{nextAction.title}</div>
+              <div className="row" style={{ gap: 6, marginTop: 4 }}>
+                <Badge tone={nextAction.priority === 'high' ? 'danger' : nextAction.priority === 'medium' ? 'warn' : 'neutral'}>
+                  {nextAction.priority} priority
+                </Badge>
+                <Badge tone="neutral">
+                  <IonIcon icon={timeOutline} aria-hidden="true" /> {nextAction.estimated_minutes} min
+                </Badge>
+                {nextAction.due_date ? (
+                  <Badge tone={nextAction.due_date < today ? 'danger' : 'info'}>
+                    <IonIcon icon={calendarOutline} aria-hidden="true" /> due {nextAction.due_date}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={() => void completeTask(nextAction.id)}
+              disabled={busyTask === nextAction.id}
+            >
+              <IonIcon icon={checkmarkCircleOutline} aria-hidden="true" /> Done
+            </button>
+          </div>
+        ) : (
+          <EmptyState
+            icon={<IonIcon icon={checkmarkCircleOutline} aria-hidden="true" />}
+            title="Nothing planned for today"
+            message="Rest is part of a sustainable plan."
+            action={
+              <Link to="/tasks" className="btn btn--secondary btn--sm">
+                Plan a task
+              </Link>
+            }
+          />
+        )}
+      </SectionCard>
+
+      {/* 2. Continue studying + 3. Revision due */}
       <div className="dash-split">
         <SectionCard
-          title="Next useful action"
-          hint="Derived from deadlines, evidence and your own priorities"
+          title="Continue studying"
+          hint="Your most recently active chapters"
           action={
-            <Link to="/tasks" className="btn btn--ghost btn--sm">
-              All tasks
+            <Link to="/curriculum" className="btn btn--ghost btn--sm">
+              Curriculum
             </Link>
           }
         >
-          {nextAction ? (
-            <div className="stack">
-              <div className="row row--between" style={{ alignItems: 'flex-start' }}>
-                <div>
-                  <div className="strong">{nextAction.title}</div>
-                  <div className="row" style={{ gap: 6, marginTop: 4 }}>
-                    <Badge tone={nextAction.priority === 'high' ? 'danger' : nextAction.priority === 'medium' ? 'warn' : 'neutral'}>
-                      {nextAction.priority} priority
-                    </Badge>
-                    <Badge tone="neutral">
-                      <IonIcon icon={timeOutline} aria-hidden="true" /> {nextAction.estimated_minutes} min
-                    </Badge>
-                    {nextAction.due_date ? (
-                      <Badge tone={nextAction.due_date < today ? 'danger' : 'info'}>
-                        <IonIcon icon={calendarOutline} aria-hidden="true" /> due {nextAction.due_date}
-                      </Badge>
-                    ) : null}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn--primary btn--sm"
-                  onClick={() => void completeTask(nextAction.id)}
-                  disabled={busyTask === nextAction.id}
-                >
-                  <IonIcon icon={checkmarkCircleOutline} aria-hidden="true" /> Done
-                </button>
-              </div>
-              {nextAction.gap_reason ? (
-                <Notice tone="info" title="Why this is suggested:">
-                  {nextAction.gap_reason}
-                </Notice>
-              ) : null}
-            </div>
-          ) : (
+          {recentChapters.length === 0 ? (
             <EmptyState
-              icon={<IonIcon icon={checkmarkCircleOutline} aria-hidden="true" />}
-              title="No open task right now"
-              message="That is allowed. Plan a small next step only if it helps — rest is part of a sustainable plan."
+              icon={<IonIcon icon={layersOutline} aria-hidden="true" />}
+              title="No chapter activity yet"
+              message="Open a chapter and tick something off to see it here."
               action={
-                <Link to="/tasks" className="btn btn--secondary btn--sm">
-                  Plan a task
+                <Link to="/curriculum" className="btn btn--secondary btn--sm">
+                  Open curriculum
                 </Link>
               }
             />
-          )}
-          {view.dashboardTasks.length > 1 ? (
-            <>
-              <div className="divider" />
-              {/*
-               * The card used to say "N more task(s)" and stop, leaving two thirds
-               * of the panel empty beside a full revision queue. Listing the next
-               * two costs nothing and is the same data, already sorted.
-               */}
-              <ul className="next-actions">
-                {view.dashboardTasks.slice(1, 3).map((task) => (
-                  <li key={task.id} className="next-actions__row">
-                    <div className="next-actions__body">
-                      <span className="next-actions__title">{task.title}</span>
-                      <span className="next-actions__meta">
-                        {task.priority} priority · {task.estimated_minutes} min
-                        {task.due_date ? ` · due ${task.due_date}` : ''}
-                      </span>
+          ) : (
+            <div className="list">
+              {recentChapters.map(({ subject, chapter }) => {
+                const done = chapter.progress.checklist.done;
+                const total = chapter.progress.checklist.total;
+                return (
+                  <div className="list-row" key={chapter.chapter.id}>
+                    <div className="list-row__main">
+                      <Link to={`/chapters/${chapter.chapter.id}`} className="list-row__title list-row__title--link">
+                        {chapter.title}
+                      </Link>
+                      <div className="list-row__meta">
+                        <span>{subject.label}</span>
+                        <span>{done} of {total} done</span>
+                      </div>
+                      <div style={{ marginTop: 6 }}>
+                        <ProgressBar
+                          percent={total > 0 ? (done / total) * 100 : null}
+                          label={`${chapter.title} checklist`}
+                          compact
+                        />
+                      </div>
                     </div>
-                    <Link to="/tasks" className="btn btn--ghost btn--sm">
-                      Open
+                    <Link to={`/chapters/${chapter.chapter.id}`} className="btn btn--ghost btn--sm" aria-label={`Open ${chapter.title}`}>
+                      <IonIcon icon={chevronForwardOutline} aria-hidden="true" />
                     </Link>
-                  </li>
-                ))}
-              </ul>
-              <p className="tiny muted" style={{ marginTop: 6 }}>
-                {view.dashboardTasks.length} task(s) planned or due today.{' '}
-                <Link to="/tasks">Open the planner</Link>
-              </p>
-            </>
-          ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </SectionCard>
 
         <SectionCard
-          title="Revision queue"
-          hint="From your own review dates and confidence ratings"
+          title="Revision due"
+          hint="From your own review dates"
           action={
             <Link to="/revisions" className="btn btn--ghost btn--sm">
               Open
@@ -328,8 +356,8 @@ export function DashboardPage() {
           {dueRevisions.length === 0 && upcomingRevisions.length === 0 ? (
             <EmptyState
               icon={<IonIcon icon={refreshOutline} aria-hidden="true" />}
-              title="No revisions recorded as due"
-              message="Log a revision and the app will suggest a next review date from your confidence rating."
+              title="Nothing due"
+              message="Log a revision and a next review date is suggested for you."
               action={
                 <Link to="/revisions" className="btn btn--secondary btn--sm">
                   Log a revision
@@ -344,12 +372,11 @@ export function DashboardPage() {
                     <div className="list-row__title">{entry.chapterTitle}</div>
                     <div className="list-row__meta">
                       <span>{entry.subjectName}</span>
-                      <span>{entry.summary.nextDateSource === 'suggested' ? 'suggested review' : 'review date'} {entry.summary.nextDate}</span>
-                      <span>confidence {entry.summary.lastConfidence ?? '—'}/5</span>
+                      <span>{entry.summary.nextDate}</span>
                     </div>
                   </div>
                   <Badge tone={entry.bucket === 'overdue' ? 'danger' : 'warn'}>
-                    {entry.bucket === 'overdue' ? `${Math.abs(entry.daysUntilDue)}d overdue` : 'Due today'}
+                    {entry.bucket === 'overdue' ? `${Math.abs(entry.daysUntilDue)}d overdue` : 'Today'}
                   </Badge>
                 </div>
               ))}
@@ -359,7 +386,7 @@ export function DashboardPage() {
                     <div className="list-row__title">{entry.chapterTitle}</div>
                     <div className="list-row__meta">
                       <span>{entry.subjectName}</span>
-                      <span>due in {entry.daysUntilDue} day(s)</span>
+                      <span>in {entry.daysUntilDue} day(s)</span>
                     </div>
                   </div>
                   <Badge tone="info">Soon</Badge>
@@ -370,262 +397,211 @@ export function DashboardPage() {
         </SectionCard>
       </div>
 
-      <section className="grid grid--stats" aria-label="Today at a glance">
-        <StatCard
-          label="Today’s tasks"
-          value={view.dashboardTasks.length}
-          hint={
-            view.taskCounts.overdue > 0
-              ? `${view.taskCounts.overdue} overdue — reschedule without guilt`
-              : 'Planned or due today'
-          }
-          to="/tasks"
-          badge={view.taskCounts.overdue > 0 ? <Badge tone="warn">Overdue</Badge> : null}
-        />
-        <StatCard
-          label="Study recorded this week"
-          value={minutesToHuman(weekMinutes)}
-          hint={`${sessionsThisWeek.length} session${sessionsThisWeek.length === 1 ? '' : 's'} logged · time is not proof of learning`}
-          to="/sessions"
-        />
-        <StatCard
-          label="Study time today"
-          value={todayTime.studyMinutes > 0 ? formatMinutes(todayTime.studyMinutes) : 'Not recorded'}
-          hint={
-            todayTime.otherMinutes > 0
-              ? `${formatMinutes(todayTime.otherMinutes)} of other blocks (college, sleep, breaks…)`
-              : 'From study sessions only'
-          }
-          to="/time"
-        />
-        <StatCard
-          label="Next exam"
-          value={nextExam ? `${nextExam.daysRemaining} day(s)` : 'Not recorded'}
-          hint={nextExam ? `${nextExam.title} · ${nextExam.examDate}` : 'Add an exam target to see a countdown'}
-          to="/exams/prep"
-        />
-        <StatCard
-          label="Checklist completion"
-          value={view.totals.checklistTotal > 0 ? `${Math.round((view.totals.checklistDone / view.totals.checklistTotal) * 100)}%` : '—'}
-          hint={`${view.totals.checklistDone} of ${view.totals.checklistTotal} items · separate from mastery`}
-          to="/subjects"
-        />
-        <StatCard
-          label="Revisions due"
-          value={dueRevisions.length}
-          hint={dueRevisions.length === 0 ? 'Nothing due from recorded revisions' : 'Based on your own review dates'}
-          to="/revisions"
-          badge={dueRevisions.some((r) => r.bucket === 'overdue') ? <Badge tone="danger">Overdue</Badge> : null}
-        />
-        <StatCard
-          label="Open difficult topics"
-          value={view.totals.openDifficulties}
-          hint="Only topics you marked"
-          to="/difficulties"
-        />
-        <StatCard label="Latest exam result" value={examPercentLabel} hint={`${view.examSummary.count} result(s) recorded`} to="/exams" />
-      </section>
+      {/* 4. Today's tasks */}
+      <SectionCard
+        title="Today's tasks"
+        hint={`${openTasks.length} open${view.taskCounts.overdue > 0 ? ` · ${view.taskCounts.overdue} overdue` : ''}`}
+        action={
+          <Link to="/tasks" className="btn btn--ghost btn--sm">
+            Planner
+          </Link>
+        }
+      >
+        {openTasks.length === 0 ? (
+          <p className="small muted">No open task today.</p>
+        ) : (
+          <div className="list">
+            {openTasks.slice(0, 6).map((task) => (
+              <div className="list-row" key={task.id}>
+                <button
+                  type="button"
+                  className="chapter-row__done-toggle"
+                  aria-label={`Mark ${task.title} done`}
+                  onClick={() => void completeTask(task.id)}
+                  disabled={busyTask === task.id}
+                >
+                  <IonIcon icon={checkmarkCircleOutline} aria-hidden="true" />
+                </button>
+                <div className="list-row__main">
+                  <div className="list-row__title">{task.title}</div>
+                  <div className="list-row__meta">
+                    <span>{task.priority} priority</span>
+                    <span>{task.estimated_minutes} min</span>
+                    {task.due_date ? <span>due {task.due_date}</span> : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
 
-      <div className="dash-split">
-        <SectionCard title="Needs attention" hint="Each item names the record behind it">
-          {attentionChapters.length === 0 ? (
-            <EmptyState
-              icon={<IonIcon icon={flaskOutline} aria-hidden="true" />}
-              title="No evidence-based gap flagged"
-              message="The app only flags gaps supported by your records. Keep logging what you actually do."
-            />
-          ) : (
-            <div className="list">
-              {attentionChapters.map(({ subject, chapter }) => {
-                const topFlag = chapter.progress.flags.find((f) => f.severity !== 'info');
-                return (
-                  <div className="list-row" key={chapter.chapter.id}>
-                    <div className="list-row__main">
-                      <div className="list-row__title">
-                        <Link to={`/chapters/${chapter.chapter.id}`} style={{ color: 'inherit' }}>
+      {/* 5. Small weekly summary */}
+      <SectionCard
+        title="This week"
+        hint={`${week.start} → ${week.end}`}
+        action={
+          <Link to="/reports" className="btn btn--ghost btn--sm">
+            Report
+          </Link>
+        }
+      >
+        <div className="row row--between" style={{ alignItems: 'baseline' }}>
+          <span className="small">Study time</span>
+          <span className="strong mono-num">{minutesToHuman(weekMinutes)}</span>
+        </div>
+        {weekMinutes === 0 ? (
+          <p className="tiny muted" style={{ marginTop: 6 }}>
+            No study time recorded this week.
+          </p>
+        ) : (
+          <div className="week-bars" role="img" aria-label={`Study minutes per day, week of ${week.start}`}>
+            {weekDays.map((day) => (
+              <div className="week-bars__col" key={day.date}>
+                <div className="week-bars__track">
+                  <div
+                    className={`week-bars__bar${day.minutes === 0 ? ' week-bars__bar--empty' : ''}`}
+                    style={{
+                      height: peakDayMinutes > 0 ? `${Math.max(2, (day.minutes / peakDayMinutes) * 100)}%` : '2px',
+                    }}
+                    title={`${day.date}: ${day.minutes === 0 ? 'nothing recorded' : minutesToHuman(day.minutes)}`}
+                  />
+                </div>
+                <span className={`week-bars__label${day.isToday ? ' week-bars__label--today' : ''}`}>{day.label}</span>
+                <span className="week-bars__value">{day.minutes === 0 ? '–' : day.minutes}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="week-summary">
+          <span>
+            <strong className="mono-num">{sessionsThisWeek.length}</strong> sessions
+          </span>
+          <span>
+            <strong className="mono-num">{view.taskCounts.doneThisWeek}</strong>{' '}
+            {view.taskCounts.doneThisWeek === 1 ? 'task done' : 'tasks done'}
+          </span>
+          <span>
+            <strong className="mono-num">{new Set(sessionsThisWeek.map((s) => s.session_date)).size}</strong> active days
+          </span>
+          <span>
+            <strong className="mono-num">{formatMinutes(todayTime.studyMinutes)}</strong> today
+          </span>
+        </div>
+      </SectionCard>
+
+      {/* 6. Reference detail stays one tap away instead of filling the page. */}
+      <details className="disclosure">
+        <summary>More detail</summary>
+        <div className="disclosure__body">
+          <div className="dash-split">
+            <SectionCard title="Upcoming deadlines" hint="Deadlines you entered">
+              {dueSoonTasks.length === 0 ? (
+                <p className="small muted">Nothing due in the next three days.</p>
+              ) : (
+                <div className="list">
+                  {dueSoonTasks.map((task) => (
+                    <div className="list-row" key={task.id}>
+                      <div className="list-row__main">
+                        <div className="list-row__title">{task.title}</div>
+                        <div className="list-row__meta">
+                          <span>due {task.due_date}</span>
+                          <span>{task.estimated_minutes} min</span>
+                        </div>
+                      </div>
+                      <Badge tone={task.due_date && task.due_date < today ? 'danger' : 'neutral'}>
+                        {task.due_date && task.due_date < today ? 'Overdue' : 'Upcoming'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Recent results" hint="Entered marks only">
+              {bundle.exams.length === 0 ? (
+                <p className="small muted">No exam results entered yet.</p>
+              ) : (
+                <div className="list">
+                  {[...bundle.exams]
+                    .sort((a, b) => (a.exam_date < b.exam_date ? 1 : -1))
+                    .slice(0, 3)
+                    .map((exam) => {
+                      const percent = exam.total_marks > 0 ? Math.round((exam.marks_obtained / exam.total_marks) * 1000) / 10 : null;
+                      return (
+                        <div className="list-row" key={exam.id}>
+                          <div className="list-row__main">
+                            <div className="list-row__title">{exam.exam_name}</div>
+                            <div className="list-row__meta">
+                              <span>{exam.exam_date}</span>
+                              <span>{exam.marks_obtained}/{exam.total_marks}</span>
+                            </div>
+                          </div>
+                          <Badge tone={percent !== null && percent < 50 ? 'danger' : percent !== null && percent >= 80 ? 'good' : 'neutral'}>
+                            {percent !== null ? `${percent}%` : 'Not recorded'}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </SectionCard>
+          </div>
+
+          <SectionCard title="Needs attention" hint="Each item names the record behind it">
+            {attentionChapters.length === 0 ? (
+              <p className="small muted">
+                <IonIcon icon={flaskOutline} aria-hidden="true" /> Nothing flagged from your records.
+              </p>
+            ) : (
+              <div className="list">
+                {attentionChapters.map(({ subject, chapter }) => {
+                  const topFlag = chapter.progress.flags.find((f) => f.severity !== 'info');
+                  return (
+                    <div className="list-row" key={chapter.chapter.id}>
+                      <div className="list-row__main">
+                        <Link to={`/chapters/${chapter.chapter.id}`} className="list-row__title list-row__title--link">
                           {chapter.title}
                         </Link>
-                      </div>
-                      <div className="list-row__meta">
-                        <span>{subject.label}</span>
-                        {topFlag ? <span>{topFlag.reason}</span> : null}
-                      </div>
-                      <div className="row" style={{ marginTop: 6, gap: 8 }}>
-                        <StatusBadge status={chapter.progress.status} />
-                        <span className="tiny muted">
-                          checklist {chapter.progress.checklist.done}/{chapter.progress.checklist.total}
-                        </span>
-                      </div>
-                    </div>
-                    <Link to={`/chapters/${chapter.chapter.id}`} className="btn btn--ghost btn--sm" aria-label={`Open ${chapter.title}`}>
-                      <IonIcon icon={chevronForwardOutline} />
-                    </Link>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </SectionCard>
-
-        <SectionCard
-          title="This week at a glance"
-          hint={`Week ${week.start} → ${week.end}`}
-          action={
-            <Link to="/reports" className="btn btn--ghost btn--sm">
-              Report
-            </Link>
-          }
-        >
-          <div className="stack">
-            <div>
-              <div className="row row--between">
-                <span className="small">Study time by day</span>
-                <span className="small strong mono-num">{minutesToHuman(weekMinutes)}</span>
-              </div>
-              {weekMinutes === 0 ? (
-                <p className="tiny muted" style={{ marginTop: 6 }}>
-                  No study time recorded this week. Sessions you log on the Study Sessions page appear here —
-                  nothing is estimated from how long the app was open.
-                </p>
-              ) : (
-                <>
-                  <div className="week-bars" role="img" aria-label={`Study minutes per day, week of ${week.start}`}>
-                    {weekDays.map((day) => (
-                      <div className="week-bars__col" key={day.date}>
-                        <div className="week-bars__track">
-                          <div
-                            className={`week-bars__bar${day.minutes === 0 ? ' week-bars__bar--empty' : ''}`}
-                            style={{
-                              height: peakDayMinutes > 0 ? `${Math.max(2, (day.minutes / peakDayMinutes) * 100)}%` : '2px',
-                            }}
-                            title={`${day.date}: ${day.minutes === 0 ? 'nothing recorded' : minutesToHuman(day.minutes)}`}
-                          />
-                        </div>
-                        <span className={`week-bars__label${day.isToday ? ' week-bars__label--today' : ''}`}>
-                          {day.label}
-                        </span>
-                        <span className="week-bars__value">{day.minutes === 0 ? '–' : day.minutes}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="tiny muted" style={{ marginTop: 4 }}>
-                    Minutes per day from saved study sessions. A dash means nothing was recorded, not that you did
-                    not study.
-                  </p>
-                </>
-              )}
-            </div>
-            <div className="divider" />
-            <div>
-              <div className="row row--between">
-                <span className="small">Checklist items ticked</span>
-                <span className="small strong mono-num">{view.totals.checklistDone}/{view.totals.checklistTotal}</span>
-              </div>
-              <ProgressBar
-                percent={
-                  view.totals.checklistTotal > 0
-                    ? (view.totals.checklistDone / view.totals.checklistTotal) * 100
-                    : null
-                }
-                label="All chapters"
-                done={view.totals.checklistDone}
-                total={view.totals.checklistTotal}
-              />
-            </div>
-            <div className="divider" />
-            <div className="row row--between small">
-              <span>Lectures recorded this week</span>
-              <span className="strong">{weekLectures}</span>
-            </div>
-            <div className="row row--between small">
-              <span>Tasks completed</span>
-              <span className="strong">{view.taskCounts.doneThisWeek}</span>
-            </div>
-            <div className="row row--between small">
-              <span>Active days</span>
-              <span className="strong">{new Set(sessionsThisWeek.map((s) => s.session_date)).size}</span>
-            </div>
-            <div className="row row--between small">
-              <span>Subjects with records</span>
-              <span className="strong">
-                {view.subjects.filter((s) => s.progress.lastActivityDate !== null).length}/{view.totals.subjects}
-              </span>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
-
-      <div className="dash-split">
-        <SectionCard
-          title="Upcoming deadlines"
-          hint="Deadlines you entered. Nothing here is invented."
-          action={
-            <Link to="/tasks" className="btn btn--ghost btn--sm">
-              Planner
-            </Link>
-          }
-        >
-          {dueSoonTasks.length === 0 ? (
-            <p className="small muted">No task has a deadline in the next three days.</p>
-          ) : (
-            <div className="list">
-              {dueSoonTasks.map((task) => (
-                <div className="list-row" key={task.id}>
-                  <div className="list-row__main">
-                    <div className="list-row__title">{task.title}</div>
-                    <div className="list-row__meta">
-                      <span>due {task.due_date}</span>
-                      <span>{task.estimated_minutes} min</span>
-                    </div>
-                  </div>
-                  <Badge tone={task.due_date && task.due_date < today ? 'danger' : 'neutral'}>
-                    {task.due_date && task.due_date < today ? 'Overdue' : 'Upcoming'}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Recent exams & results" hint="Entered marks only; no predictions">
-          {bundle.exams.length === 0 ? (
-            <p className="small muted">No exam results entered yet.</p>
-          ) : (
-            <div className="list">
-              {[...bundle.exams]
-                .sort((a, b) => (a.exam_date < b.exam_date ? 1 : -1))
-                .slice(0, 3)
-                .map((exam) => {
-                  const percent = exam.total_marks > 0 ? Math.round((exam.marks_obtained / exam.total_marks) * 1000) / 10 : null;
-                  const subject = view.subjectById.get(exam.user_subject_id ?? '');
-                  return (
-                    <div className="list-row" key={exam.id}>
-                      <div className="list-row__main">
-                        <div className="list-row__title">{exam.exam_name}</div>
                         <div className="list-row__meta">
-                          <span>{exam.exam_date}</span>
-                          {subject ? <span>{subject.label}</span> : null}
-                          <span>
-                            {exam.marks_obtained}/{exam.total_marks}
+                          <span>{subject.label}</span>
+                          {topFlag ? <span>{topFlag.reason}</span> : null}
+                        </div>
+                        <div className="row" style={{ marginTop: 6, gap: 8 }}>
+                          <StatusBadge status={chapter.progress.status} />
+                          <span className="tiny muted">
+                            checklist {chapter.progress.checklist.done}/{chapter.progress.checklist.total}
                           </span>
                         </div>
                       </div>
-                      <Badge tone={percent !== null && percent < 50 ? 'danger' : percent !== null && percent >= 80 ? 'good' : 'neutral'}>
-                        {percent !== null ? `${percent}%` : 'Not recorded'}
-                      </Badge>
+                      <Link to={`/chapters/${chapter.chapter.id}`} className="btn btn--ghost btn--sm" aria-label={`Open ${chapter.title}`}>
+                        <IonIcon icon={chevronForwardOutline} aria-hidden="true" />
+                      </Link>
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Recorded totals" hint="Counts, not scores">
+            <div className="totals-grid">
+              <span>Checklist <strong className="mono-num">{view.totals.checklistDone}/{view.totals.checklistTotal}</strong></span>
+              <span>Open difficult topics <strong className="mono-num">{view.totals.openDifficulties}</strong></span>
+              <span>Latest exam <strong className="mono-num">{examPercentLabel}</strong></span>
+              <span>Next exam <strong className="mono-num">{nextExam ? `${nextExam.daysRemaining} day(s)` : 'Not recorded'}</strong></span>
+              <span>Lectures this week <strong className="mono-num">{weekLectures}</strong></span>
+              <span>Chapters with records <strong className="mono-num">{view.totals.chaptersWithRecords}/{view.totals.chapters}</strong></span>
             </div>
-          )}
-        </SectionCard>
-      </div>
+          </SectionCard>
+        </div>
+      </details>
 
       <footer className="dash-foot">
         <DataFreshness lastRecordDate={view.lastRecordDate} now={today} />
         <p className="tiny muted" style={{ marginTop: 4 }}>
-          <IonIcon icon={alertCircleOutline} aria-hidden="true" /> Need to catch up? Missing records never lower
-          your progress; they only mark information as unknown. Add records when you can.
+          <IonIcon icon={alertCircleOutline} aria-hidden="true" /> Missing records say “not recorded”, never “you
+          did not study”.
         </p>
       </footer>
     </div>

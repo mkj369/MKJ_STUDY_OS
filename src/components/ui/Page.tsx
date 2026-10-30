@@ -104,18 +104,21 @@ export function ProgressBar({
   total,
   label,
   tone,
+  compact,
 }: {
   percent: number | null;
   done?: number;
   total?: number;
   label?: string;
   tone?: 'default' | 'warn' | 'danger';
+  /** Track only, no meta line — for dense rows that already show the counts. */
+  compact?: boolean;
 }) {
   const hasData = percent !== null;
   const clamped = hasData ? Math.max(0, Math.min(100, percent)) : 0;
   const toneClass = tone === 'warn' ? 'progress--warn' : tone === 'danger' ? 'progress--danger' : '';
   return (
-    <div className={`progress ${toneClass}`}>
+    <div className={`progress-block${compact ? ' progress-block--compact' : ''} ${toneClass}`}>
       <div
         className="progress__track"
         role="progressbar"
@@ -127,13 +130,15 @@ export function ProgressBar({
       >
         <div className="progress__fill" style={{ width: `${clamped}%` }} />
       </div>
-      <div className="progress__meta">
-        <span>{label ?? 'Completion'}</span>
-        <span className="mono-num">
-          {hasData ? `${Math.round(clamped)}%` : 'Not recorded'}
-          {typeof done === 'number' && typeof total === 'number' ? ` (${done}/${total})` : ''}
-        </span>
-      </div>
+      {compact ? null : (
+        <div className="progress__meta">
+          <span>{label ?? 'Completion'}</span>
+          <span className="mono-num">
+            {hasData ? `${Math.round(clamped)}%` : 'Not recorded'}
+            {typeof done === 'number' && typeof total === 'number' ? ` (${done}/${total})` : ''}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

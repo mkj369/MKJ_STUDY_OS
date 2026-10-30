@@ -26,7 +26,7 @@ function RevisionsContent() {
   const [editing, setEditing] = useState<RevisionSession | null>(null);
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const queue = view.revisionQueue;
   const dueNow = queue.filter((q) => q.bucket === 'overdue' || q.bucket === 'today');
   const upcoming = queue.filter((q) => q.bucket === 'this_week');

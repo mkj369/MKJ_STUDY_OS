@@ -1,70 +1,41 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { IonIcon } from '@ionic/react';
-import { addOutline, chevronForwardOutline, createOutline } from 'ionicons/icons';
+import { addOutline, archiveOutline, chevronForwardOutline } from 'ionicons/icons';
 import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
-import { Badge, DemoBadge, EmptyState, Notice, PageHeader, ProgressBar, SectionCard, StatusBadge } from '@/components/ui/Page';
-import { RecordDialog } from '@/components/ui/RecordDialog';
+import { Badge, DemoBadge, EmptyState, PageHeader, ProgressBar, SectionCard, StatusBadge } from '@/components/ui/Page';
 import { ConfirmDeleteButton } from '@/components/ui/ConfirmDeleteButton';
+import { InlineMenu } from '@/components/ui/InlineMenu';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
-import { userChapterSchema, userSubjectSchema, type ChapterFormValues, type SubjectFormValues } from '@/domain/schemas';
+import { isClassLevel } from '@/domain/classLevels';
+import { subjectBelongsToClass } from '@/domain/studentProfile';
+import { AddChapterDialog } from '@/features/curriculum/AddChapterDialog';
 import { errorMessage } from '@/utils/errors';
-import { DEFAULT_STALE_DAYS } from '@/domain/progress';
 
-const CHAPTER_STATUS_OPTIONS = [
-  { value: 'not_recorded', label: 'Not recorded (let the app derive it)' },
-  { value: 'not_started', label: 'Not started' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'needs_practice', label: 'Needs practice' },
-  { value: 'needs_revision', label: 'Needs revision' },
-  { value: 'blocked', label: 'Blocked' },
-  { value: 'complete', label: 'Complete' },
-];
 
 function SubjectsContent() {
   const { data } = useWorkspaceQuery();
   const mutate = useMutate();
   const notify = useNotify();
-  const [subjectDialog, setSubjectDialog] = useState(false);
   const [chapterDialogSubjectId, setChapterDialogSubjectId] = useState<string | null>(null);
-  const [chapterDialogOpen, setChapterDialogOpen] = useState(false);
 
   if (!data) return null;
-  const { view } = data;
+  const { view, bundle } = data;
+  const activeClass = isClassLevel(bundle.profile.active_class) ? bundle.profile.active_class : null;
 
-  const createSubject = async (values: SubjectFormValues) => {
-    await mutate((repo) =>
-      repo.create('user_subjects', {
-        curriculum_subject_id: null,
-        curriculum_version_id: null,
-        custom_name: values.custom_name ?? 'My subject',
-        custom_paper_label: values.custom_paper_label ?? null,
-        status: 'active',
-        color: values.color,
-        sort_order: view.subjects.length + 1,
-        is_demo: false,
-      }),
-    );
-    setSubjectDialog(false);
-    await notify('Subject created.');
+  /**
+   * Chapters are added through the same dialog the curriculum screen uses, so
+   * numbering, the preview and the Bengali title behave identically in both
+   * places. This page shows them; it does not own a second way to create them.
+   */
+  const generateChapters = async (subjectId: string, count: number) => {
+    const created = await mutate((repo) => repo.generateChapters(subjectId, count));
+    await notify(created.length === 1 ? '1 chapter added.' : `${created.length} chapters added.`);
   };
 
-  const createChapter = async (values: ChapterFormValues) => {
-    await mutate(async (repo) => {
-      const chapter = await repo.create('user_chapters', {
-        user_subject_id: values.user_subject_id,
-        curriculum_chapter_id: null,
-        curriculum_version_id: null,
-        custom_title: values.title,
-        status: values.status,
-        lecture_target_count: values.lecture_target_count ?? null,
-        import_batch_id: null,
-        is_demo: false,
-      });
-      await repo.ensureChecklistDefaults(chapter.id);
-      return chapter;
-    });
-    setChapterDialogOpen(false);
+  const createChapter = async (title: string, titleBn: string) => {
+    if (!chapterDialogSubjectId) return;
+    await mutate((repo) => repo.createPersonalChapter({ subjectId: chapterDialogSubjectId, title, titleBn }));
     await notify('Chapter added with the standard checklist.');
   };
 
@@ -89,29 +60,17 @@ function SubjectsContent() {
   return (
     <>
       <PageHeader
-        title="Subjects & Chapters"
-        description="Every chapter keeps its checklist, lecture target, revisions and difficulties. Checklist completion is never treated as mastery."
+        title="Study"
+        description="Your subjects, chapter by chapter."
         actions={
-          <>
-            <button type="button" className="btn btn--primary btn--sm" onClick={() => setSubjectDialog(true)}>
-              <IonIcon icon={addOutline} aria-hidden="true" /> Subject
-            </button>
-            <button
-              type="button"
-              className="btn btn--secondary btn--sm"
-              onClick={() => {
-                const first = view.subjects[0];
-                if (!first) {
-                  void notify('Create a subject first.', 'warning');
-                  return;
-                }
-                setChapterDialogSubjectId(first.subject.id);
-                setChapterDialogOpen(true);
-              }}
-            >
-              <IonIcon icon={createOutline} aria-hidden="true" /> Chapter
-            </button>
-          </>
+          /*
+           * One place adds subjects. The old "Subject" button opened a second
+           * creation form (with a hex colour field) and the "Chapter" button
+           * silently added to whichever subject happened to be first.
+           */
+          <Link to="/curriculum" className="btn btn--primary btn--sm">
+            <IonIcon icon={addOutline} aria-hidden="true" /> Add subject
+          </Link>
         }
       />
 
@@ -120,16 +79,11 @@ function SubjectsContent() {
           <EmptyState
             icon={<IonIcon icon={addOutline} aria-hidden="true" />}
             title="No subjects yet"
-            message="Add a subject from My Curriculum, create your own subject, or import a chapter list."
+            message="Pick your class, then add your first subject."
             action={
-              <div className="row" style={{ justifyContent: 'center' }}>
-                <Link to="/curriculum" className="btn btn--primary btn--sm">
-                  Open curriculum
-                </Link>
-                <button type="button" className="btn btn--secondary btn--sm" onClick={() => setSubjectDialog(true)}>
-                  Create subject
-                </button>
-              </div>
+              <Link to="/curriculum" className="btn btn--primary btn--sm">
+                Open curriculum
+              </Link>
             }
           />
         </SectionCard>
@@ -139,33 +93,37 @@ function SubjectsContent() {
             <SectionCard
               key={subject.subject.id}
               title={subject.label}
-              hint={`${subject.chapters.length} chapter(s) · ${subject.progress.chaptersComplete} complete · ${subject.progress.openDifficulties} open difficult topic(s)`}
+              hint={`${subject.chapters.length} ${subject.chapters.length === 1 ? 'chapter' : 'chapters'} · ${subject.progress.chaptersComplete} completed`}
               action={
-                <div className="row" style={{ gap: 6 }}>
+                /*
+                 * Two visible controls, one menu. Four buttons in a row wrapped
+                 * onto a second line at 390px and put a solid red "Remove" next
+                 * to the primary action.
+                 */
+                <div className="row" style={{ gap: 6, alignItems: 'center' }}>
                   {subject.subject.is_demo ? <DemoBadge /> : null}
                   <button
                     type="button"
                     className="btn btn--secondary btn--sm"
-                    onClick={() => {
-                      setChapterDialogSubjectId(subject.subject.id);
-                      setChapterDialogOpen(true);
-                    }}
+                    onClick={() => setChapterDialogSubjectId(subject.subject.id)}
                   >
                     Add chapter
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn--secondary btn--sm"
-                    onClick={() => void archiveSubject(subject.subject.id, subject.label)}
-                  >
-                    Archive
-                  </button>
-                  <ConfirmDeleteButton
-                    label="Remove subject"
-                    header={`Remove ${subject.label}?`}
-                    message="Only possible when the subject has no linked records — the app never deletes your history silently. Use Archive to hide it while keeping everything."
-                    onConfirm={() => deleteSubject(subject.subject.id, subject.label)}
-                  />
+                  <InlineMenu label={`More options for ${subject.label}`}>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => void archiveSubject(subject.subject.id, subject.label)}
+                    >
+                      <IonIcon icon={archiveOutline} aria-hidden="true" /> Archive
+                    </button>
+                    <ConfirmDeleteButton
+                      label="Remove subject"
+                      header={`Remove ${subject.label}?`}
+                      message="Only possible when the subject has no linked records — the app never deletes your history silently. Use Archive to hide it while keeping everything."
+                      onConfirm={() => deleteSubject(subject.subject.id, subject.label)}
+                    />
+                  </InlineMenu>
                 </div>
               }
             >
@@ -186,9 +144,12 @@ function SubjectsContent() {
                 ) : null}
 
                 {subject.chapters.length === 0 ? (
-                  <Notice tone="neutral">
-                    No chapters yet. Add them manually, import a CSV, or copy them from My Curriculum.
-                  </Notice>
+                  <div className="row row--between" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    <span className="small muted">No chapters yet.</span>
+                    <Link to="/curriculum" className="btn btn--secondary btn--sm">
+                      <IonIcon icon={addOutline} aria-hidden="true" /> Add chapters
+                    </Link>
+                  </div>
                 ) : (
                   <div className="list">
                     {subject.chapters.map((chapter) => (
@@ -234,25 +195,21 @@ function SubjectsContent() {
                   </div>
                 )}
                 {subject.progress.lastActivityDate === null ? (
-                  <p className="tiny muted">
-                    No records in this subject yet. “Not recorded” does not mean “not studied” — add what you
-                    actually did when you can.
-                  </p>
+                  <p className="tiny muted">Nothing recorded yet.</p>
                 ) : null}
-                <p className="tiny muted">Stale-activity window in flags: {DEFAULT_STALE_DAYS} days.</p>
               </div>
             </SectionCard>
           ))}
         </div>
       )}
 
-      {data.bundle.subjects.some((s) => s.status === 'archived') ? (
+      {data.bundle.subjects.some((s) => s.status === 'archived' && subjectBelongsToClass(s.class_level, activeClass)) ? (
         <>
           <div style={{ height: 16 }} />
           <SectionCard title="Archived subjects" hint="Hidden from planning; records are kept">
             <div className="list">
               {data.bundle.subjects
-                .filter((s) => s.status === 'archived')
+                .filter((s) => s.status === 'archived' && subjectBelongsToClass(s.class_level, activeClass))
                 .map((subject) => (
                   <div className="list-row" key={subject.id}>
                     <div className="list-row__main">
@@ -285,58 +242,28 @@ function SubjectsContent() {
         </>
       ) : null}
 
-      {subjectDialog ? (
-        <RecordDialog<SubjectFormValues>
-          title="Create a subject"
-          schema={userSubjectSchema}
-          defaultValues={{ mode: 'custom', custom_name: '', custom_paper_label: '', color: '#0f5132' }}
-          submitLabel="Create subject"
-          fields={[
-            { name: 'mode', label: 'Source', type: 'select', options: [{ value: 'custom', label: 'My own subject' }] },
-            { name: 'custom_name', label: 'Subject name', type: 'text', placeholder: 'e.g. Physics' },
-            { name: 'custom_paper_label', label: 'Paper / label', type: 'text', optional: true },
-            { name: 'color', label: 'Colour', type: 'text', help: 'Hex colour, e.g. #0f5132' },
-          ]}
-          onSubmit={createSubject}
-          onClose={() => setSubjectDialog(false)}
-        />
-      ) : null}
-
-      {chapterDialogOpen && chapterDialogSubjectId ? (
-        <RecordDialog<ChapterFormValues>
-          title="Add a chapter"
-          description="Chapter titles are yours. Nothing is copied from an unverified syllabus unless you ask for it."
-          schema={userChapterSchema}
-          defaultValues={{
-            user_subject_id: chapterDialogSubjectId,
-            title: '',
-            chapter_number: '',
-            lecture_target_count: '',
-            status: 'not_recorded',
+      {chapterDialogSubjectId ? (
+        <AddChapterDialog
+          open
+          subjectName={
+            view.subjects.find((subject) => subject.subject.id === chapterDialogSubjectId)?.label ?? 'Subject'
+          }
+          existing={(data.bundle.chapters.filter(
+            (chapter) => chapter.user_subject_id === chapterDialogSubjectId,
+          ) ?? []).map((chapter) => ({
+            id: chapter.id,
+            chapter_number: chapter.chapter_number ?? null,
+            title: chapter.custom_title ?? chapter.chapter_title_bn ?? 'Chapter',
+            sort_order: chapter.sort_order ?? 0,
+          }))}
+          onClose={() => setChapterDialogSubjectId(null)}
+          onGenerate={async (count) => {
+            if (!chapterDialogSubjectId) return;
+            await generateChapters(chapterDialogSubjectId, count);
+            setChapterDialogSubjectId(null);
           }}
-          submitLabel="Add chapter"
-          fields={[
-            {
-              name: 'user_subject_id',
-              label: 'Subject',
-              type: 'select',
-              options: view.subjects.map((s) => ({ value: s.subject.id, label: s.label })),
-            },
-            { name: 'title', label: 'Chapter title', type: 'text', placeholder: 'e.g. Motion in a straight line' },
-            { name: 'chapter_number', label: 'Chapter number', type: 'text', optional: true },
-            {
-              name: 'lecture_target_count',
-              label: 'Lecture target',
-              type: 'number',
-              optional: true,
-              inputMode: 'numeric',
-              help: 'Leave empty unless you know the real number of lectures. The app never guesses it.',
-            },
-            { name: 'status', label: 'Your label', type: 'select', options: CHAPTER_STATUS_OPTIONS },
-          ]}
-          onSubmit={createChapter}
-          onClose={() => {
-            setChapterDialogOpen(false);
+          onCreateCustom={async (title, titleBn) => {
+            await createChapter(title, titleBn);
             setChapterDialogSubjectId(null);
           }}
         />

@@ -35,6 +35,8 @@ export type TranslationKey =
   | 'nav.insights'
   | 'nav.focus'
   | 'nav.export'
+  | 'nav.more'
+  | 'nav.templates'
   | 'common.loading'
   | 'common.retry'
   | 'common.cancel'
@@ -60,6 +62,8 @@ type Dictionary = Record<TranslationKey, string>;
 const en: Dictionary = {
   'nav.dashboard': 'Dashboard',
   'nav.curriculum': 'My Curriculum',
+  'nav.more': 'More',
+  'nav.templates': 'Official templates',
   'nav.subjects': 'Subjects & Chapters',
   'nav.lectures': 'Lecture Log',
   'nav.sessions': 'Study Sessions',
@@ -107,6 +111,8 @@ const en: Dictionary = {
 const bn: Dictionary = {
   'nav.dashboard': 'ড্যাশবোর্ড',
   'nav.curriculum': 'আমার পাঠ্যক্রম',
+  'nav.more': 'আরও',
+  'nav.templates': 'অফিসিয়াল টেমপ্লেট',
   'nav.subjects': 'বিষয় ও অধ্যায়',
   'nav.lectures': 'লেকচার লগ',
   'nav.sessions': 'স্টাডি সেশন',

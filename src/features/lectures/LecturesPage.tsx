@@ -26,7 +26,7 @@ function LecturesContent() {
   const [onlyIncomplete, setOnlyIncomplete] = useState(false);
   const [duplicatePrompt, setDuplicatePrompt] = useState<{ values: LectureValues; titles: string[] } | null>(null);
 
-  const allLectures = useMemo(() => data?.bundle.lectures ?? [], [data?.bundle.lectures]);
+  const allLectures = useMemo(() => data?.scoped.lectures ?? [], [data?.scoped.lectures]);
   const filtered = useMemo(() => {
     return allLectures
       .filter((lecture) => (subjectFilter === 'all' ? true : lecture.user_subject_id === subjectFilter))
@@ -35,7 +35,7 @@ function LecturesContent() {
   }, [allLectures, subjectFilter, onlyIncomplete]);
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const week = weekRange(view.today);
   const lecturesThisWeek = bundle.lectures.filter((l) => l.lecture_date >= week.start && l.lecture_date <= week.end);
 

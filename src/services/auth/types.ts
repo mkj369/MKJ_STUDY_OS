@@ -16,6 +16,11 @@ export interface AuthClient {
   readonly mode: AuthMode;
   getSession(): Promise<AuthUser | null>;
   signIn(email: string, password: string): Promise<AuthUser>;
+  /**
+   * Google OAuth (cloud mode only). This redirects the browser, so it resolves
+   * only if the redirect never happens; failures throw before leaving the page.
+   */
+  signInWithGoogle?(): Promise<void>;
   signUp(email: string, password: string, displayName: string): Promise<SignUpResult>;
   signOut(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;

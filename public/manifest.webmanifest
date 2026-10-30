@@ -1,20 +1,38 @@
 {
   "name": "MKJ StudyOS",
   "short_name": "StudyOS",
-  "description": "Academic memory, syllabus tracker, revision manager and study planner for HSC Science.",
+  "description": "Class-wise curriculum manager, chapter tracker, revision planner and focus timer for Classes 1–12.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f6f8f6",
-  "theme_color": "#0f5132",
+  "background_color": "#F5F9FF",
+  "theme_color": "#38BDF8",
   "lang": "en",
   "icons": [
+    {
+      "src": "/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/logo-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

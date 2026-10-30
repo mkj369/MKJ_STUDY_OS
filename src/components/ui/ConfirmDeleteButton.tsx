@@ -6,7 +6,11 @@ export function ConfirmDeleteButton({
   label = 'Delete',
   header = 'Delete this record?',
   message = 'This removes the record from your account. It cannot be undone.',
-  buttonClassName = 'btn btn--danger btn--sm',
+  /*
+   * Destructive by default, but quiet: a solid red button sitting next to
+   * "Add chapter" on every card reads as the primary action on the screen.
+   */
+  buttonClassName = 'btn btn--danger-ghost btn--sm',
 }: {
   onConfirm: () => Promise<void> | void;
   label?: string;

@@ -41,7 +41,7 @@ function NotesContent() {
   const [editingResource, setEditingResource] = useState<StudyResource | null>(null);
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const notes = [...bundle.notes].sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
   const resources = [...bundle.resources].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 

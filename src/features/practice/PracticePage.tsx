@@ -65,7 +65,7 @@ function PracticeContent() {
   }, [data, linkedQuestionId, notify, searchParams, setSearchParams]);
 
   if (!data) return null;
-  const { bundle, view } = data;
+  const { scoped: bundle, view } = data;
 
   const chapterOptions = (subjectId: string) =>
     view.subjects.find((subject) => subject.subject.id === subjectId)?.chapters.map((chapter) => ({

@@ -1,10 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { bootWorkspace } from './onboarding';
 
+/* Onboarding is answered by the shared helper, exactly as a student would. */
 async function bootLocalWorkspace(page: Page) {
-  await page.goto('/');
-  await expect(page.getByText(/Local demo mode/i).first()).toBeVisible();
-  await page.getByRole('button', { name: /start local workspace/i }).click();
-  await expect(page.getByText(/good to see you|welcome,/i).first()).toBeVisible({ timeout: 20_000 });
+  await bootWorkspace(page);
 }
 
 const ROUTES: { path: string; heading: string | RegExp }[] = [
@@ -17,7 +16,7 @@ const ROUTES: { path: string; heading: string | RegExp }[] = [
   { path: '/practice', heading: 'Question practice' },
   { path: '/vault', heading: 'Formula vault' },
   { path: '/insights', heading: 'Progress insights' },
-  { path: '/focus', heading: 'Focus mode' },
+  { path: '/focus', heading: 'Focus' },
   { path: '/export', heading: 'Export & academic history' },
 ];
 
@@ -44,10 +43,11 @@ test('a time block can be recorded and appears on the timeline', async ({ page }
   await expect(page.getByText('45m').first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/College/).first()).toBeVisible();
 
-  // The dashboard reads the same records: a college block is "other" time, not study time.
-  await page.goto('/#/');
-  await expect(page.getByText('Study time today')).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(/45m of other blocks/)).toBeVisible();
+  // The same domain rule holds in the totals: a college block is "other" time,
+  // so 45 minutes of it must never be counted as study time.
+  const stats = page.locator('.grid--stats .stat');
+  await expect(stats.filter({ hasText: 'Study this week' })).toContainText('0m');
+  await expect(stats.filter({ hasText: 'Other time' })).toContainText('45m');
 });
 
 test('a practice question can be created, attempted and graded', async ({ page }) => {
@@ -71,15 +71,38 @@ test('a practice question can be created, attempted and graded', async ({ page }
   await expect(page.getByText(/100%/).first()).toBeVisible({ timeout: 20_000 });
 });
 
-test('focus mode can start, finish and write a study session', async ({ page }) => {
+test('focus timer starts, pauses, resumes and keeps its state across navigation', async ({ page }) => {
   await bootLocalWorkspace(page);
   await page.goto('/#/focus');
-  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Focus mode' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Focus' })).toBeVisible();
 
+  // Start, then pause: the clock must hold while paused (paused time is not study time).
   await page.getByRole('button', { name: /start focus/i }).click();
-  // A finish is only possible after a minute of focus; shorten the plan to the
-  // minimum first, then wait for the guard to lift would be slow. Instead check
-  // that the timer is running and the guard is explained.
-  await expect(page.getByRole('button', { name: /finish & log/i })).toBeDisabled();
-  await expect(page.getByText(/Ending early is a normal outcome/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /^pause$/i })).toBeVisible();
+  await page.waitForTimeout(2100);
+  await page.getByRole('button', { name: /^pause$/i }).click();
+  const paused = await page.locator('.focus-stage__time').textContent();
+  await page.waitForTimeout(1500);
+  expect(await page.locator('.focus-stage__time').textContent()).toBe(paused);
+
+  // Resume, leave the screen and come back: the running timer is restored.
+  await page.getByRole('button', { name: /^resume$/i }).click();
+  await page.goto('/#/tasks');
+  await page.waitForTimeout(1200);
+  await page.goto('/#/focus');
+  await expect(page.getByRole('button', { name: /^pause$/i })).toBeVisible({ timeout: 20_000 });
+
+  // Ending is allowed once a minute is recorded; the button reports why not before that.
+  await expect(page.getByRole('button', { name: /end session/i })).toBeVisible();
+});
+
+test('Study Circle states what is not built yet instead of faking a community', async ({ page }) => {
+  await bootLocalWorkspace(page);
+  await page.goto('/#/focus');
+  await page.getByRole('tab', { name: /study circle/i }).click();
+  await expect(page.getByRole('main').getByText(/Study together\. Stay consistent\./)).toBeVisible();
+  await expect(page.getByRole('main').getByText(/Coming soon/).first()).toBeVisible();
+  // No invented students or scores: the leaderboard rows are explicitly empty.
+  await expect(page.getByText(/No online data yet/).first()).toBeVisible();
+  await expect(page.getByRole('main').getByText(/Online study rooms and the global leaderboard are planned/i)).toBeVisible();
 });

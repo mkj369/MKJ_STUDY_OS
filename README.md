@@ -80,6 +80,37 @@ weekly report, and receive planned reminders.
 Everything above runs in the browser with no server: local mode keeps rows in
 `localStorage` under one key and seeds labelled demo data.
 
+**Classes 1–12, one curriculum system.** The student picks a class (1–12). A study group
+is asked only where it exists — optional for 9–10, required for 11–12, never for 1–8.
+Everything else reads that one choice:
+
+| Class | What the Add-subject library offers | Chapters |
+| --- | --- | --- |
+| 1–8 | No official subject list is published in a form this project could verify, so the library says so and offers common names as *suggestions* that open the form pre-filled | Always yours: add one or many, auto-numbered |
+| 9–10 (SSC) | The full official subject structure for Science, Humanities and Business Studies, plus both Bangla/English papers | Official chapter lists where a source was recovered; otherwise an honest "no list yet" |
+| 11–12 (HSC) | All papers per group — HSC Science is 13 rows (3 common, 4 group subjects, second papers for each) | Same rule as SSC |
+
+Custom subjects are first-class: name (English and Bengali), paper label, colour, edit,
+archive (progress kept) and restore. Duplicates in the same class are refused by name.
+Chapters can be added one or many, renamed in place (the row keeps its id, checklist and
+history), reordered, and marked complete; a rename never deletes and re-creates a row.
+
+`view.subjects` and every aggregate read one class-scoped projection, so a Class 9
+session never lands in a Class 11 week's total. Changing class hides the other class and
+changes nothing else; changing back brings every record, tick and note back.
+
+**Appearance.** Ten accent presets — Sky Blue (default), Ocean Blue, Violet, Lavender,
+Emerald, Teal, Rose Pink, Sunset Orange, Amber, Graphite — each in light, dark or system
+mode. The choice persists per device. Contrast is not eyeballed: `npm run audit:contrast`
+computes the real rendered colours (compositing alpha and gradients) for 15 routes in six
+schemes and fails the build on any text below WCAG AA. Button labels and brand marks use
+separate tokens because they sit on different gradients.
+
+**Branding.** The mark is drawn for this app — an open book with a rising trend line, on
+a Sky Blue tile — not a stock icon or emoji. The sidebar, splash, favicon, PWA manifest,
+Apple touch icon and the Android launcher PNGs are generated from that one geometry. Bengali text (subject and chapter
+titles) renders from a bundled Noto Sans Bengali, so it works offline.
+
 ---
 
 ## 3. Quick start (no backend needed)
@@ -219,17 +250,17 @@ npm run android:build # ./gradlew assembleDebug → APK (needs JDK + SDK)
 npm run android:open  # open the Android project
 ```
 
-### Verified output in this snapshot (2026-10-28)
+### Verified output in this snapshot (2026-10-30)
 
 ```
 npm run typecheck  → no errors
 npm run lint       → no errors, no warnings
-npm test           → 43 files, 512 tests passed
-                     (incl. 72 database/migration/RLS assertions in tests/db,
+npm test           → 53 files, 631 tests passed
+                     (incl. 94 database/migration/RLS assertions across 8 test files,
                       24 Android config + preflight assertions,
                       a build-bundle secret scan and the loading/error/retry states)
 npm run build      → ✓ built in 5.88 s
-npm run test:e2e   → 43 passed (60.0 s) in Chromium against the production preview build
+npm run test:e2e   → 54 passed in Chromium against the production preview build
 ```
 
 Bundle after route-level code splitting (raw / gzip):
@@ -329,10 +360,10 @@ secrets, run `npm run verify:cloud -- --ai` (see §9.1).
 | --- | --- | --- |
 | `npm run typecheck` | whole project incl. tests | pass |
 | `npm run lint` | ESLint (no warnings allowed in the result we report) | pass |
-| `npm test` | 43 files / 512 tests | pass |
-| `npx vitest run tests/db` | migrations `0001`–`0014` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability, curriculum parity, `0014` topic columns | pass (72 tests) |
+| `npm test` | 53 files / 631 tests | pass |
+| `npx vitest run tests/db` | migrations `0001`–`0019` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability, curriculum parity, topic columns, class/group migration | pass (94 tests) |
 | `npm run build` | production build + chunk report | pass |
-| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 13 flows, 25-route accessibility sweep, icon rendering | pass (43 tests, 60.0 s) |
+| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 13 flows, 25-route accessibility sweep, icon rendering, Classes 1-8 custom curriculum | pass (54 tests) |
 
 Key test files:
 

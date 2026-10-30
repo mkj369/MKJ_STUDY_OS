@@ -79,6 +79,30 @@ export class RepositoryError extends Error {
   }
 }
 
+/** What the student typed in the add-subject form. */
+export interface PersonalSubjectInput {
+  classLevel: number;
+  name: string;
+  nameBn?: string | null;
+  paperLabel?: string | null;
+  color?: string | null;
+}
+
+/** One chapter, either generated or typed by hand. */
+export interface PersonalChapterInput {
+  subjectId: ID;
+  title?: string | null;
+  titleBn?: string | null;
+  chapterNumber?: number | null;
+}
+
+export interface ChapterPatch {
+  title?: string | null;
+  titleBn?: string | null;
+  chapterNumber?: number | null;
+  status?: string;
+}
+
 export interface AddChaptersResult {
   created: number;
   skipped: number;
@@ -117,7 +141,14 @@ export interface Repository {
     subjects: CurriculumSubject[];
     chapters: CurriculumChapter[];
   }>;
-  adoptCurriculumSubject(versionId: ID, subjectId: ID): Promise<UserSubject>;
+  /**
+   * Copy an official subject into the student's own subjects.
+   *
+   * `classLevel` decides which class the copy belongs to. Without it the copy is
+   * invisible the moment a class is active — which is exactly what happened
+   * before, when adopting Physics left no subject behind on the curriculum page.
+   */
+  adoptCurriculumSubject(versionId: ID, subjectId: ID, classLevel?: number | null): Promise<UserSubject>;
   addChaptersFromCurriculum(
     versionId: ID,
     subjectId: ID,
@@ -125,6 +156,29 @@ export interface Repository {
   ): Promise<AddChaptersResult>;
   /** Undo one import batch. Records attached to removed chapters are kept, unlinked. */
   rollbackImport(importBatchId: ID): Promise<number>;
+
+  /* --------------------- personal curriculum (round 9) -------------------- */
+  /**
+   * Create a subject the student owns outright: no official version, no source
+   * requirement, no verification metadata. Class-scoped.
+   */
+  createPersonalSubject(input: PersonalSubjectInput): Promise<UserSubject>;
+  /** Add one chapter with an explicit title and/or auto-number. */
+  createPersonalChapter(input: PersonalChapterInput): Promise<UserChapter>;
+  /**
+   * Generate `count` numbered chapters after the highest existing number.
+   * Returns the created rows in order. Never duplicates a number.
+   */
+  generateChapters(subjectId: ID, count: number): Promise<UserChapter[]>;
+  /** Rename in place — the row id never changes, so progress survives. */
+  updateChapter(chapterId: ID, patch: ChapterPatch): Promise<UserChapter>;
+  /** Persist a new manual order. Rewrites sort_order only. */
+  reorderChapters(subjectId: ID, orderedIds: ID[]): Promise<void>;
+  /** Archive keeps every record; delete removes the subject and its chapters. */
+  setSubjectArchived(subjectId: ID, archived: boolean): Promise<UserSubject>;
+  /** Class 1–12 on the subject, or the active class on the profile. */
+  setSubjectClass(subjectId: ID, classLevel: number | null): Promise<UserSubject>;
+  setActiveClass(classLevel: number | null): Promise<Profile>;
 
   /* --------------------------- chapter support --------------------------- */
   ensureChecklistDefaults(userChapterId: ID): Promise<ChapterChecklistItem[]>;

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { bootWorkspace } from './onboarding';
 
 /**
  * A small, dependency-free accessibility sweep over every route:
@@ -40,9 +41,7 @@ const ROUTES = [
 ];
 
 async function boot(page: Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /start local workspace/i }).click();
-  await expect(page.getByText(/welcome,|good to see you/i).first()).toBeVisible({ timeout: 20_000 });
+  await bootWorkspace(page);
 }
 
 for (const route of ROUTES) {

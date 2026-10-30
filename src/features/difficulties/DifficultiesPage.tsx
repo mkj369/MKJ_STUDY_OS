@@ -31,7 +31,7 @@ function DifficultiesContent() {
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('open');
 
   if (!data) return null;
-  const { view, bundle } = data;
+  const { view, scoped: bundle } = data;
   const all = [...bundle.difficulties].sort((a, b) => {
     const rank = { high: 3, medium: 2, low: 1 } as const;
     const statusRank = { open: 2, working: 1, resolved: 0 } as const;

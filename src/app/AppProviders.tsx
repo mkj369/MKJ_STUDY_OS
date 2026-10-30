@@ -5,6 +5,7 @@ import type { AuthUser, SignUpResult } from '@/services/auth/types';
 import { AuthError } from '@/services/auth/types';
 import type { Repository } from '@/services/repository';
 import { I18nProvider } from '@/i18n';
+import { ThemeProvider } from '@/app/ThemeProvider';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -12,6 +13,9 @@ interface AuthContextValue {
   mode: AppServices['config']['mode'];
   localReason: string | null;
   signIn(email: string, password: string): Promise<AuthUser>;
+  /** True when this build talks to a cloud auth provider (Google is offered). */
+  googleAvailable: boolean;
+  signInWithGoogle(): Promise<void>;
   signUp(email: string, password: string, displayName: string): Promise<SignUpResult>;
   signOut(): Promise<void>;
   startLocalWorkspace(displayName: string): Promise<AuthUser>;
@@ -125,6 +129,16 @@ export function AppProviders({ children, services, queryClient }: AppProvidersPr
     setUser(null);
   }, [appServices, client]);
 
+  const signInWithGoogle = useCallback(async () => {
+    if (!appServices.auth.signInWithGoogle) {
+      throw new AuthError(
+        'Google sign-in needs cloud authentication. This build runs in local mode — add Supabase credentials in .env.local to enable accounts.',
+        'provider_not_configured',
+      );
+    }
+    await appServices.auth.signInWithGoogle();
+  }, [appServices]);
+
   const startLocalWorkspace = useCallback(
     async (displayName: string) => {
       if (!appServices.auth.startLocalWorkspace) {
@@ -151,12 +165,24 @@ export function AppProviders({ children, services, queryClient }: AppProvidersPr
       mode: appServices.config.mode,
       localReason: appServices.config.localReason,
       signIn,
+      googleAvailable: appServices.config.mode === 'cloud',
+      signInWithGoogle,
       signUp,
       signOut,
       startLocalWorkspace,
       sendPasswordReset,
     }),
-    [user, loading, appServices.config, signIn, signUp, signOut, startLocalWorkspace, sendPasswordReset],
+    [
+      user,
+      loading,
+      appServices.config,
+      signIn,
+      signInWithGoogle,
+      signUp,
+      signOut,
+      startLocalWorkspace,
+      sendPasswordReset,
+    ],
   );
 
   return (
@@ -164,7 +190,9 @@ export function AppProviders({ children, services, queryClient }: AppProvidersPr
       <QueryClientProvider client={client}>
         <I18nProvider>
           <AuthContext.Provider value={authValue}>
-            <RepositoryContext.Provider value={repository}>{children}</RepositoryContext.Provider>
+            <RepositoryContext.Provider value={repository}>
+              <ThemeProvider>{children}</ThemeProvider>
+            </RepositoryContext.Provider>
           </AuthContext.Provider>
         </I18nProvider>
       </QueryClientProvider>

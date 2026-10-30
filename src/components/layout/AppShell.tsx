@@ -4,18 +4,23 @@ import { IonIcon } from '@ionic/react';
 import {
   closeOutline,
   createOutline,
+  layersOutline,
+  listOutline,
   menuOutline,
   moonOutline,
   personCircleOutline,
   cloudDoneOutline,
   phonePortraitOutline,
-  ellipsisHorizontalOutline,
+  radioButtonOnOutline,
+  videocamOutline,
 } from 'ionicons/icons';
-import { NAV_GROUPS, NAV_ITEMS, BOTTOM_NAV, findNavItem } from '@/app/nav';
+import { BOTTOM_NAV, PRIMARY_NAV, findNavItem } from '@/app/nav';
 import { useAuth } from '@/app/AppProviders';
 import { useI18n } from '@/i18n';
 import { useMutate, useWorkspaceView } from '@/hooks/useWorkspace';
 import { Badge, DemoBadge } from '@/components/ui/Page';
+import { LogoMark } from '@/components/brand/Logo';
+import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { useNotify } from '@/features/shared/WorkspaceGate';
 import { noteSchema, type NoteValues } from '@/domain/schemas';
@@ -99,34 +104,56 @@ function QuickCapture() {
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useI18n();
+  const location = useLocation();
+
+  /*
+   * Five destinations in the sidebar. Everything else is on /more, one tap away,
+   * and the sidebar keeps a short "Study" list because those are the pages a
+   * student opens between other things rather than as a destination.
+   */
+  const isActive = (path: string) =>
+    path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(`${path}/`);
+
   return (
     <>
       <div className="brand">
-        <div className="brand__mark" aria-hidden="true">
-          MKJ
-        </div>
-        <div>
+        <LogoMark size={38} />
+        <div className="brand__copy">
           <div className="brand__name">MKJ StudyOS</div>
           <div className="brand__tag">{t('app.tagline')}</div>
         </div>
       </div>
-      <nav aria-label="Main navigation" style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-        {NAV_GROUPS.map((group) => (
-          <div className="nav-group" key={group.key}>
-            <span className="nav-group__label">{group.label}</span>
-            {NAV_ITEMS.filter((item) => item.group === group.key).map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === '/'}
-                className={({ isActive }) => `nav-link ${isActive ? 'is-active' : ''}`}
-                onClick={onNavigate}
-              >
-                <IonIcon icon={item.icon} aria-hidden="true" />
-                <span>{t(item.labelKey)}</span>
-              </NavLink>
-            ))}
-          </div>
+      <nav aria-label="Main navigation" className="nav-group">
+        {PRIMARY_NAV.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.path === '/'}
+            className={`nav-link${isActive(item.path) ? ' nav-link--active' : ''}`}
+            onClick={onNavigate}
+          >
+            <IonIcon icon={item.icon} aria-hidden="true" />
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+      <nav aria-label="Study shortcuts" className="nav-group">
+        <span className="nav-group__label">Study</span>
+        {[
+          { path: '/curriculum', label: 'Curriculum', icon: layersOutline },
+          { path: '/syllabus', label: 'Syllabus', icon: listOutline },
+          { path: '/lectures', label: 'Lectures', icon: videocamOutline },
+          { path: '/focus', label: 'Focus', icon: radioButtonOnOutline },
+        ].map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={`nav-link${isActive(item.path) ? ' nav-link--active' : ''}`}
+            onClick={onNavigate}
+          >
+            <IonIcon icon={item.icon} aria-hidden="true" />
+            <span>{item.label}</span>
+          </NavLink>
         ))}
       </nav>
     </>
@@ -181,9 +208,9 @@ function UserFooter() {
       >
         {signingOut ? 'Signing out…' : 'Sign out'}
       </button>
-      <div className="tiny" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-        <IonIcon icon={moonOutline} aria-hidden="true" /> Follows your system theme
-      </div>
+      <Link to="/settings#appearance" className="tiny" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <IonIcon icon={moonOutline} aria-hidden="true" /> Appearance
+      </Link>
     </div>
   );
 }
@@ -219,6 +246,13 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
   useEffect(() => {
     setDrawerOpen(false);
+    /*
+     * `.app-main` is the scroll container and `window` never scrolls here.
+     * Assigning scrollTop rather than calling scrollTo keeps this working in
+     * jsdom, where Element.scrollTo is not implemented.
+     */
+    const main = document.querySelector('.app-main');
+    if (main) main.scrollTop = 0;
     window.scrollTo({ top: 0 });
   }, [location.pathname]);
 
@@ -258,7 +292,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         </header>
 
         <main className="app-content" id="main-content">
-          {children ?? <Outlet />}
+          <OnboardingGate>{children ?? <Outlet />}</OnboardingGate>
         </main>
 
         <nav className="bottom-nav" aria-label="Quick navigation">
@@ -273,10 +307,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
               <span>{item.label}</span>
             </NavLink>
           ))}
-          <button type="button" className="bottom-nav__item" onClick={() => setDrawerOpen(true)}>
-            <IonIcon icon={ellipsisHorizontalOutline} aria-hidden="true" />
-            <span>More</span>
-          </button>
         </nav>
       </div>
 
