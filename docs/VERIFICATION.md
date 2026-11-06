@@ -2,61 +2,72 @@
 
 What was actually executed, when, and what refused to run. `README.md` §1 gives the
 summary table; this file is the evidence behind it and the exact commands to reproduce
-each line.
+each line. The per-phase report for the 2026-11 next update lives in
+[NEXT_UPDATE_REPORT.md](NEXT_UPDATE_REPORT.md).
 
-This file used to be a full copy of `README.md`, which meant the status table existed
-twice and drifted. It is now only the log; the README is the single place that states
-current status.
-
-Last run: **2026-10-28**, Node v22.22.3, npm 10.9.8, Vite 6.4.5, Linux sandbox.
+Last run: **2026-11-06**, Node v22.22.3, npm 10.9.8, Vite 6.4.5, Linux sandbox.
 
 ---
 
 ## 1. Commands run on this commit
 
 ```bash
-npm ci                      # 397 packages, lockfile respected
+npm ci                      # lockfile respected
 npm run typecheck           # tsc -b --pretty false   -> no output (clean)
 npm run lint                # eslint .                -> no output (clean)
-npm run build               # tsc -b && vite build    -> built in 5.7s
-npx vitest run              # 38 files, 435 tests passed
-npx playwright test         # 39 tests passed (Chromium, production bundle)
+npm run build               # tsc -b && vite build    -> built in ~6 s
+npx vitest run              # 46 files, 517 tests passed, 0 failed
+npx vitest run tests/db     # 58 tests passed (subset of the above)
+npx playwright test         # 54 tests passed (Chromium, production bundle, ~1.5 min)
+npx cap sync android        # 2 plugins: @capacitor/app, @capacitor/local-notifications
+npm run android:preflight   # reports JDK 21 + Android SDK missing (see §2.3)
 ```
 
 `npm run verify` runs typecheck → lint → build → `vitest run`. Build before tests
 matters: `tests/bundle/secrets.test.ts` skips four assertions when `dist/` is absent,
-because it greps the real bundle for leaked keys. Without a build you get
-`431 passed | 4 skipped` — not a failure, but it has not checked the secrets.
+because it greps the real bundle for leaked keys. The 517 figure above includes
+those four (dist/ was present).
 
-### Test suite composition (435)
+### Test suite composition (517)
 
-| Area | Files | What it proves |
-| --- | --- | --- |
-| `tests/domain` | 17 | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, AI payload keys |
-| `tests/db` | 4 | Migrations `0001`–`0007` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin, a student chapter keeps its link through a reseed |
-| `tests/integration` | — | Local repository behaviour: per-user isolation, history-safe deletes, curriculum seed reruns leaving progress and notes untouched |
-| `tests/ui` | — | jsdom rendering of shared components and pages, single `<h1>` per route |
-| `tests/bundle` | 1 | No service-role key or AI provider key in the built assets |
-| `tests/functions`, `tests/android` | — | Weekly-summary function with a stubbed provider (no live call), Capacitor config assertions |
+| Area | What it proves |
+| --- | --- |
+| `tests/domain` | Progress denominators, revision spacing, planner packing, reports, imports, curriculum filters/coverage, AI payload keys, **track→curriculum mapping (5 sections, class levels, Admission reuses HSC, reference version preferred)**,
+  **skipped-status math (denominators, attention, all-skipped edge)**, **target progress from real records**, **timestamp-based focus engine (open + countdown, pause/resume, restore)** |
+| `tests/db` (58) | Migrations `0001`–`0010` apply in order **and twice** (idempotency), RLS isolates two users, official curriculum SQL matches its TypeScript twin, chapter links survive a reseed, **0008: targets FKs, lecture checklist ownership, community privacy**, **0009: imported reference syllabus matches the captured JSON verbatim (13 subjects / 128 chapters), source + date on every row, re-run keeps user progress linked**, **0010: five-track checks + skipped status accepted** |
+| `tests/integration` | Local repository behaviour, per-user isolation, history-safe deletes, curriculum reseeds leaving progress intact, **setup/lectures/targets repository methods**, **v1 → next-update storage upgrade (no data loss, write-after-upgrade safe)**, **sync engine (13 tests: outbox coalescing, offline queue survival, server-wins conflicts, post-push version adoption, silent pure reads, tombstones, curriculum keep-seed, retry after error)** |
+| `tests/ui` | jsdom rendering of shared components and pages, single `<h1>` per route |
+| `tests/bundle` | No service-role key or AI provider key in the built assets (ran: dist present) |
+| `tests/functions`, `tests/android` | Weekly-summary function with a stubbed provider (no live call), Capacitor config assertions |
 
-### Browser suite (39)
+### Browser suite (54)
 
 `npx playwright test` runs against `npm run build && npm run preview --port 4173`
 (baseURL `http://127.0.0.1:4173`), one worker, real localStorage. Covers:
 
-- smoke boot in local demo mode, mobile shell with no sideways overflow;
-- journeys A/B (syllabus → checklist tick survives reload), C (curriculum filters by
-  level, group and Bangla subject name), C2 (checklist tick survives a reseed), D
-  (create/complete/reschedule a task), E (mistake → practice question link survives
-  reload), G/I (insights separate facts from guesses; export downloads real rows);
+- smoke boot in local demo mode; mobile shell scrolls, drawer opens, no sideways overflow;
+- journeys A/B (syllabus → checklist tick survives reload), C (curriculum filters),
+  C2 (subject card → subject detail → chapter; tick survives reseed), D (tasks),
+  E (mistake → practice link), G/I (insights bands; export downloads real rows);
 - phase-2 flows: time block on the timeline, practice question attempted and graded,
-  focus session writing a study session;
-- accessibility: named controls and landmarks on every route, exactly one `<h1>`,
-  icons rendered from inline SVG (no runtime font fetch).
+  **focus v2 start/pause/resume/finish + reload persistence + countdown arm/discard**;
+- **next-update flows (12)**: fresh-workspace setup gate end-to-end (HSC Science now
+  resolves the imported 128-chapter reference syllabus; picking Physics 1st Paper
+  brings its 10 chapters), compact chapter rows expand/tick/persist, per-chapter
+  lecture add + checklist + notes + completion persist, chapter notes persist,
+  weekly + monthly targets create/edit/reload, community private-by-default +
+  local-mode notice + contact-info rejection, theme switch persists,
+  **Class 1–5 school setup (honest manual subjects, class persists in Settings),
+  HSC Admission setup (same HSC rows + admission target persisted), skipped chapter
+  (label persists, subject denominator excludes it), study-activity card renders**;
+- accessibility: named controls and landmarks on every route (incl. `/setup`,
+  `/targets`, `/community`, `/syllabus/topics`), exactly one `<h1>`, inline SVG icons.
 
-Chromium in this sandbox comes from `scripts/playwright-browser.mjs`
-(`@sparticuz/chromium` + extracted NSS/NSPR libs in `/tmp`). On a normal machine use
-`npx playwright install chromium` and ignore the shim.
+Chromium comes from `scripts/playwright-browser.mjs`: the `@sparticuz/chromium`
+devDependency (an npm-hosted Linux binary, so no Playwright-CDN download is needed)
+plus its bundled NSS/NSPR libs extracted to `/tmp`. On Windows/macOS, install the
+packaged browser (`npx playwright install chromium`) and drop the shim's
+`executablePath`/`env` from `playwright.config.ts`.
 
 ---
 
@@ -64,21 +75,24 @@ Chromium in this sandbox comes from `scripts/playwright-browser.mjs`
 
 Nothing below was faked or claimed as passing.
 
-### 2.1 Hosted Supabase
+### 2.1 Hosted Supabase (auth, cloud repository, live sync, community)
 
 No project, no credentials. `.env.local` is absent and must stay out of Git.
+The **sync engine itself is integration-tested** (13 tests against a fake remote
+that models `updated_at` touch triggers and failures); the Supabase adapter and
+GoTrue flows have **never run against a live project**.
 
 ```bash
 # once a project exists:
 supabase link --project-ref YOUR_PROJECT_REF
-supabase db push                     # applies 0001..0007
+supabase db push                     # applies 0001..0008
 npm run verify:cloud                 # scripts/verify-cloud.mjs checks connection + RLS
 npm run dev                          # app switches to the sign-in screen
 ```
 
-What remains unproven until then: PostgREST/GoTrue wiring, Storage policies against
-the real service, and the Supabase repository implementation, which has **never been
-executed against a live project**. The local repository is the one under test.
+Then spot-check with two accounts: register/login/reset, edit offline → reconnect →
+badge drains the queue, edit the same row on two devices → conflict surfaced (newer
+server row wins), community opt-in visible to the other account only after enabling.
 
 ### 2.2 Live AI narrative
 
@@ -94,32 +108,31 @@ The function is tested end-to-end with a stubbed provider, including rejection o
 invented numbers and mapping of 401/5xx/timeout. A live call is still unverified, and
 the app must keep working with AI off — it does.
 
-### 2.3 Android APK
+### 2.3 Android APK + device behaviour
 
-No JDK, no Android SDK, and gradle/google/maven/adoptium/debian hosts all fail from
-here. `npm run android:preflight` reports what is missing.
+No JDK, no Android SDK; gradle/google/maven hosts are unreachable from here.
+`npm run android:preflight` reports exactly what is missing (it exits non-zero).
+`npx cap sync android` succeeded: web assets + both plugins are in `android/`.
 
 ```bash
-npm run android:preflight   # says exactly which of java/sdk/adb is absent
-npm run android:sync        # needs the web build first
-npm run android:open        # then build in Android Studio, or:
+npm run android:preflight   # says exactly which of java/sdk is absent
+npm run android:sync        # build + cap sync
+npm run android:open        # build in Android Studio, or:
 cd android && ./gradlew assembleDebug
 ```
 
 The project (`android/`, minSdk 23, target 35, `com.mkjstudyos.app`) is generated and
-config-tested; the APK has **not** been built, installed or run. See
-[docs/ANDROID_APK.md](ANDROID_APK.md).
+config-tested; the manifest adds `adjustResize`, `SCHEDULE_EXACT_ALARM` and the
+plugin-merged notification permissions. The APK has **not** been built, installed or
+run — back-button order, keyboard resize, notification delivery and lock-screen timer
+restore need the device checklist in [ANDROID_APK.md](ANDROID_APK.md).
 
 ### 2.4 nctb.gov.bd
 
-The site is a JS-rendered Payload CMS. `fetch` of `/pages/static-pages/<id>`,
-`/pages/files/<id>` and `/api/pages` returns navigation boilerplate or an error page,
-and `curl` cannot reach the host at all. Only search-engine snippets expose content.
-
-Consequence, recorded in [docs/CURRICULUM.md](CURRICULUM.md): subject names and group
-structure are seeded and sourced; **chapter titles are not**, because they live inside
-PDFs that could not be read here. They must be added by a human from the official
-textbook, not inferred.
+The site is a JS-rendered Payload CMS; chapter lists live in PDFs that could not be
+read here. Consequence, recorded in [CURRICULUM.md](CURRICULUM.md): subject names and
+group structure are seeded and sourced; **chapter titles are not**, because they must
+be transcribed by a human from the official textbook, not inferred.
 
 ---
 
@@ -129,7 +142,7 @@ textbook, not inferred.
 | --- | --- |
 | **Written** | Code exists but was not executed here |
 | **Unit-tested** | Deterministic tests, `npx vitest run` |
-| **Integration-tested** | Repository/auth in Node with in-memory storage |
+| **Integration-tested** | Repository/auth/sync in Node with in-memory storage and a fake remote |
 | **DB-tested** | Migrations applied and RLS asserted in PGlite (Postgres 18/WASM) |
 | **Browser-tested** | Playwright on the production bundle: real UI, real storage, real downloads |
 | **Cloud-verified** | Against a hosted Supabase project — **not done** |
@@ -137,7 +150,7 @@ textbook, not inferred.
 
 PGlite is real Postgres compiled to WASM, so the DDL, constraints and policies are
 genuinely executed — but Supabase-specific services (PostgREST, GoTrue, Storage) are
-not, and that gap is why cloud mode stays labelled **Written**.
+not, and that gap is why live cloud mode stays labelled **Written**.
 
 ---
 

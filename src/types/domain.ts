@@ -29,6 +29,8 @@ export const CHAPTER_STATUSES = [
   'needs_revision',
   'blocked',
   'complete',
+  /** Explicitly out of the student's plan; excluded from completion denominators. */
+  'skipped',
 ] as const;
 export type ChapterStatus = (typeof CHAPTER_STATUSES)[number];
 
@@ -133,7 +135,79 @@ export interface Profile {
   /** Minutes available per weekday, keys "0" (Sun) … "6" (Sat). */
   study_windows: Record<string, number> | null;
   onboarded_at: Timestamp | null;
+  /** Academic section: Class 1–5 / Class 6–8 / SSC / HSC / HSC Admission (Admission reuses the HSC syllabus). */
+  academic_track: 'class_1_5' | 'class_6_8' | 'ssc' | 'hsc' | 'hsc_admission' | null;
+  /** Specific class for the school tracks, e.g. "Class 3". Null for board tracks. */
+  class_level: string | null;
+  /** Free-text admission goal for the Admission track, e.g. "DU A-unit". */
+  admission_target: string | null;
+  study_group: string | null;
+  academic_session: string | null;
+  board: string | null;
+  /** Set when the student finishes syllabus setup; gates the syllabus tracker. */
+  setup_completed_at: Timestamp | null;
   created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/** Flexible weekly/monthly study goal; progress is computed, never stored. */
+export interface StudyTarget {
+  id: ID;
+  user_id: ID;
+  title: string;
+  period_type: 'weekly' | 'monthly';
+  /** Any date inside the period; the window is derived (Sun–Sat / calendar month). */
+  period_start: DateOnly;
+  metric: 'chapters' | 'checklist_items' | 'lectures' | 'minutes';
+  target_value: number;
+  user_subject_id: ID | null;
+  /** Optional explicit chapter scope; empty = whole subject / everything. */
+  chapter_ids: ID[];
+  notes: string | null;
+  is_demo: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/** Per-lecture checklist item. User-owned; configurable labels. */
+export interface LectureChecklistItem {
+  id: ID;
+  user_id: ID;
+  lecture_record_id: ID;
+  label: string;
+  sort_order: number;
+  is_done: boolean;
+  completed_at: Timestamp | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/**
+ * Opt-in public progress snapshot. Contains ONLY pseudonymous, aggregate
+ * data — never e-mail, notes, or per-chapter records. Default: no row at all
+ * (private). RLS exposes rows to other users only while sharing_enabled.
+ */
+export interface CommunityProfile {
+  user_id: ID;
+  pseudonym: string;
+  academic_track: 'class_1_5' | 'class_6_8' | 'ssc' | 'hsc' | 'hsc_admission' | null;
+  study_group: string | null;
+  sharing_enabled: boolean;
+  share_academic_info: boolean;
+  overall_percent: number;
+  chapters_completed: number;
+  chapters_total: number;
+  weekly_minutes: number;
+  snapshot_at: Timestamp;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/** Device/user preferences that are not academic records. */
+export interface UserPreferences {
+  user_id: ID;
+  theme: 'system' | 'light' | 'dark';
+  community_opt_in_seen: boolean;
   updated_at: Timestamp;
 }
 
@@ -220,6 +294,8 @@ export interface UserChapter {
   custom_title: string | null;
   status: ChapterStatus;
   lecture_target_count: number | null;
+  /** Free-form chapter notes; private to the student. */
+  notes: string | null;
   import_batch_id: string | null;
   is_demo: boolean;
   created_at: Timestamp;
@@ -633,6 +709,10 @@ export interface AuditEvent {
 
 export interface TableMap {
   profiles: Profile;
+  study_targets: StudyTarget;
+  lecture_checklist_items: LectureChecklistItem;
+  community_profiles: CommunityProfile;
+  user_preferences: UserPreferences;
   curriculum_versions: CurriculumVersion;
   curriculum_subjects: CurriculumSubject;
   curriculum_chapters: CurriculumChapter;
@@ -667,6 +747,9 @@ export type TableName = keyof TableMap;
 /** Tables whose rows are owned by a single user and protected by RLS. */
 export const USER_OWNED_TABLES = [
   'profiles',
+  'study_targets',
+  'lecture_checklist_items',
+  'community_profiles',
   'user_subjects',
   'user_chapters',
   'user_topics',
@@ -703,6 +786,7 @@ export const REPOSITORY_TABLES = [
   ...CURRICULUM_TABLES,
   ...USER_OWNED_TABLES,
   'reminder_preferences',
+  'user_preferences',
 ] as const satisfies readonly TableName[];
 
 export type RepositoryTable = (typeof REPOSITORY_TABLES)[number];

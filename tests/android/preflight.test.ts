@@ -75,15 +75,17 @@ describe('node check', () => {
 });
 
 describe('java check', () => {
-  it('passes on JDK 17 and 21', () => {
-    expect(checkJava({ versionOutput: 'openjdk version "17.0.12"' }).status).toBe('pass');
+  it('passes on JDK 21+ (Capacitor 7 compiles with Java 21)', () => {
     expect(checkJava({ versionOutput: 'openjdk version "21"' }).status).toBe('pass');
+    expect(checkJava({ versionOutput: 'openjdk version "21.0.4" 2024-07-16' }).status).toBe('pass');
   });
 
-  it('fails on JDK 11 with a remedy that names the minimum', () => {
-    const result = checkJava({ versionOutput: 'openjdk version "11.0.20"' });
-    expect(result.status).toBe('fail');
-    expect(result.remedy).toMatch(/JDK 17/);
+  it('fails on JDK 17 and 11 with a remedy that names Java 21', () => {
+    for (const version of ['openjdk version "17.0.12"', 'openjdk version "11.0.20"']) {
+      const result = checkJava({ versionOutput: version });
+      expect(result.status).toBe('fail');
+      expect(result.remedy).toMatch(/JDK 21/);
+    }
   });
 
   it('fails when java is missing entirely and still gives a fix', () => {

@@ -1,0 +1,273 @@
+{
+  "meta": {
+    "source": "https://hscstudytracker.lovable.app/",
+    "data_url": "https://hscstudytracker.lovable.app/assets/store-tnJ8g9ek.js",
+    "captured_at": "2026-11-07",
+    "capture_method": "Read the site's publicly served subject/chapter store (the same data its tracker UI renders). Verified against the rendered /tracker page and the home page total (128 chapters).",
+    "scope_notes": "The source site covers HSC Science only: 13 subject papers, 128 chapters. It has no SSC, no other groups, no batch/session options and no topic breakdowns below chapter level. Nothing beyond chapter names/order was available, so nothing beyond that is imported. Chapter titles are preserved verbatim; not yet compared with official NCTB textbooks.",
+    "education_level": "HSC",
+    "stream": "Science",
+    "academic_year": "2026–2027",
+    "chapter_total_expected": 128
+  },
+  "subjects": [
+    {
+      "name": "Bangla",
+      "name_bn": "বাংলা ১ম পত্র",
+      "source_name": "বাংলা ১ম পত্র",
+      "paper_label": "1st Paper",
+      "code": "bangla-1",
+      "is_compulsory": true,
+      "chapters": [
+        "গদ্য: অপরিচিতা",
+        "গদ্য: বিলাসী",
+        "গদ্য: আমার পথ",
+        "গদ্য: মানব কল্যাণ",
+        "গদ্য: মাসি-পিসি",
+        "গদ্য: বায়ান্নর দিনগুলো",
+        "গদ্য: রেইনকোট",
+        "কবিতা: সোনার তরী",
+        "কবিতা: বিদ্রোহী",
+        "কবিতা: প্রতিদান",
+        "কবিতা: সুচেতনা",
+        "কবিতা: তাহারেই পড়ে মনে",
+        "কবিতা: পদ্মা",
+        "কবিতা: ১৮ বছর বয়স",
+        "কবিতা: ফেব্রুয়ারি ১৯৬৯",
+        "কবিতা: আমি কিংবদন্তির কথা বলছি",
+        "সহপাঠ: লালসালু (উপন্যাস)",
+        "সহপাঠ: সিরাজউদ্দৌলা (নাটক)"
+      ]
+    },
+    {
+      "name": "Bangla",
+      "name_bn": "বাংলা ২য় পত্র",
+      "source_name": "বাংলা ২য় পত্র",
+      "paper_label": "2nd Paper",
+      "code": "bangla-2",
+      "is_compulsory": true,
+      "chapters": [
+        "বাংলা উচ্চারণের নিয়ম",
+        "বাংলা বানানের নিয়ম",
+        "ব্যাকরণিক শব্দশ্রেণী",
+        "শব্দ গঠন (উপসর্গ, সমাস)",
+        "বাক্যতত্ত্ব",
+        "বাংলা ভাষার অপপ্রয়োগ ও শুদ্ধ প্রয়োগ",
+        "পারিভাষিক শব্দ ও অনুবাদ",
+        "দিনলিপি লিখন ও প্রতিবেদন রচনা",
+        "পত্র লিখন",
+        "ভাব-সম্প্রসারণ",
+        "সংলাপ ও ক্ষুদে গল্প রচনা",
+        "প্রবন্ধ রচনা"
+      ]
+    },
+    {
+      "name": "English",
+      "name_bn": null,
+      "source_name": "English 1st Paper",
+      "paper_label": "1st Paper",
+      "code": "english-1",
+      "is_compulsory": true,
+      "chapters": [
+        "People or Institutions Making History",
+        "Dreams",
+        "Adolescence",
+        "Human Rights",
+        "Civic-oriented units",
+        "Diaspora",
+        "Literature (Poems & Summaries)"
+      ]
+    },
+    {
+      "name": "English",
+      "name_bn": null,
+      "source_name": "English 2nd Paper",
+      "paper_label": "2nd Paper",
+      "code": "english-2",
+      "is_compulsory": true,
+      "chapters": [
+        "Gap fillings (Articles, Prepositions, Clues)",
+        "Completing Sentences",
+        "Right forms of Verbs",
+        "Changing Sentences (Voice/Degree)",
+        "Narrative Style",
+        "Modifiers",
+        "Sentence Connectors",
+        "Synonyms/Antonyms",
+        "Punctuation",
+        "Formal Letters",
+        "Composition"
+      ]
+    },
+    {
+      "name": "ICT",
+      "name_bn": "তথ্য ও যোগাযোগ প্রযুক্তি",
+      "source_name": "ICT",
+      "paper_label": null,
+      "code": "ict",
+      "is_compulsory": true,
+      "chapters": [
+        "তথ্য ও যোগাযোগ প্রযুক্তি: বিশ্ব ও বাংলাদেশ প্রেক্ষিত",
+        "কমিউনিকেশন সিস্টেমস ও নেটওয়ার্কিং",
+        "সংখ্যা পদ্ধতি ও ডিজিটাল ডিভাইস",
+        "ওয়েব ডিজাইন পরিচিতি এবং HTML",
+        "প্রোগ্রামিং ভাষা (C Programming)",
+        "ডেটাবেজ ম্যানেজমেন্ট সিস্টেম (DBMS)"
+      ]
+    },
+    {
+      "name": "Physics",
+      "name_bn": "পদার্থবিজ্ঞান ১ম পত্র",
+      "source_name": "পদার্থবিজ্ঞান ১ম পত্র",
+      "paper_label": "1st Paper",
+      "code": "physics-1",
+      "is_compulsory": false,
+      "chapters": [
+        "ভৌত জগৎ ও পরিমাপ",
+        "ভেক্টর",
+        "গতিবিদ্যা",
+        "নিউটনীয় বলবিদ্যা",
+        "কাজ, শক্তি ও ক্ষমতা",
+        "মহাকর্ষ ও অভিকর্ষ",
+        "পদার্থের গাঠনিক ধর্ম",
+        "পর্যাবৃত্ত গতি",
+        "তরঙ্গ",
+        "আদর্শ গ্যাস ও গ্যাসের গতিতত্ত্ব"
+      ]
+    },
+    {
+      "name": "Physics",
+      "name_bn": "পদার্থবিজ্ঞান ২য় পত্র",
+      "source_name": "পদার্থবিজ্ঞান ২য় পত্র",
+      "paper_label": "2nd Paper",
+      "code": "physics-2",
+      "is_compulsory": false,
+      "chapters": [
+        "তাপগতিবিদ্যা",
+        "স্থির তড়িৎ",
+        "চল তড়িৎ",
+        "তড়িতের চৌম্বক ক্রিয়া ও চৌম্বকত্ব",
+        "তাড়িতচৌম্বক আবেশ ও পরিবর্তী প্রবাহ",
+        "জ্যামিতিক আলোকবিজ্ঞান",
+        "ভৌত আলোকবিজ্ঞান",
+        "আধুনিক পদার্থবিজ্ঞানের সূচনা",
+        "পরমাণুর মডেল ও নিউক্লিয়ার পদার্থবিজ্ঞান",
+        "সেমিকন্ডাক্টর ও ইলেকট্রনিক্স",
+        "জ্যোতির্বিজ্ঞান"
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "name_bn": "রসায়ন ১ম পত্র",
+      "source_name": "রসায়ন ১ম পত্র",
+      "paper_label": "1st Paper",
+      "code": "chemistry-1",
+      "is_compulsory": false,
+      "chapters": [
+        "ল্যাবরেটরির নিরাপদ ব্যবহার",
+        "গুণগত রসায়ন",
+        "মৌলের পর্যায়বৃত্ত ধর্ম ও রাসায়নিক বন্ধন",
+        "রাসায়নিক পরিবর্তন",
+        "অর্থনৈতিক রসায়ন"
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "name_bn": "রসায়ন ২য় পত্র",
+      "source_name": "রসায়ন ২য় পত্র",
+      "paper_label": "2nd Paper",
+      "code": "chemistry-2",
+      "is_compulsory": false,
+      "chapters": [
+        "পরিবেশ রসায়ন",
+        "জৈব রসায়ন (Organic Chemistry)",
+        "পরিমাণগত রসায়ন",
+        "তড়িৎ রসায়ন",
+        "অর্থনৈতিক ও শিল্প রসায়ন"
+      ]
+    },
+    {
+      "name": "Higher Mathematics",
+      "name_bn": "উচ্চতর গণিত ১ম পত্র",
+      "source_name": "উচ্চতর গণিত ১ম পত্র",
+      "paper_label": "1st Paper",
+      "code": "math-1",
+      "is_compulsory": false,
+      "chapters": [
+        "ম্যাট্রিক্স ও নির্ণায়ক",
+        "ভেক্টর",
+        "সরলরেখা",
+        "বৃত্ত",
+        "বিন্যাস ও সমাবেশ",
+        "ত্রিকোণমিতিক অনুপাত",
+        "সংযুক্ত কোণের ত্রিকোণমিতিক অনুপাত",
+        "ফাংশন ও ফাংশনের লেখচিত্র",
+        "অন্তরীকরণ (Differentiation)",
+        "যোগজীকরণ (Integration)"
+      ]
+    },
+    {
+      "name": "Higher Mathematics",
+      "name_bn": "উচ্চতর গণিত ২য় পত্র",
+      "source_name": "উচ্চতর গণিত ২য় পত্র",
+      "paper_label": "2nd Paper",
+      "code": "math-2",
+      "is_compulsory": false,
+      "chapters": [
+        "বাস্তব সংখ্যা ও অসমতা",
+        "যোগাশ্রয়ী প্রোগ্রাম (Linear Programming)",
+        "জটিল সংখ্যা",
+        "বহুপদী ও বহুপদী সমীকরণ",
+        "দ্বিপদী বিস্তৃতি",
+        "বিপরীত ত্রিকোণমিতিক ফাংশন ও সমীকরণ",
+        "স্থিতিবিদ্যা",
+        "গতিবিদ্যা",
+        "বিস্তার পরিমাপ ও সম্ভাবনা"
+      ]
+    },
+    {
+      "name": "Biology",
+      "name_bn": "জীববিজ্ঞান ১ম পত্র",
+      "source_name": "জীববিজ্ঞান ১ম পত্র",
+      "paper_label": "1st Paper",
+      "code": "biology-1",
+      "is_compulsory": false,
+      "chapters": [
+        "কোষ ও এর গঠন",
+        "কোষ বিভাজন",
+        "কোষ রসায়ন",
+        "অণুজীব (ভাইরাস ও ব্যাকটেরিয়া)",
+        "শৈবাল ও ছত্রাক",
+        "ব্রায়োফাইটা ও টেরিডোফাইটা",
+        "নগ্নজীবী ও আবৃতজীবী উদ্ভিদ",
+        "টিস্যু ও টিস্যুতন্ত্র",
+        "উদ্ভিদ শারীরতত্ত্ব",
+        "উদ্ভিদ প্রজনন",
+        "জীবপ্রযুক্তি (Biotechnology)",
+        "জীবের পরিবেশ, বিস্তার ও সংরক্ষণ"
+      ]
+    },
+    {
+      "name": "Biology",
+      "name_bn": "জীববিজ্ঞান ২য় পত্র",
+      "source_name": "জীববিজ্ঞান ২য় পত্র",
+      "paper_label": "2nd Paper",
+      "code": "biology-2",
+      "is_compulsory": false,
+      "chapters": [
+        "প্রাণীর বিভিন্নতা ও শ্রেণীবিন্যাস",
+        "প্রাণীর পরিচিতি (হাইড্রা, ঘাসফড়িং, রুই মাছ)",
+        "মানব শারীরতত্ত্ব: পরিপাক ও শোষণ",
+        "মানব শারীরতত্ত্ব: রক্ত ও সংবহন",
+        "মানব শারীরতত্ত্ব: শ্বাসক্রিয়া ও শ্বসন",
+        "মানব শারীরতত্ত্ব: বর্জ্য ও নিষ্কাশন",
+        "মানব শারীরতত্ত্ব: চলন ও অঙ্গচালনা",
+        "মানব শারীরতত্ত্ব: সমন্বয় ও নিয়ন্ত্রণ",
+        "মানব জীবনের ধারাবাহিকতা",
+        "মানবদেহের প্রতিরক্ষা (Immunity)",
+        "জিনতত্ত্ব ও বিবর্তন",
+        "প্রাণীর আচরণ (Behavior)"
+      ]
+    }
+  ]
+}

@@ -13,6 +13,10 @@ and no API keys**, and it says clearly what it does not know.
 
 ## 1. Status at a glance
 
+The 2026-11 next update (tracks, setup, targets, focus v2, sync, community) is
+implemented and tested; its per-phase report is
+**[docs/NEXT_UPDATE_REPORT.md](docs/NEXT_UPDATE_REPORT.md)**.
+
 Verification levels used below (and nowhere upgraded beyond what was actually run):
 
 | Label | Means |
@@ -31,20 +35,30 @@ Verification levels used below (and nowhere upgraded beyond what was actually ru
 | Phase 2 domain: time tracking, focus state machine, syllabus matrix, mistakes, practice, preparation, insights | **Unit-tested** |
 | Data layer: local demo repository | **Integration-tested**, including cross-workspace isolation |
 | Data layer: Supabase repository | **Written** — cloud mode has never been executed against a real project |
-| Auth: local workspace + email/password (cloud) | Local **integration- and browser-tested**; cloud **unverified** |
-| Screens: 28 lazy routes (14 Phase 1 screens, chapter detail, 11 Phase 2 screens, 404) | **Browser-tested**: all 25 navigable routes load in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
+| Offline-first sync (cloud mode): outbox, conflict resolution, status badge, retry | **Integration-tested** (13 sync-engine tests against a fake remote); live two-device sync **requires a hosted project** |
+| Academic setup wizard + 5 sections (Class 1–5, Class 6–8, SSC, HSC, HSC Admission; Admission reuses HSC curriculum) | **Unit- and browser-tested** (setup gate end-to-end incl. school class + admission target) |
+| Weekly/monthly targets | **Unit- and browser-tested** (progress computed from real records) |
+| Per-chapter lectures with configurable per-lecture checklists | **Integration- and browser-tested** |
+| Focus v2: open-ended + countdown, timestamp-based, survives reload/lock | **Unit- and browser-tested**; on-device notification delivery **not device-verified** |
+| Community sharing (private by default, pseudonymous, opt-in) | **DB-tested** (RLS) and **browser-tested** (defaults, contact-info rejection) |
+| Auth: local workspace + email/password + reset flow + optional Google (cloud) | Local **integration- and browser-tested**; cloud **unverified** (needs a hosted project) |
+| Screens: 32 lazy routes (Phase 1 + Phase 2 + setup, syllabus dashboard, subject detail, topics matrix, targets, community, 404) | **Browser-tested**: every navigable route loads in Chromium, plus the main flows; the jsdom boot test covers every Phase-1 screen too |
 | Student journeys A–I (setup, syllabus, time, planning, mistakes, practice, insights, export) | A–G and I **browser-tested**; H (cross-user security) **DB-tested**; see §9 |
-| Postgres schema + RLS (`0001`–`0007`) | **DB-tested** in PGlite, including applying the whole set **twice**; **not** applied to a hosted project |
+| Postgres schema + RLS (`0001`–`0010`) | **DB-tested** in PGlite (58 assertions), including applying the whole set **twice**; **not** applied to a hosted project |
 | RLS isolation (two users, forged writes, composite FKs) | **DB-tested** |
 | AI narrative Edge Function | **Unit-tested end-to-end with a stubbed provider** (16 tests: request shape, key handling, schema + invented-number rejection, timeout/5xx/401 mapping); **no live call** — no key, provider hosts unreachable |
-| Android (Capacitor 7) | `android/` project generated, plugin synced, 8 config assertions pass; **APK not built** (no JDK/SDK), **no device test** |
+| Android (Capacitor 7) | `android/` project generated; `cap sync` clean (@capacitor/app + local-notifications); back-button handler, `adjustResize`, alarm/notification permissions in place; versionName **2.0.0** / versionCode 2; **APK built by CI** (`.github/workflows/android.yml`, JDK 21 + SDK 35) — not buildable in this sandbox (no JDK/SDK, hosts blocked); **no device test** |
 | Demo curriculum | **Placeholder**, `needs_verification`, **not** official NCTB content |
 | Official SSC/HSC subject structure | **Sourced and seeded** (NCTB, 6 versions, 70 subjects, bilingual names), every row `needs_verification`; chapters **absent**, not invented — see [docs/CURRICULUM.md](docs/CURRICULUM.md) |
+| Imported HSC Science reference syllabus | **128 chapters / 13 paper-split subjects** captured verbatim from the public HSC Study Tracker app (source + date recorded, repeatable generator, DB-parity-tested); `needs_verification`; HSC Admission reuses the same rows |
+| Academic sections | **5** — Class 1–5, Class 6–8, SSC, HSC, HSC Admission; school classes use honest manual subjects; class level + admission target persist and are editable without losing progress |
+| Skipped chapter status | **Unit- and browser-tested**: never lowers completion %, raises no attention alerts, keeps all records, reverses cleanly |
 | Curriculum progress safety | **Integration- and DB-tested**: a reseed created no duplicates and left chapter status, checklist ticks, notes and curriculum links intact |
 | Export / backup | **Browser-tested** (JSON download contains real rows); restore is **not implemented** |
+| v1.0 → next-update data upgrade | **Integration-tested**: old storage loads with new defaults, nothing deleted, writes after upgrade keep old rows |
 | Secret handling | **Verified against the built bundle** (`tests/bundle/secrets.test.ts`): no service-role key, provider key or key header ships to the client |
 | Loading / empty / error / retry states | **Browser- and jsdom-tested** on gated pages; every page has a written empty state |
-| Production build + route splitting | **Verified**: 27 route chunks, 8 shared chunks, 4 vendor chunks (39 JS files) |
+| Production build + route splitting | **Verified**: 32 route chunks, 11 shared chunks, 4 vendor chunks (48 JS files) |
 | Android project (native config) | **Generated and config-tested**; APK build **not executed** here |
 | Hosted Supabase, real AI call, device run | **BLOCKED** — see [docs/VERIFICATION.md](docs/VERIFICATION.md) for the per-item commands |
 
@@ -71,11 +85,25 @@ weekly report, and receive planned reminders.
 | **Notes / formula vault / practice** | Notes with kinds (note, formula, definition, bookmark), tags, pinning, search; quick capture from any screen; practice questions with attempts, accuracy, needs-review, AI-sourced questions labelled | `/notes`, `/vault`, `/practice` |
 | **Progress insights + AI coach** | Four bands: observed → calculated → interpretation → missing, each with evidence; deterministic next steps; AI is optional and additive | `/insights`, `/reports` |
 | **Dashboard** | Today's study time (from the timeline), next exam countdown, today's tasks, revision queue, needs-attention flags, weekly facts — all from the same records as their pages | `/` |
-| **Focus mode** | Foreground focus/break timer (5–120 min focus, ≤ 30 min breaks, ≤ 8 intervals), linked to task/subject/chapter, writes exactly one study session | `/focus` |
+| **Focus mode (classic)** | Interval focus/break timer, linked to task/subject/chapter, writes exactly one study session — kept as a tab inside Focus v2 | `/focus` |
 | **Export & academic history** | JSON backup of every table + per-table CSV, demo rows marked, subject/chapter history preserved across curriculum changes, delete flows that never silently destroy history | `/export`, `/settings` |
 
+**The 2026-11 update — tracks, targets, focus v2, sync, community.**
+
+| Feature | What is real | Where |
+| --- | --- | --- |
+| **Academic setup** | First-launch wizard (section → class/group + session → subjects → confirm); tracking gated until done; editable later without losing progress. Class 1–5 / Class 6–8 / SSC / HSC / HSC Admission; school classes get a class picker and honest manual subjects; SSC/HSC pick group, board and exam batch; **Admission reuses the HSC curriculum rows** and stores a personal admission target | `/setup`, `/settings` |
+| **Syllabus dashboard** | Overall + per-subject progress from real records (completed / in progress / not started / skipped / remaining, skip-aware %), a **Study activity** card (today/this-week minutes, 7-day bars, recent sessions — from recorded sessions only) → subject detail → compact expandable chapter rows → chapter page with **time spent**; the topic matrix moved to `/syllabus/topics` | `/syllabus` |
+| **Chapter page** | 12 checklist items with **editable labels**, chapter notes, per-chapter lectures (add/rename/editable targets) each with its own configurable checklist, completion and notes, **time spent** from linked sessions, status Not Started / In Progress / Completed / **Skipped** (skipped never lowers %) | `/chapters/:id` |
+| **Targets** | Independent weekly and monthly goals (subject/chapter scope; chapters, checklist items, lectures or minutes); overdue shown honestly; progress never stored, always computed | `/targets` |
+| **Focus v2** | Open-ended stopwatch (start/pause/resume/finish) and preset/custom countdown with a completion notification; elapsed time recomputed from timestamps so backgrounding/locking/restarting never loses time; session history | `/focus` |
+| **Offline-first sync (cloud)** | Local cache + persisted write-behind outbox; stale-write detection (newer server row wins, conflict surfaced); status badge, manual “Sync now”, auto-retry on reconnect | app header, `/settings` |
+| **Community** | **Private by default.** Opt-in pseudonymous snapshot (name, track, group, overall %, weekly minutes); contact info rejected; optional self-reported ranking; no DMs, no discovery, no location | `/community` |
+| **Theme + polish** | Light/dark/system with pre-paint application, branded loader + skeletons (reduced-motion respected), Android back button (modal → drawer → history → exit at root) | everywhere |
+
 Everything above runs in the browser with no server: local mode keeps rows in
-`localStorage` under one key and seeds labelled demo data.
+`localStorage` under one key and seeds labelled demo data. Cloud-only pieces
+(auth, sync, community) need a configured Supabase project (§4) and say so in-app.
 
 ---
 
@@ -132,6 +160,7 @@ structural placeholder (`needs_verification`), **not official NCTB content**.
    | `0005_mistake_practice_link.sql` | optional mistake → practice question link with a composite `(id, user_id)` FK |
    | `0006_curriculum_provenance.sql` | curriculum `scope` (textbook / exam syllabus / subject structure), `source_checked_at`, `source_note`, per-subject verification status |
    | `0007_official_subject_structure.sql` | SSC + HSC subject lists for Science, Humanities and Business Studies from NCTB — **subject names only, no chapters**, all `needs_verification` |
+   | `0008_next_update.sql` | academic setup fields on profiles, `study_targets`, `lecture_checklist_items`, `community_profiles` (opt-in sharing, RLS: only `sharing_enabled` rows readable), chapter/lecture notes columns, grants |
 
    `0005` uses `on delete set null (practice_question_id)`, which needs Postgres 15+
    (Supabase projects are 15/16/17; PGlite here is 18).
@@ -201,23 +230,25 @@ npm run test:db       # vitest run tests/db — migrations + RLS in PGlite
 npm run test:e2e      # playwright test — real Chromium against a preview build
 npm run verify        # typecheck && lint && build && test (build first: the bundle secret scan reads dist/)
 npm run verify:cloud  # hosted Supabase + optional real AI check (see §9.1)
-npm run android:preflight # JDK 17 / Android SDK / wrapper / synced-assets check
+npm run android:preflight # JDK 21 / Android SDK / wrapper / synced-assets check
 npm run android:sync  # build + cap sync android
 npm run android:build # ./gradlew assembleDebug → APK (needs JDK + SDK)
 npm run android:open  # open the Android project
 ```
 
-### Verified output in this snapshot (2026-10-27)
+### Verified output in this snapshot (2026-11-06)
 
 ```
 npm run typecheck  → no errors
 npm run lint       → no errors, no warnings
-npm test           → 34 files, 402 tests passed
-                     (incl. 33 database/migration/RLS assertions in tests/db,
-                      24 Android config + preflight assertions,
+npm test           → 46 files, 517 tests passed, 0 failed
+                     (incl. 58 database/migration/RLS assertions in tests/db,
+                      the imported-syllabus parity suite, skipped-status math,
+                      13 sync-engine integration tests, the v1-upgrade safety test,
+                      Android config + preflight assertions,
                       a build-bundle secret scan and the loading/error/retry states)
-npm run build      → ✓ built in 5.88 s
-npm run test:e2e   → 37 passed (50.2 s) in Chromium against the production preview build
+npm run build      → ✓ built in ~6 s
+npm run test:e2e   → 54 passed (~1.5 min) in Chromium against the production preview build
 ```
 
 Bundle after route-level code splitting (raw / gzip):
@@ -226,10 +257,10 @@ Bundle after route-level code splitting (raw / gzip):
 ionic-vendor      1 261.03 kB / 278.17 kB   (only chunk above Vite's 500 kB warning)
 supabase-vendor     227.08 kB /  58.97 kB
 data-vendor         129.52 kB /  36.63 kB
-app entry           157.04 kB /  45.26 kB
-react-vendor         22.55 kB /   8.32 kB
-27 route chunks       4–25 kB each
-8 shared chunks      small helpers (delete button, time formatting, Ionic page glue)
+app entry           209.62 kB /  60.09 kB
+react-vendor         23.14 kB /   8.55 kB
+32 route chunks       2–27 kB each
+11 shared chunks      small helpers (delete button, time formatting, Ionic page glue)
 ```
 
 The remaining warning is the Ionic vendor chunk (a framework-wide import). It is loaded
@@ -317,10 +348,10 @@ secrets, run `npm run verify:cloud -- --ai` (see §9.1).
 | --- | --- | --- |
 | `npm run typecheck` | whole project incl. tests | pass |
 | `npm run lint` | ESLint (no warnings allowed in the result we report) | pass |
-| `npm test` | 34 files / 402 tests | pass |
-| `npx vitest run tests/db` | migrations `0001`–`0005` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability | pass (33 tests) |
+| `npm test` | 46 files / 517 tests | pass |
+| `npx vitest run tests/db` | migrations `0001`–`0010` applied to PGlite **twice** (re-apply safe); RLS, FKs, constraints, storage policies, audit immutability, community privacy, imported-syllabus parity | pass (58 tests) |
 | `npm run build` | production build + chunk report | pass |
-| `npx playwright test` | production build served by `vite preview`; real Chromium; 27 routes, 11 flows, 25-route accessibility sweep, icon rendering | pass (37 tests, 50.2 s) |
+| `npx playwright test` | production build served by `vite preview`; real Chromium; all routes, journeys + next-update flows (5-section setup, imported chapters, skipped status, activity card, lectures, targets, community, theme), accessibility sweep, icon rendering | pass (54 tests, ~1.5 min) |
 
 Key test files:
 
@@ -364,7 +395,7 @@ Key test files:
 ### 9.0 Migrations are re-apply safe
 
 Every `create trigger`, `create policy` and `create index` is preceded by a matching
-`drop … if exists` (or is `if not exists`), so pasting `0001`–`0005` into the SQL editor
+`drop … if exists` (or is `if not exists`), so pasting `0001`–`0008` into the SQL editor
 twice, or re-running a file after a partial failure, is safe. `tests/db/idempotency.test.ts`
 applies the whole set twice to one database and compares the schema.
 
@@ -381,7 +412,7 @@ node scripts/verify-cloud.mjs --dry-run   # config check, prints the plan, write
 node scripts/verify-cloud.mjs --apply-migrations --ai
 ```
 
-It applies `0001`–`0005`, creates two throwaway users, asserts that B cannot read, forge,
+It applies `0001`–`0008`, creates two throwaway users, asserts that B cannot read, forge,
 update or delete A's rows, that B cannot attach records to A's practice question, that
 `0005` clears the mistake link on question delete while keeping the mistake, that the
 function rejects unauthenticated calls, optionally makes **one real AI request** and checks
@@ -473,7 +504,7 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests
 
 ## 10. Android build
 
-Prerequisites: Node 20.19+, JDK 17+, and the Android SDK (platform 35 + build-tools +
+Prerequisites: Node 20.19+, JDK 21 (Capacitor 7 compiles with Java 21), and the Android SDK (platform 35 + build-tools +
 platform-tools). A full walkthrough — including installing on your own phone, which backend
 the APK should use, and what must never go into it — is in
 **[docs/ANDROID_APK.md](docs/ANDROID_APK.md)**.
@@ -504,10 +535,11 @@ on the renamed package.
 build and `cap sync` were executed here (40 assets copied, plugin registered), but there is
 no JDK, no Android SDK, and `services.gradle.org` / `dl.google.com` / Maven hosts are
 unreachable, so `gradlew assembleDebug` was never run and no APK exists in this repository.
-`npm run android:preflight` reproduces that verdict in one command. Reminders use inexact
-alarms unless the user grants exact-alarm access — untested on hardware. See
-[docs/ANDROID_APK.md](docs/ANDROID_APK.md) for the build and install steps and the
-device checklist in [docs/VERIFICATION.md](docs/VERIFICATION.md) §2.3.
+`npm run android:preflight` reproduces that verdict in one command. The manifest now
+declares `SCHEDULE_EXACT_ALARM` (Android 14+ may still require the user to grant
+Alarms & reminders access) — untested on hardware. See
+[docs/ANDROID_APK.md](docs/ANDROID_APK.md) for the build steps and the first-run
+device checklist (back button, keyboard, timer-restore, offline sync).
 
 ---
 
@@ -525,7 +557,7 @@ device checklist in [docs/VERIFICATION.md](docs/VERIFICATION.md) §2.3.
   first; AI text is validated, labelled and never used for marks or predictions.
 - **Data-loss prevention over convenience.** Archive instead of delete, restricted
   deletes, import rollback, export, visible demo markers.
-- **Route-level code splitting.** All 27 routes are `React.lazy`, with vendor chunks for
+- **Route-level code splitting.** All 32 routes are `React.lazy`, with vendor chunks for
   React, Ionic, Supabase and date/data libraries (`vite.config.ts`).
 
 Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_RULES.md).
@@ -534,15 +566,19 @@ Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_
 
 ## 12. Known limitations
 
-1. **Cloud mode has never been executed.** Migrations and RLS are DB-tested in PGlite, but
-   no hosted Supabase project was available. Run §4, `supabase/tests/rls.test.sql` and
-   `node scripts/verify-cloud.mjs` before trusting cloud mode with real data.
+1. **Cloud mode has never been executed against a hosted project.** Migrations and RLS
+   are DB-tested in PGlite and the sync engine is integration-tested against a fake
+   remote, but no hosted Supabase project was available. Run §4,
+   `supabase/tests/rls.test.sql` and `node scripts/verify-cloud.mjs` before trusting
+   cloud mode with real data.
 2. **No real AI call.** The adapter is unit-tested against a stubbed provider (16 tests) but
    no provider was ever contacted. Set the secrets and run
    `node scripts/verify-cloud.mjs --ai`.
-3. **No Android build or device run.** The native project, manifest, permissions and icon
-   are committed and config-tested; nothing was compiled or installed (no JDK/SDK, no
-   device). Run `npm run android:build` on a machine with the SDK.
+3. **No Android build or device run.** The native project, manifest (back button,
+   `adjustResize`, notification/alarm permissions) and icon are committed,
+   config-tested and `cap sync`-ed; nothing was compiled or installed (no JDK/SDK, no
+   device). Run `npm run android:build` on a machine with the SDK, then the device
+   checklist in `docs/ANDROID_APK.md`.
 4. **Subject structure only, no chapters.** The official NCTB subject lists for SSC and
    HSC ship for Science, Humanities and Business Studies, but chapter titles do not:
    they live in PDFs that could not be read here, so they are absent rather than
@@ -551,8 +587,10 @@ Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_
    are not seeded.
 5. **No restore from backup.** Export works (JSON + CSV); importing a JSON workspace is
    not implemented. Chapter import is a separate, reviewed feature.
-6. **No offline write queue.** Cloud mode needs a connection; failed writes surface as
-   errors and are not replayed later.
+6. **Sync conflicts are server-wins, not merged.** The offline outbox never overwrites a
+   newer server row: the remote version is applied locally, the local edit is dropped
+   and the conflict is listed in Settings so you can redo it. There is no field-level
+   merge UI. Live two-device behaviour still needs a hosted project to verify.
 7. **Ionic vendor chunk stays large.** Route chunks are split; Ionic itself is one
    framework chunk (278 kB gzip) and is cached after first load.
 8. **Single local workspace per browser.** Local demo mode stores one identity; multi-user
@@ -571,9 +609,10 @@ Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_
 
 ## 13. Sensible next steps
 
-1. Run `0001`–`0005` against a staging Supabase project, execute
+1. Run `0001`–`0008` against a staging Supabase project, execute
    `supabase/tests/rls.test.sql`, then `node scripts/verify-cloud.mjs` for the
-   application-level checks and spot-check cloud mode with two accounts.
+   application-level checks and spot-check cloud mode with two accounts —
+   including offline edits, reconnect drain and a deliberate two-device conflict.
 2. Deploy the Edge Functions with a real provider key, generate one AI narrative, and
    confirm it is stored, labelled and rate-limited.
 3. Run `npm run android:build`, install the APK, and verify notification permission,
@@ -585,7 +624,8 @@ Rules and thresholds are documented in [`docs/PROGRESS_RULES.md`](docs/PROGRESS_
    [docs/CURRICULUM.md](docs/CURRICULUM.md) for the exact procedure).
 5. Add JSON workspace restore (with a version check and a dry-run preview) on top of the
    existing export format.
-6. Add a cloud-mode offline write queue if the app is used on unreliable connections.
+6. Verify the offline outbox on real unreliable connections once a hosted project
+   exists (the engine is integration-tested; the live adapter is not).
 7. Split the Ionic vendor chunk further only if a safe, tested approach is found.
 
 ---

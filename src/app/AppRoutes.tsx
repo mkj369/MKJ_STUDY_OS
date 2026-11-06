@@ -33,6 +33,11 @@ const SettingsPage = lazyPage(() => import('@/features/settings/SettingsPage'), 
 const NotFoundPage = lazyPage(() => import('@/features/shared/NotFoundPage'), 'NotFoundPage');
 
 const SyllabusPage = lazyPage(() => import('@/features/syllabus/SyllabusPage'), 'SyllabusPage');
+const SyllabusTopicsPage = lazyPage(() => import('@/features/syllabus/SyllabusTopicsPage'), 'SyllabusTopicsPage');
+const SubjectDetailPage = lazyPage(() => import('@/features/subjects/SubjectDetailPage'), 'SubjectDetailPage');
+const SetupPage = lazyPage(() => import('@/features/setup/SetupPage'), 'SetupPage');
+const TargetsPage = lazyPage(() => import('@/features/targets/TargetsPage'), 'TargetsPage');
+const CommunityPage = lazyPage(() => import('@/features/community/CommunityPage'), 'CommunityPage');
 const TimeTrackerPage = lazyPage(() => import('@/features/time/TimeTrackerPage'), 'TimeTrackerPage');
 const PlannerPage = lazyPage(() => import('@/features/planner/PlannerPage'), 'PlannerPage');
 const SmartRevisionPage = lazyPage(() => import('@/features/revisions/SmartRevisionPage'), 'SmartRevisionPage');
@@ -52,7 +57,7 @@ export function AppRoutes() {
           <Route index element={<DashboardPage />} />
           <Route path="curriculum" element={<CurriculumPage />} />
           <Route path="subjects" element={<SubjectsPage />} />
-          <Route path="subjects/:subjectId" element={<SubjectsPage />} />
+          <Route path="subjects/:subjectId" element={<SubjectDetailPage />} />
           <Route path="chapters/:chapterId" element={<ChapterDetailPage />} />
           <Route path="lectures" element={<LecturesPage />} />
           <Route path="sessions" element={<SessionsPage />} />
@@ -68,6 +73,10 @@ export function AppRoutes() {
           <Route path="reminders" element={<RemindersPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="syllabus" element={<SyllabusPage />} />
+          <Route path="syllabus/topics" element={<SyllabusTopicsPage />} />
+          <Route path="setup" element={<SetupPage />} />
+          <Route path="targets" element={<TargetsPage />} />
+          <Route path="community" element={<CommunityPage />} />
           <Route path="time" element={<TimeTrackerPage />} />
           <Route path="planner" element={<PlannerPage />} />
           <Route path="weakness" element={<WeaknessPage />} />

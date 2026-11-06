@@ -18,12 +18,14 @@ import type {
 } from '@/services/repository';
 import { RepositoryError } from '@/services/repository';
 import { DEFAULT_CHECKLIST } from '@/services/seed/checklistDefaults';
+import { DEFAULT_LECTURE_CHECKLIST } from '@/services/seed/lectureChecklistDefaults';
+import type { CommunityProfile, LectureChecklistItem, UserPreferences } from '@/types/domain';
 import { buildDemoWorkspace, DEMO_WORKSPACE_TABLES, newId } from '@/services/seed/demoWorkspace';
 import { defaultReminderPreferences } from '@/services/reminderDefaults';
-import { LocalDatabase, type Row } from './localDatabase';
+import { LocalDatabase, normaliseRow, type Row } from './localDatabase';
 import type { KeyValueStorage } from './storage';
 
-const USER_KEYED: RepositoryTable[] = ['reminder_preferences'];
+const USER_KEYED: RepositoryTable[] = ['reminder_preferences', 'user_preferences', 'community_profiles'];
 const CURRICULUM: RepositoryTable[] = [...CURRICULUM_TABLES];
 
 function isCurriculumTable(table: RepositoryTable): boolean {
@@ -84,7 +86,10 @@ export class LocalRepository implements Repository {
     const row: Row = clone(values);
     if (isUserKeyed(table)) {
       row['user_id'] = this.userId;
-      if (!row['id']) row['id'] = this.userId;
+      // reminder_preferences historically carried a synthetic id in local
+      // storage; the newer user-keyed tables have no id column in Postgres,
+      // so never invent one for them (it would break cloud upserts).
+      if (table === 'reminder_preferences' && !row['id']) row['id'] = this.userId;
     } else if (table === 'profiles') {
       row['id'] = this.userId;
     } else {
@@ -93,7 +98,10 @@ export class LocalRepository implements Repository {
     }
     if ('created_at' in row === false) row['created_at'] = now();
     if ('updated_at' in row === false) row['updated_at'] = now();
-    return row;
+    // Apply the same column defaults a storage read would backfill, so the
+    // row returned by create() is identical to the row a later read returns
+    // (e.g. profiles.setup_completed_at must be null, not undefined).
+    return normaliseRow(table, row);
   }
 
   /**
@@ -167,7 +175,7 @@ export class LocalRepository implements Repository {
       const current = rows[index] as Row;
       if (!this.owned(current, table)) throw new RepositoryError('Not allowed.', 'forbidden');
       const next: Row = { ...current, ...(patch as Record<string, unknown>) };
-      next['id'] = current['id'];
+      if (current['id'] !== undefined) next['id'] = current['id'];
       if (!isCurriculumTable(table)) next['user_id'] = current['user_id'];
       if ('updated_at' in current) next['updated_at'] = now();
       rows[index] = next;
@@ -196,6 +204,12 @@ export class LocalRepository implements Repository {
       //  - deleting a subject cascades to its chapters
       if (table === 'user_chapters') {
         this.cascadeChapter(state, id);
+      }
+      if (table === 'lecture_records') {
+        // Mirrors lecture_checklist_items' ON DELETE CASCADE (migration 0008).
+        state.tables['lecture_checklist_items'] = (state.tables['lecture_checklist_items'] ?? []).filter(
+          (item) => item['lecture_record_id'] !== id,
+        );
       }
       if (table === 'practice_questions') {
         state.tables['practice_attempts'] = (state.tables['practice_attempts'] ?? []).filter(
@@ -241,6 +255,11 @@ export class LocalRepository implements Repository {
         for (const chapterId of chapterIds) this.cascadeChapter(state, chapterId);
         state.tables['user_chapters'] = (state.tables['user_chapters'] ?? []).filter(
           (chapter) => chapter['user_subject_id'] !== id,
+        );
+        // study_targets.user_subject_id is ON DELETE SET NULL (migration 0008):
+        // the goal survives the subject, it just loses its scope.
+        state.tables['study_targets'] = (state.tables['study_targets'] ?? []).map((target) =>
+          target['user_subject_id'] === id ? { ...target, user_subject_id: null } : target,
         );
       }
       return null;
@@ -398,6 +417,69 @@ export class LocalRepository implements Repository {
     } as NewRow<'chapter_checklist_progress'>);
   }
 
+  /* --------------------------- lecture support --------------------------- */
+
+  async ensureLectureChecklistDefaults(lectureRecordId: ID): Promise<LectureChecklistItem[]> {
+    const lecture = (await this.list('lecture_records')).find((l) => l.id === lectureRecordId);
+    if (!lecture) throw new RepositoryError('Lecture not found.', 'not_found');
+    const existing = (await this.list('lecture_checklist_items')).filter(
+      (item) => item.lecture_record_id === lectureRecordId,
+    );
+    if (existing.length > 0) return existing;
+    const rows = DEFAULT_LECTURE_CHECKLIST.map((template, index) => ({
+      lecture_record_id: lectureRecordId,
+      label: template.label,
+      sort_order: index + 1,
+      is_done: false,
+      completed_at: null,
+    }));
+    return this.createMany('lecture_checklist_items', rows as NewRow<'lecture_checklist_items'>[]);
+  }
+
+  /* ----------------------------- preferences ----------------------------- */
+
+  async getUserPreferences(): Promise<UserPreferences> {
+    const rows = await this.list('user_preferences');
+    const existing = rows[0];
+    if (existing) return existing;
+    return this.create('user_preferences', {
+      theme: 'system',
+      community_opt_in_seen: false,
+    } as NewRow<'user_preferences'>);
+  }
+
+  async saveUserPreferences(patch: Partial<UserPreferences>): Promise<UserPreferences> {
+    const current = await this.getUserPreferences();
+    return this.update('user_preferences', current.user_id, patch);
+  }
+
+  /* ------------------------------ community ------------------------------ */
+
+  async getCommunityProfile(): Promise<CommunityProfile | null> {
+    const rows = await this.list('community_profiles');
+    return rows[0] ?? null;
+  }
+
+  async saveCommunityProfile(
+    values: Omit<CommunityProfile, 'user_id' | 'created_at' | 'updated_at'>,
+  ): Promise<CommunityProfile> {
+    const existing = await this.getCommunityProfile();
+    if (existing) {
+      return this.update('community_profiles', this.userId, values);
+    }
+    return this.create('community_profiles', values as NewRow<'community_profiles'>);
+  }
+
+  async listSharedCommunityProfiles(): Promise<CommunityProfile[]> {
+    // No server in local mode: there is nobody to share with. The UI says so.
+    return [];
+  }
+
+  async deleteCommunityProfile(): Promise<void> {
+    const existing = await this.getCommunityProfile();
+    if (existing) await this.remove('community_profiles', this.userId);
+  }
+
   /* ------------------------------ summaries ------------------------------ */
 
   async saveSummary(
@@ -472,6 +554,16 @@ export class LocalRepository implements Repository {
         await this.createMany(table, tableRows as NewRow<RepositoryTable>[]);
       }
     }
+    // The demo workspace ships pre-configured (HSC / Science) so the syllabus
+    // tracker is usable immediately. Only fills fields the student has not set.
+    const profile = await this.getProfile();
+    if (!profile.setup_completed_at) {
+      await this.updateProfile({
+        academic_track: profile.academic_track ?? 'hsc',
+        study_group: profile.study_group ?? 'Science',
+        setup_completed_at: new Date().toISOString(),
+      });
+    }
     return { createdSubjects: rows.subjects.length, createdChapters: rows.chapters.length, removed: 0 };
   }
 
@@ -538,7 +630,7 @@ export class LocalRepository implements Repository {
 
   async exportAll() {
     const tables: Partial<Record<RepositoryTable, unknown[]>> = {};
-    for (const table of [...CURRICULUM_TABLES, ...USER_OWNED_TABLES, 'reminder_preferences'] as RepositoryTable[]) {
+    for (const table of [...CURRICULUM_TABLES, ...USER_OWNED_TABLES, 'reminder_preferences', 'user_preferences'] as RepositoryTable[]) {
       tables[table] = await this.list(table);
     }
     const profile = await this.getProfile();
@@ -551,8 +643,53 @@ export class LocalRepository implements Repository {
     };
   }
 
+  /* ------------------------- sync-engine support ------------------------- */
+
+  /**
+   * Replace/insert rows exactly as given (no stamping, no audit) — used by the
+   * sync engine to apply server state. Rows must already belong to this user.
+   */
+  applyRemoteRows(table: RepositoryTable, rows: Row[]): void {
+    if (rows.length === 0) return;
+    const keyCol = LocalDatabase.isUserKeyed(table) ? 'user_id' : 'id';
+    this.db.mutate((state) => {
+      const existing = state.tables[table] ?? [];
+      for (const row of rows) {
+        if (!this.owned(row, table)) continue;
+        const index = existing.findIndex((candidate) => candidate[keyCol] === row[keyCol]);
+        if (index >= 0) existing[index] = { ...row };
+        else existing.push({ ...row });
+      }
+      state.tables[table] = existing;
+      return null;
+    });
+  }
+
+  /** Remove rows by key without audit/cascades — server already cascaded. */
+  removeLocalRows(table: RepositoryTable, keys: string[]): void {
+    if (keys.length === 0) return;
+    const keyCol = LocalDatabase.isUserKeyed(table) ? 'user_id' : 'id';
+    const keySet = new Set(keys);
+    this.db.mutate((state) => {
+      state.tables[table] = (state.tables[table] ?? []).filter(
+        (row) => !(this.owned(row, table) && keySet.has(String(row[keyCol] ?? ''))),
+      );
+      return null;
+    });
+  }
+
+  /** Raw owned rows for sync snapshots (single storage read across tables). */
+  syncSnapshot(tables: RepositoryTable[]): Map<RepositoryTable, Row[]> {
+    const all = this.db.readAll();
+    const result = new Map<RepositoryTable, Row[]>();
+    for (const table of tables) {
+      result.set(table, (all[table] ?? []).filter((row) => this.owned(row, table)));
+    }
+    return result;
+  }
+
   async listAllUserData(): Promise<UserDataBundle> {
-    const [curriculum, subjects, chapters, topics, checklistItems, checklistProgress, lectures, sessions, dailyBlocks, focusSessions, revisions, difficulties, mistakes, tasks, exams, examTargets, practiceQuestions, practiceAttempts, resources, notes, summaries, reminderPreferences, reminderEvents, profile] =
+    const [curriculum, subjects, chapters, topics, checklistItems, checklistProgress, lectures, lectureChecklist, studyTargets, userPreferences, communityProfile, sessions, dailyBlocks, focusSessions, revisions, difficulties, mistakes, tasks, exams, examTargets, practiceQuestions, practiceAttempts, resources, notes, summaries, reminderPreferences, reminderEvents, profile] =
       await Promise.all([
         this.listCurriculum(),
         this.list('user_subjects'),
@@ -561,6 +698,10 @@ export class LocalRepository implements Repository {
         this.list('chapter_checklist_items'),
         this.list('chapter_checklist_progress'),
         this.list('lecture_records'),
+        this.list('lecture_checklist_items'),
+        this.list('study_targets'),
+        this.getUserPreferences(),
+        this.getCommunityProfile(),
         this.list('study_sessions'),
         this.list('daily_blocks'),
         this.list('focus_sessions'),
@@ -586,6 +727,10 @@ export class LocalRepository implements Repository {
       checklistItems,
       checklistProgress,
       lectures,
+      lectureChecklist,
+      studyTargets,
+      userPreferences,
+      communityProfile,
       sessions,
       dailyBlocks,
       focusSessions,

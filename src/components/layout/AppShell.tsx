@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { IonIcon } from '@ionic/react';
 import {
@@ -7,7 +7,6 @@ import {
   menuOutline,
   moonOutline,
   personCircleOutline,
-  cloudDoneOutline,
   phonePortraitOutline,
   ellipsisHorizontalOutline,
 } from 'ionicons/icons';
@@ -18,6 +17,10 @@ import { useMutate, useWorkspaceView } from '@/hooks/useWorkspace';
 import { Badge, DemoBadge } from '@/components/ui/Page';
 import { RecordDialog } from '@/components/ui/RecordDialog';
 import { useNotify } from '@/features/shared/WorkspaceGate';
+import { useAndroidBackNavigation } from '@/hooks/useAndroidBackButton';
+import { useTheme } from '@/app/ThemeProvider';
+import { useAccountThemeSync } from '@/hooks/useAccountThemeSync';
+import { SyncStatusBadge, useSyncInvalidation } from '@/features/shared/SyncStatusBadge';
 import { noteSchema, type NoteValues } from '@/domain/schemas';
 import { NOTE_KINDS } from '@/types/domain';
 import { errorMessage } from '@/utils/errors';
@@ -139,9 +142,7 @@ function ShellStatusBadges() {
   return (
     <div className="row" style={{ gap: 6 }}>
       {auth.mode === 'cloud' ? (
-        <Badge tone="good">
-          <IonIcon icon={cloudDoneOutline} aria-hidden="true" /> Cloud
-        </Badge>
+        <SyncStatusBadge compact />
       ) : (
         <Badge tone="info">
           <IonIcon icon={phonePortraitOutline} aria-hidden="true" /> Local demo
@@ -181,10 +182,26 @@ function UserFooter() {
       >
         {signingOut ? 'Signing out…' : 'Sign out'}
       </button>
-      <div className="tiny" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-        <IonIcon icon={moonOutline} aria-hidden="true" /> Follows your system theme
-      </div>
+      <ThemeQuickToggle />
     </div>
+  );
+}
+
+/** Cycles system → light → dark without leaving the current screen. */
+function ThemeQuickToggle() {
+  const { theme, setTheme } = useTheme();
+  const label = theme === 'system' ? 'Theme: follow system' : theme === 'light' ? 'Theme: light' : 'Theme: dark';
+  const next = theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
+  return (
+    <button
+      type="button"
+      className="link-button"
+      style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: '0.8rem', color: 'var(--mkj-muted)' }}
+      onClick={() => setTheme(next)}
+      aria-label={`${label}. Switch to ${next}.`}
+    >
+      <IonIcon icon={moonOutline} aria-hidden="true" /> {label}
+    </button>
   );
 }
 
@@ -211,9 +228,31 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const { t } = useI18n();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerRef = useRef(false);
+  drawerRef.current = drawerOpen;
   const navItem = findNavItem(location.pathname);
   const auth = useAuth();
   const view = useWorkspaceView();
+  const notify = useNotify();
+  useAccountThemeSync();
+  useSyncInvalidation();
+
+  // Android hardware Back: overlays (IonModal dialogs) consume the event at a
+  // higher priority; this handler closes the drawer, then walks history, and
+  // only exits after a deliberate double-press on the home screen.
+  const closeTopLayer = useCallback(() => {
+    if (drawerRef.current) {
+      setDrawerOpen(false);
+      return true;
+    }
+    return false;
+  }, []);
+  useAndroidBackNavigation({
+    closeTopLayer,
+    onExitHint: () => {
+      void notify('Press back again to exit MKJ StudyOS.', 'medium');
+    },
+  });
   const title =
     location.pathname.startsWith('/chapters/') ? 'Chapter' : navItem ? t(navItem.labelKey) : 'MKJ StudyOS';
 

@@ -1,0 +1,148 @@
+name: Android APK
+
+# Builds the actual APK on GitHub's runners. Debug APK is always produced
+# (debug-signed, installable). The release APK is signed ONLY when an existing
+# key is provided via repository secrets — this workflow never generates a key.
+#
+# Optional secrets for signed release (same identity as any installed v1):
+#   MKJ_KEYSTORE_BASE64    base64 of the existing .keystore/.jks file
+#   MKJ_KEYSTORE_PASSWORD  keystore password
+#   MKJ_KEY_ALIAS          key alias
+#   MKJ_KEY_PASSWORD       key password
+#
+# Without them the release APK is UNSIGNED and must be signed before install
+# (see docs/ANDROID_APK.md). Results (package id, versions, signature, size,
+# SHA-256) are printed to the log AND posted as a commit comment so they are
+# readable from the API without downloading artifacts.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['arena/**']
+    paths:
+      - 'android/**'
+      - 'src/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.ts'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
+      - '.github/workflows/android.yml'
+
+permissions:
+  contents: write # commit comment with the verification results
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Assemble APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21 # Capacitor 7 compiles with Java 21
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install SDK platform 35 + build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Build web bundle and sync into android/
+        run: npm run android:sync
+
+      - name: Prepare optional release signing (existing key only)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MKJ_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.MKJ_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MKJ_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MKJ_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/release.keystore
+            {
+              echo "storeFile=../release.keystore"
+              echo "storePassword=$STORE_PASSWORD"
+              echo "keyAlias=$KEY_ALIAS"
+              echo "keyPassword=$KEY_PASSWORD"
+            } > android/keystore.properties
+            echo "Release signing: using the existing key from repository secrets."
+          else
+            echo "Release signing: no key configured — release APK will be UNSIGNED."
+          fi
+
+      - name: Assemble debug and release APKs
+        run: cd android && ./gradlew --no-daemon assembleDebug assembleRelease
+
+      - name: Verify APKs (package, version, signature, size, SHA-256)
+        id: verify
+        run: |
+          set -euo pipefail
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          DEBUG_APK=android/app/build/outputs/apk/debug/app-debug.apk
+          RELEASE_DIR=android/app/build/outputs/apk/release
+          REPORT=apk-verification.txt
+          : > "$REPORT"
+          for APK in "$DEBUG_APK" "$RELEASE_DIR"/*.apk; do
+            [ -f "$APK" ] || continue
+            {
+              echo "=== $APK ==="
+              "$BT/aapt" dump badging "$APK" | grep -E "^package:|^application-label:|^sdkVersion|^targetSdkVersion" || true
+              echo "size_bytes: $(stat -c%s "$APK")"
+              echo "sha256: $(sha256sum "$APK" | cut -d' ' -f1)"
+              if "$BT/apksigner" verify --print-certs "$APK" > /tmp/signing.txt 2>&1; then
+                echo "signature: VERIFIED"
+                grep -E "Signer #1 certificate (DN|SHA-256)" /tmp/signing.txt || true
+              else
+                echo "signature: UNSIGNED (sign before installing; see docs/ANDROID_APK.md)"
+              fi
+              echo
+            } | tee -a "$REPORT"
+          done
+          cat "$REPORT"
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mkj-studyos-apks
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/release/*.apk
+            apk-verification.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Post verification results as a commit comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Android APK build — run ${GITHUB_RUN_NUMBER} (${GITHUB_SHA::7})"
+            echo
+            echo '```'
+            cat apk-verification.txt
+            echo '```'
+            echo "Artifacts: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > /tmp/comment.md
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" \
+            -F body=@/tmp/comment.md > /dev/null
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f android/release.keystore android/keystore.properties

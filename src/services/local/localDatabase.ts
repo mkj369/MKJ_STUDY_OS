@@ -6,6 +6,7 @@ import {
 } from '@/types/domain';
 import { DEMO_CURRICULUM } from '@/services/seed/demoCurriculum';
 import { OFFICIAL_CURRICULUM } from '@/services/seed/officialCurriculum';
+import { REFERENCE_CURRICULUM } from '@/services/seed/referenceSyllabus';
 import type { KeyValueStorage } from './storage';
 import { STORAGE_PREFIX } from './storage';
 
@@ -27,9 +28,13 @@ const COLUMN_DEFAULTS: Partial<Record<RepositoryTable, Record<string, unknown>>>
   user_topics: { status: 'not_recorded', notes: null },
   exam_targets: { exam_type: 'school', priority: 'medium', status: 'planned', coverage_note: null },
   focus_sessions: { break_minutes: 0, planned_intervals: 1, completed_intervals: 0, ended_at: null, status: 'completed', study_session_id: null, notes: null },
+  // v1 → next update: academic setup fields. Null = "not set up yet", never a guess.
+  profiles: { academic_track: null, class_level: null, admission_target: null, study_group: null, academic_session: null, board: null, setup_completed_at: null },
+  user_chapters: { notes: null },
+  study_targets: { user_subject_id: null, chapter_ids: [], notes: null, is_demo: false },
 };
 
-function normaliseRow(table: RepositoryTable, row: Row): Row {
+export function normaliseRow(table: RepositoryTable, row: Row): Row {
   const defaults = COLUMN_DEFAULTS[table];
   if (!defaults) return row;
   const next = { ...row };
@@ -44,14 +49,16 @@ interface DatabaseShape {
   tables: Record<string, Row[]>;
 }
 
-const ALL_TABLES: RepositoryTable[] = [
+/** Must cover every REPOSITORY_TABLES entry — asserted by tests/db/tableSync. */
+export const ALL_TABLES: RepositoryTable[] = [
   ...CURRICULUM_TABLES,
   ...USER_OWNED_TABLES,
   'reminder_preferences',
+  'user_preferences',
 ];
 
 /** Tables whose primary key column is `user_id` instead of `id`. */
-const USER_KEYED_TABLES = new Set<RepositoryTable>(['reminder_preferences']);
+const USER_KEYED_TABLES = new Set<RepositoryTable>(['reminder_preferences', 'user_preferences', 'community_profiles']);
 
 export class LocalDatabase {
   private readonly storage: KeyValueStorage;
@@ -90,6 +97,7 @@ export class LocalDatabase {
    */
   private ensureCurriculum(db: DatabaseShape): void {
     this.mergeCurriculum(db, OFFICIAL_CURRICULUM);
+    this.mergeCurriculum(db, REFERENCE_CURRICULUM);
     const versions = db.tables['curriculum_versions'] as unknown as TableMap['curriculum_versions'][];
     if (!versions?.some((v) => v.id === DEMO_CURRICULUM.version.id)) {
       versions?.push({ ...DEMO_CURRICULUM.version });
@@ -109,6 +117,7 @@ export class LocalDatabase {
     bundle: {
       versions: readonly TableMap['curriculum_versions'][];
       subjects: readonly TableMap['curriculum_subjects'][];
+      chapters?: readonly TableMap['curriculum_chapters'][];
     },
   ): void {
     const versions = db.tables['curriculum_versions'] as unknown as TableMap['curriculum_versions'][];
@@ -123,6 +132,16 @@ export class LocalDatabase {
       if (existing >= 0) subjects[existing] = { ...subjects[existing], ...subject };
       else subjects.push({ ...subject });
     }
+    if (bundle.chapters) {
+      const chapters = db.tables['curriculum_chapters'] as unknown as TableMap['curriculum_chapters'][];
+      for (const chapter of bundle.chapters) {
+        const existing = chapters.findIndex((c) => c.id === chapter.id);
+        // Update seed-owned rows in place (deterministic ids); user progress
+        // lives in user_chapters and keeps pointing at the same id.
+        if (existing >= 0) chapters[existing] = { ...chapters[existing], ...chapter };
+        else chapters.push({ ...chapter });
+      }
+    }
   }
 
   private write(db: DatabaseShape): void {
@@ -131,6 +150,11 @@ export class LocalDatabase {
 
   rows(table: RepositoryTable): Row[] {
     return this.read().tables[table] ?? [];
+  }
+
+  /** One storage read for callers that need many tables (sync snapshots). */
+  readAll(): Record<string, Row[]> {
+    return this.read().tables;
   }
 
   mutate<T>(fn: (db: DatabaseShape) => T): T {

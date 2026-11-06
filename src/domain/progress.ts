@@ -74,6 +74,7 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
   needs_revision: 'Needs revision',
   blocked: 'Blocked',
   complete: 'Complete',
+  skipped: 'Skipped',
 };
 
 export function chapterStatusLabel(status: ChapterStatus): string {
@@ -453,6 +454,7 @@ interface DeriveStatusInput {
 export function deriveChapterStatus(input: DeriveStatusInput): ChapterStatus {
   if (input.declaredStatus === 'blocked') return 'blocked';
   if (input.declaredStatus === 'complete') return 'complete';
+  if (input.declaredStatus === 'skipped') return 'skipped';
   const evidencedMastery =
     input.checklist.total > 0 &&
     input.checklist.done === input.checklist.total &&
@@ -502,6 +504,8 @@ function explainStatus(status: ChapterStatus, declared: ChapterStatus, derived: 
       return declared === 'complete'
         ? 'You marked this chapter complete.'
         : 'Checklist complete plus a strong recorded test result, with no open difficulties.';
+    case 'skipped':
+      return 'You marked this chapter as skipped. It stays out of your completion percentage until you un-skip it.';
   }
 }
 
@@ -642,7 +646,10 @@ function buildChapterFlags(input: FlagInput): GapFlag[] {
 export interface SubjectProgress {
   userSubjectId: string;
   chapterCount: number;
-  /** Mean of chapter checklist percentages, ignoring chapters with no checklist. */
+  /**
+   * Mean of chapter checklist percentages, ignoring chapters with no checklist
+   * and chapters the student marked skipped (out of plan).
+   */
   checklistPercent: number | null;
   chaptersComplete: number;
   chaptersNeedingPractice: number;
@@ -671,7 +678,11 @@ export interface SubjectProgressInput {
 export function computeSubjectProgress(input: SubjectProgressInput): SubjectProgress {
   const today = input.today ?? todayISO();
   const progresses = input.chapters.map((c) => computeChapterProgress(c, { today }));
-  const checklistPercents = progresses
+  // Skipped chapters are deliberately out of the student's plan: they must not
+  // drag down the average checklist percent or raise attention alerts. Their
+  // raw records stay intact and count again the moment they are un-skipped.
+  const active = progresses.filter((p) => p.status !== 'skipped');
+  const checklistPercents = active
     .map((p) => p.checklist.percent)
     .filter((p): p is number => p !== null);
   const checklistPercent =
@@ -688,9 +699,9 @@ export function computeSubjectProgress(input: SubjectProgressInput): SubjectProg
 
   const attentionReasons: string[] = [];
   let score = 0;
-  const highDifficulties = progresses.filter((p) => p.highestOpenSeverity === 'high').length;
+  const highDifficulties = active.filter((p) => p.highestOpenSeverity === 'high').length;
   const openDifficulties = progresses.reduce((sum, p) => sum + p.openDifficulties, 0);
-  const overdueRevisions = progresses.filter((p) => p.revisions.dueState === 'overdue').length;
+  const overdueRevisions = active.filter((p) => p.revisions.dueState === 'overdue').length;
   if (highDifficulties > 0) {
     score += highDifficulties * 4;
     attentionReasons.push(`${highDifficulties} chapter(s) with a high-severity difficulty`);
@@ -703,7 +714,7 @@ export function computeSubjectProgress(input: SubjectProgressInput): SubjectProg
     score += overdue.length * 3;
     attentionReasons.push(`${overdue.length} overdue task(s)`);
   }
-  const lowResults = progresses.filter((p) => p.exams.latestPercent !== null && p.exams.latestPercent < LOW_EXAM_PERCENT).length;
+  const lowResults = active.filter((p) => p.exams.latestPercent !== null && p.exams.latestPercent < LOW_EXAM_PERCENT).length;
   if (lowResults > 0) {
     score += lowResults * 2;
     attentionReasons.push(`${lowResults} chapter(s) with a result below 50%`);

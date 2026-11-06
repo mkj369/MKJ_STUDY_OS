@@ -58,6 +58,7 @@ function SubjectsContent() {
         custom_title: values.title,
         status: values.status,
         lecture_target_count: values.lecture_target_count ?? null,
+          notes: null,
         import_batch_id: null,
         is_demo: false,
       });

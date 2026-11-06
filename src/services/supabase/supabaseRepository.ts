@@ -2,12 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   CURRICULUM_TABLES,
   USER_OWNED_TABLES,
+  type CommunityProfile,
   type ID,
+  type LectureChecklistItem,
   type Profile,
   type ReminderEvent,
   type ReminderPreferences,
   type RepositoryTable,
   type TableMap,
+  type UserPreferences,
   type WeeklySummary,
 } from '@/types/domain';
 import type {
@@ -19,6 +22,7 @@ import type {
 } from '@/services/repository';
 import { RepositoryError } from '@/services/repository';
 import { DEFAULT_CHECKLIST } from '@/services/seed/checklistDefaults';
+import { DEFAULT_LECTURE_CHECKLIST } from '@/services/seed/lectureChecklistDefaults';
 import { buildDemoWorkspace, DEMO_WORKSPACE_TABLES, newId } from '@/services/seed/demoWorkspace';
 import { defaultReminderPreferences } from '@/services/reminderDefaults';
 
@@ -39,9 +43,9 @@ function friendlyError(error: { message?: string; code?: string; details?: strin
   return new RepositoryError(`${context}: ${message}`, error?.code ?? 'database_error');
 }
 
-const USER_KEYED: RepositoryTable[] = ['reminder_preferences'];
+const USER_KEYED: RepositoryTable[] = ['reminder_preferences', 'user_preferences', 'community_profiles'];
 
-const ALL_USER_TABLES: RepositoryTable[] = [...USER_OWNED_TABLES, 'reminder_preferences'];
+const ALL_USER_TABLES: RepositoryTable[] = [...USER_OWNED_TABLES, 'reminder_preferences', 'user_preferences'];
 
 /**
  * Cloud repository. All reads/writes go through the anon client with the
@@ -63,7 +67,11 @@ export class SupabaseRepository implements Repository {
   }
 
   async list<T extends RepositoryTable>(table: T): Promise<TableMap[T][]> {
-    const query = this.client.from(table).select('*');
+    let query = this.client.from(table).select('*');
+    // community_profiles is readable beyond the owner (shared rows) by design;
+    // everywhere the app asks for "my rows" we still scope explicitly so a
+    // shared row from someone else never leaks into the user's own bundle.
+    if (table === 'community_profiles') query = query.eq('user_id', this.userId);
     const { data, error } = await query;
     if (error) throw friendlyError(error, `Loading ${table}`);
     return (data ?? []) as unknown as TableMap[T][];
@@ -272,6 +280,97 @@ export class SupabaseRepository implements Repository {
     } as NewRow<'chapter_checklist_progress'>);
   }
 
+  /* --------------------------- lecture support --------------------------- */
+
+  async ensureLectureChecklistDefaults(lectureRecordId: ID): Promise<LectureChecklistItem[]> {
+    const existing = await this.client
+      .from('lecture_checklist_items')
+      .select('*')
+      .eq('lecture_record_id', lectureRecordId);
+    if (existing.error) throw friendlyError(existing.error, 'Loading lecture checklist');
+    if ((existing.data ?? []).length > 0) return existing.data as LectureChecklistItem[];
+    const rows = DEFAULT_LECTURE_CHECKLIST.map((template, index) => ({
+      lecture_record_id: lectureRecordId,
+      label: template.label,
+      sort_order: index + 1,
+      is_done: false,
+      completed_at: null,
+    }));
+    return this.createMany('lecture_checklist_items', rows as NewRow<'lecture_checklist_items'>[]);
+  }
+
+  /* ----------------------------- preferences ----------------------------- */
+
+  async getUserPreferences(): Promise<UserPreferences> {
+    const { data, error } = await this.client
+      .from('user_preferences')
+      .select('*')
+      .eq('user_id', this.userId)
+      .maybeSingle();
+    if (error) throw friendlyError(error, 'Loading preferences');
+    if (data) return data as UserPreferences;
+    const { data: created, error: createError } = await this.client
+      .from('user_preferences')
+      .upsert({ user_id: this.userId, theme: 'system', community_opt_in_seen: false }, { onConflict: 'user_id' })
+      .select()
+      .single();
+    if (createError) throw friendlyError(createError, 'Creating preferences');
+    return created as UserPreferences;
+  }
+
+  async saveUserPreferences(patch: Partial<UserPreferences>): Promise<UserPreferences> {
+    const { data, error } = await this.client
+      .from('user_preferences')
+      .upsert({ ...patch, user_id: this.userId }, { onConflict: 'user_id' })
+      .select()
+      .single();
+    if (error) throw friendlyError(error, 'Saving preferences');
+    return data as UserPreferences;
+  }
+
+  /* ------------------------------ community ------------------------------ */
+
+  async getCommunityProfile(): Promise<CommunityProfile | null> {
+    const { data, error } = await this.client
+      .from('community_profiles')
+      .select('*')
+      .eq('user_id', this.userId)
+      .maybeSingle();
+    if (error) throw friendlyError(error, 'Loading community profile');
+    return (data as CommunityProfile | null) ?? null;
+  }
+
+  async saveCommunityProfile(
+    values: Omit<CommunityProfile, 'user_id' | 'created_at' | 'updated_at'>,
+  ): Promise<CommunityProfile> {
+    const { data, error } = await this.client
+      .from('community_profiles')
+      .upsert({ ...values, user_id: this.userId }, { onConflict: 'user_id' })
+      .select()
+      .single();
+    if (error) throw friendlyError(error, 'Saving community profile');
+    return data as CommunityProfile;
+  }
+
+  async listSharedCommunityProfiles(): Promise<CommunityProfile[]> {
+    // RLS already restricts rows to sharing_enabled=true (plus your own);
+    // the explicit filters keep the intent visible and exclude yourself.
+    const { data, error } = await this.client
+      .from('community_profiles')
+      .select('*')
+      .eq('sharing_enabled', true)
+      .neq('user_id', this.userId)
+      .order('overall_percent', { ascending: false })
+      .limit(100);
+    if (error) throw friendlyError(error, 'Loading community progress');
+    return (data ?? []) as CommunityProfile[];
+  }
+
+  async deleteCommunityProfile(): Promise<void> {
+    const { error } = await this.client.from('community_profiles').delete().eq('user_id', this.userId);
+    if (error) throw friendlyError(error, 'Removing community profile');
+  }
+
   async saveSummary(summary: Omit<WeeklySummary, 'id' | 'user_id' | 'created_at'>): Promise<WeeklySummary> {
     return this.create('weekly_summaries', summary as NewRow<'weekly_summaries'>);
   }
@@ -343,6 +442,16 @@ export class SupabaseRepository implements Repository {
         await this.createMany(table, tableRows as NewRow<RepositoryTable>[]);
       }
     }
+    // The demo workspace ships pre-configured (HSC / Science) so the syllabus
+    // tracker is usable immediately. Only fills fields the student has not set.
+    const profile = await this.getProfile();
+    if (!profile.setup_completed_at) {
+      await this.updateProfile({
+        academic_track: profile.academic_track ?? 'hsc',
+        study_group: profile.study_group ?? 'Science',
+        setup_completed_at: new Date().toISOString(),
+      });
+    }
     return { createdSubjects: rows.subjects.length, createdChapters: rows.chapters.length, removed: 0 };
   }
 
@@ -394,11 +503,14 @@ export class SupabaseRepository implements Repository {
       'daily_blocks',
       'focus_sessions',
       'exam_targets',
+      'study_targets',
+      'community_profiles',
       'user_topics',
       'chapter_checklist_progress',
       'chapter_checklist_items',
       'revision_sessions',
       'topic_difficulties',
+      'lecture_checklist_items',
       'lecture_records',
       'study_sessions',
       'study_tasks',
@@ -445,6 +557,10 @@ export class SupabaseRepository implements Repository {
       checklistItems,
       checklistProgress,
       lectures,
+      lectureChecklist,
+      studyTargets,
+      userPreferences,
+      communityProfile,
       sessions,
       dailyBlocks,
       focusSessions,
@@ -470,6 +586,10 @@ export class SupabaseRepository implements Repository {
       this.list('chapter_checklist_items'),
       this.list('chapter_checklist_progress'),
       this.list('lecture_records'),
+      this.list('lecture_checklist_items'),
+      this.list('study_targets'),
+      this.getUserPreferences(),
+      this.getCommunityProfile(),
       this.list('study_sessions'),
       this.list('daily_blocks'),
       this.list('focus_sessions'),
@@ -495,6 +615,10 @@ export class SupabaseRepository implements Repository {
       checklistItems,
       checklistProgress,
       lectures,
+      lectureChecklist,
+      studyTargets,
+      userPreferences,
+      communityProfile,
       sessions,
       dailyBlocks,
       focusSessions,

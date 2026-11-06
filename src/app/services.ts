@@ -2,6 +2,7 @@ import { getSupabaseClient, readConfig, type AppConfig } from '@/services/supaba
 import { SupabaseAuthClient } from '@/services/auth/supabaseAuth';
 import { LocalAuthClient } from '@/services/auth/localAuth';
 import { SupabaseRepository } from '@/services/supabase/supabaseRepository';
+import { SyncedRepository } from '@/services/sync/syncedRepository';
 import { LocalRepository } from '@/services/local/localRepository';
 import { getDefaultStorage, type KeyValueStorage } from '@/services/local/storage';
 import { SupabaseAIProvider, UnavailableAIProvider, type AIProvider } from '@/services/ai/aiClient';
@@ -14,6 +15,11 @@ export interface AppServices {
   storage: KeyValueStorage;
   createRepository(userId: string): Repository;
   getAIProvider(): AIProvider;
+  /**
+   * Cloud without sync: direct online-only repository. Kept for tests and
+   * diagnostics; the app itself uses the offline-first SyncedRepository.
+   */
+  createOnlineOnlyRepository?(userId: string): Repository;
 }
 
 export function createAppServices(env?: Record<string, string | undefined>, storage?: KeyValueStorage): AppServices {
@@ -26,7 +32,8 @@ export function createAppServices(env?: Record<string, string | undefined>, stor
       config,
       storage: kv,
       auth: new SupabaseAuthClient(client),
-      createRepository: (userId: string) => new SupabaseRepository(client, userId),
+      createRepository: (userId: string) => new SyncedRepository(client, userId, kv),
+      createOnlineOnlyRepository: (userId: string) => new SupabaseRepository(client, userId),
       getAIProvider: () => new SupabaseAIProvider(client),
     };
   }

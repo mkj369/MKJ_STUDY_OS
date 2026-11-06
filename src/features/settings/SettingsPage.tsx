@@ -11,6 +11,9 @@ import { ConfirmDeleteButton } from '@/components/ui/ConfirmDeleteButton';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { profileSchema } from '@/domain/schemas';
 import { TIMEZONE_OPTIONS } from '@/services/reminderDefaults';
+import { useTheme, type ThemeChoice } from '@/app/ThemeProvider';
+import { SyncStatusBadge, useSyncStatus } from '@/features/shared/SyncStatusBadge';
+import { TRACK_LABELS } from '@/domain/tracks';
 import { errorMessage } from '@/utils/errors';
 import type { Locale } from '@/types/domain';
 
@@ -20,6 +23,8 @@ function SettingsContent() {
   const auth = useAuth();
   const services = useServices();
   const { locale, setLocale } = useI18n();
+  const { theme, setTheme } = useTheme();
+  const { status: syncStatus, retry: retrySync } = useSyncStatus();
   const notify = useNotify();
   const [profileForm, setProfileForm] = useState(() => ({
     display_name: data?.bundle.profile.display_name ?? '',
@@ -60,6 +65,15 @@ function SettingsContent() {
       await mutate((repo) => repo.updateProfile({ locale: next }));
     } catch (localeError) {
       await notify(`${errorMessage(localeError)} The interface language changed for this device only.`, 'warning');
+    }
+  };
+
+  const changeTheme = async (next: ThemeChoice) => {
+    setTheme(next);
+    try {
+      await mutate((repo) => repo.saveUserPreferences({ theme: next }));
+    } catch (themeError) {
+      await notify(`${errorMessage(themeError)} The theme changed on this device only.`, 'warning');
     }
   };
 
@@ -154,6 +168,85 @@ function SettingsContent() {
       />
 
       <div className="grid grid--two">
+        <SectionCard title="Academic setup" hint="Section, class/group, session and board — editable any time">
+          <dl className="kv">
+            <div>
+              <dt>Section</dt>
+              <dd>{bundle.profile.academic_track ? TRACK_LABELS[bundle.profile.academic_track] : 'Not set'}</dd>
+            </div>
+            {bundle.profile.class_level ? <div><dt>Class</dt><dd>{bundle.profile.class_level}</dd></div> : null}
+            <div><dt>Group</dt><dd>{bundle.profile.study_group ?? 'Not set'}</dd></div>
+            <div><dt>Session</dt><dd>{bundle.profile.academic_session ?? 'Not set'}</dd></div>
+            <div><dt>Board</dt><dd>{bundle.profile.board ?? 'Not set'}</dd></div>
+            {bundle.profile.admission_target ? <div><dt>Admission target</dt><dd>{bundle.profile.admission_target}</dd></div> : null}
+            <div>
+              <dt>Setup</dt>
+              <dd>{bundle.profile.setup_completed_at ? `Completed ${bundle.profile.setup_completed_at.slice(0, 10)}` : 'Not finished'}</dd>
+            </div>
+          </dl>
+          <div className="row" style={{ marginTop: 10 }}>
+            <Link to="/setup" className="btn btn--secondary btn--sm">Change academic setup</Link>
+          </div>
+          <p className="tiny muted" style={{ marginBottom: 0 }}>
+            Changing track or group never deletes subjects or progress. HSC Admission reuses the HSC syllabus.
+          </p>
+        </SectionCard>
+
+        <SectionCard title="Appearance" hint="Light, dark, or follow the system">
+          <div className="segmented" role="group" aria-label="Theme">
+            {(['system', 'light', 'dark'] as const).map((value) => (
+              <button key={value} type="button" aria-pressed={theme === value} onClick={() => void changeTheme(value)}>
+                {value === 'system' ? 'System' : value === 'light' ? 'Light' : 'Dark'}
+              </button>
+            ))}
+          </div>
+          <p className="tiny muted">
+            The choice is saved on this device{auth.mode === 'cloud' ? ' and to your account preferences' : ''}. Animations
+            respect your system’s reduced-motion setting.
+          </p>
+          <div className="row" style={{ marginTop: 8 }}>
+            <Link to="/community" className="btn btn--secondary btn--sm">Community sharing settings</Link>
+            <Link to="/reminders" className="btn btn--ghost btn--sm">Notification settings</Link>
+          </div>
+        </SectionCard>
+      </div>
+
+      {auth.mode === 'cloud' && syncStatus ? (
+        <>
+          <div style={{ height: 16 }} />
+          <SectionCard title="Sync" hint="Offline-first: every change is saved on this device immediately">
+            <div className="stack stack--tight">
+              <div className="row" style={{ gap: 8 }}>
+                <SyncStatusBadge />
+                <button type="button" className="btn btn--secondary btn--sm" onClick={retrySync}>
+                  Sync now
+                </button>
+              </div>
+              <dl className="kv">
+                <div><dt>Last synced</dt><dd>{syncStatus.lastSyncedAt ? syncStatus.lastSyncedAt.replace('T', ' ').slice(0, 19) : 'Not yet'}</dd></div>
+                <div><dt>Pending changes</dt><dd>{syncStatus.pendingCount}</dd></div>
+              </dl>
+              {syncStatus.lastError ? (
+                <Notice tone="danger" title="Last sync error">{syncStatus.lastError}</Notice>
+              ) : null}
+              {syncStatus.conflicts.length > 0 ? (
+                <Notice tone="warn" title={`${syncStatus.conflicts.length} conflict(s) resolved — newer server data kept.`}>
+                  When another device saved a newer version of the same record, the server copy won and this
+                  device was refreshed. Your other offline edits were still pushed.
+                </Notice>
+              ) : null}
+              <p className="tiny muted" style={{ marginBottom: 0 }}>
+                Conflict rule: newer server data is never overwritten by stale local edits. Offline changes queue
+                on this device and upload automatically when you reconnect.
+              </p>
+            </div>
+          </SectionCard>
+        </>
+      ) : null}
+
+      <div style={{ height: 16 }} />
+
+      <div className="grid grid--two">
         <SectionCard title="Profile" hint="Only what the app needs to personalise your plan">
           <div className="form">
             <label className="field">
@@ -227,7 +320,8 @@ function SettingsContent() {
             </p>
             <p className="small">
               <strong>What is not stored:</strong> location, contacts, photos, passwords in plain text, or
-              anything you did not enter. No public profile or social features exist.
+              anything you did not enter. Community sharing is off by default; if you opt in, only a pseudonym
+              and aggregate progress numbers become visible — never notes or contact details.
             </p>
             <p className="small">
               <strong>Who can read it:</strong>{' '}
@@ -340,7 +434,7 @@ function SettingsContent() {
 
       <SectionCard title="About this build" hint="Honest status, not marketing">
         <div className="stack">
-          <p className="small">MKJ StudyOS · version 0.1.0 (Phase 1)</p>
+          <p className="small">MKJ StudyOS · version 2.0.0</p>
           <p className="small">
             Storage mode: <strong>{auth.mode === 'cloud' ? 'Supabase cloud' : 'browser local storage'}</strong>
             {auth.mode === 'local' ? ` — ${auth.localReason ?? ''}` : ''}

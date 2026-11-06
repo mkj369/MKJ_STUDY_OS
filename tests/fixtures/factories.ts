@@ -60,6 +60,7 @@ export function makeChapter(overrides: Partial<UserChapter> = {}): UserChapter {
     custom_title: 'Motion',
     status: 'not_recorded',
     lecture_target_count: null,
+    notes: null,
     import_batch_id: null,
     is_demo: false,
     created_at: STAMP,
@@ -398,6 +399,47 @@ export function makeProfile(overrides: Partial<Profile> = {}): Profile {
     academic_level: 'HSC',
     study_windows: { '0': 60, '1': 60, '2': 60, '3': 60, '4': 60, '5': 30, '6': 0 },
     onboarded_at: null,
+    academic_track: null,
+    study_group: null,
+    academic_session: null,
+    board: null,
+    setup_completed_at: null,
+    created_at: STAMP,
+    updated_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeTarget(overrides: Partial<import('@/types/domain').StudyTarget> = {}): import('@/types/domain').StudyTarget {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    title: 'Finish Mechanics',
+    period_type: 'weekly',
+    period_start: TODAY,
+    metric: 'chapters',
+    target_value: 2,
+    user_subject_id: null,
+    chapter_ids: [],
+    notes: null,
+    is_demo: false,
+    created_at: STAMP,
+    updated_at: STAMP,
+    ...overrides,
+  };
+}
+
+export function makeLectureChecklistItem(
+  overrides: Partial<import('@/types/domain').LectureChecklistItem> = {},
+): import('@/types/domain').LectureChecklistItem {
+  return {
+    id: id(),
+    user_id: USER_ID,
+    lecture_record_id: 'lecture-1',
+    label: 'Watched the lecture',
+    sort_order: 1,
+    is_done: false,
+    completed_at: null,
     created_at: STAMP,
     updated_at: STAMP,
     ...overrides,

@@ -15,6 +15,7 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
 
             <intent-filter>
@@ -38,4 +39,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+      Focus countdown notifications: POST_NOTIFICATIONS (Android 13+) and
+      RECEIVE_BOOT_COMPLETED / WAKE_LOCK are merged in from the
+      @capacitor/local-notifications plugin manifest. Exact delivery while the
+      device is idle needs the alarm permission below on Android 12+.
+    -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 </manifest>

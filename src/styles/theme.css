@@ -1750,3 +1750,483 @@ a.stat:active {
   padding-top: var(--mkj-space-1);
   border-top: 1px solid var(--mkj-line);
 }
+
+/* ======================================================================== */
+/* NEXT UPDATE — design system additions                                     */
+/* ======================================================================== */
+
+/* --- Manual theme override ----------------------------------------------
+   The app follows the system theme by default. Settings can pin light or
+   dark via data-theme on <html>; these selectors mirror the media query. */
+:root[data-theme='light'] {
+  --mkj-ink: #101d18;
+  --mkj-ink-soft: #3c4a44;
+  --mkj-muted: #5c6b64;
+  --mkj-line: #dbe3df;
+  --mkj-bg: #f6f8f6;
+  --mkj-surface: #ffffff;
+  --mkj-surface-alt: #eef3f0;
+  --mkj-primary: #0f5132;
+  --mkj-primary-strong: #0b3d26;
+  --mkj-primary-soft: #dcefe3;
+  --mkj-accent: #a15c00;
+  --mkj-accent-soft: #fdf1dd;
+  --mkj-danger: #a32121;
+  --mkj-danger-soft: #fdeaea;
+  --mkj-info: #14507a;
+  --mkj-info-soft: #e8f1f8;
+  --mkj-warning: #8a5a00;
+  --mkj-warning-soft: #fff6e5;
+  --mkj-shadow: 0 1px 2px rgba(16, 29, 24, 0.06), 0 8px 24px rgba(16, 29, 24, 0.06);
+  --mkj-shadow-sm: 0 1px 2px rgba(16, 29, 24, 0.08);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --mkj-ink: #e8efea;
+  --mkj-ink-soft: #c3d0c8;
+  --mkj-muted: #9caea4;
+  --mkj-line: #27352e;
+  --mkj-bg: #0d1512;
+  --mkj-surface: #14201a;
+  --mkj-surface-alt: #1b2a23;
+  --mkj-primary: #7fd6a2;
+  --mkj-primary-strong: #a9e8c2;
+  --mkj-primary-soft: #173a27;
+  --mkj-accent: #f0b46a;
+  --mkj-accent-soft: #33260f;
+  --mkj-danger: #ff9d9d;
+  --mkj-danger-soft: #3a1c1c;
+  --mkj-info: #9ccdf0;
+  --mkj-info-soft: #132b3b;
+  --mkj-warning: #ffd28a;
+  --mkj-warning-soft: #33270f;
+  --mkj-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.25);
+  --mkj-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+/* --- Login scrolling fix (Android/small screens) -------------------------
+   ion-app is a fixed overflow-hidden box, so the auth screen must own its
+   scroll container. `place-items: center` on a grid taller than the viewport
+   clips the top of the card and traps the buttons; `safe center` falls back
+   to start alignment when content overflows, and the container scrolls. */
+.auth-shell {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: safe center;
+  justify-content: safe center;
+  padding: max(20px, env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+}
+
+.auth-layout {
+  flex: 0 0 auto;
+  margin: auto;
+}
+
+.auth-card {
+  margin: 0 auto;
+}
+
+/* Keyboard-open on Android shrinks the visual viewport; keep the submit
+   button reachable by allowing the card to compress rather than clip. */
+@media (max-height: 640px) {
+  .auth-shell {
+    justify-content: flex-start;
+  }
+  .auth-aside {
+    display: none;
+  }
+}
+
+/* --- Branded loading ------------------------------------------------------ */
+
+.brand-loader {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background:
+    radial-gradient(900px 420px at 50% -10%, var(--mkj-primary-soft), transparent 65%),
+    var(--mkj-bg);
+}
+
+.brand-loader__mark {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--mkj-primary), var(--mkj-primary-strong));
+  border-radius: 22%;
+  box-shadow: var(--mkj-shadow);
+}
+.brand-loader__mark--sm { width: 34px; height: 34px; font-size: 0.72rem; }
+.brand-loader__mark--md { width: 46px; height: 46px; font-size: 0.95rem; }
+.brand-loader__mark--lg { width: 76px; height: 76px; font-size: 1.5rem; }
+
+:root.ion-palette-dark .brand-loader__mark {
+  color: #0d1512;
+}
+
+.brand-loader__pulse { animation: brand-pulse 1.8s ease-in-out infinite; }
+@keyframes brand-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+.brand-loader__name { font-size: 1.25rem; font-weight: 750; letter-spacing: -0.01em; }
+.brand-loader__tag { font-size: 0.85rem; color: var(--mkj-muted); }
+.brand-loader__label { font-size: 0.85rem; color: var(--mkj-muted); margin-top: 10px; }
+.brand-loader__slow { font-size: 0.78rem; color: var(--mkj-muted); max-width: 34ch; }
+
+.brand-loader__bar {
+  width: 160px;
+  height: 4px;
+  margin-top: 14px;
+  border-radius: 999px;
+  background: var(--mkj-surface-alt);
+  overflow: hidden;
+}
+.brand-loader__bar span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mkj-primary);
+  animation: brand-slide 1.4s ease-in-out infinite;
+}
+@keyframes brand-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(420%); }
+}
+
+/* --- Skeletons ------------------------------------------------------------- */
+
+.skeleton { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.skeleton__line {
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--mkj-surface-alt) 25%, var(--mkj-line) 50%, var(--mkj-surface-alt) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s linear infinite;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Compact chapter rows (syllabus redesign) ------------------------------ */
+
+.chapter-row {
+  border: 1px solid var(--mkj-line);
+  border-radius: var(--mkj-radius-sm);
+  background: var(--mkj-surface);
+  overflow: hidden;
+}
+.chapter-row + .chapter-row { margin-top: 8px; }
+
+.chapter-row__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  min-height: var(--mkj-tap);
+}
+.chapter-row__main { flex: 1; min-width: 0; text-align: left; }
+.chapter-row__title {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--mkj-ink);
+  text-decoration: none;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.chapter-row__title:hover { text-decoration: underline; }
+.chapter-row__meta { font-size: 0.76rem; color: var(--mkj-muted); margin-top: 2px; }
+.chapter-row__pct {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--mkj-primary);
+  white-space: nowrap;
+}
+.chapter-row__expand {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--mkj-line);
+  border-radius: 10px;
+  background: var(--mkj-surface-alt);
+  color: var(--mkj-ink-soft);
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.chapter-row__expand[aria-expanded='true'] { background: var(--mkj-primary-soft); color: var(--mkj-primary); }
+.chapter-row__expand ion-icon { transition: transform 0.18s ease; font-size: 18px; }
+.chapter-row__expand[aria-expanded='true'] ion-icon { transform: rotate(180deg); }
+
+.chapter-row__body {
+  border-top: 1px solid var(--mkj-line);
+  padding: 10px 12px;
+  background: var(--mkj-surface-alt);
+}
+.chapter-row__bar { height: 4px; border-radius: 999px; background: var(--mkj-line); overflow: hidden; margin-bottom: 10px; }
+.chapter-row__bar span { display: block; height: 100%; background: var(--mkj-primary); border-radius: 999px; transition: width 0.25s ease; }
+
+/* --- Subject cards (syllabus dashboard) ------------------------------------ */
+
+.subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.subject-card {
+  display: block;
+  padding: 14px;
+  border: 1px solid var(--mkj-line);
+  border-radius: var(--mkj-radius);
+  background: var(--mkj-surface);
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--mkj-shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.subject-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--mkj-shadow);
+  border-color: color-mix(in srgb, var(--mkj-primary) 35%, var(--mkj-line));
+}
+.subject-card__top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.subject-card__dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.subject-card__name { font-weight: 650; font-size: 0.95rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.subject-card__stats { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--mkj-muted); margin-top: 6px; }
+
+/* --- Overall progress ring -------------------------------------------------- */
+
+.progress-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.progress-ring { position: relative; width: 110px; height: 110px; flex: 0 0 auto; }
+.progress-ring svg { transform: rotate(-90deg); }
+.progress-ring__track { stroke: var(--mkj-line); }
+.progress-ring__fill { stroke: var(--mkj-primary); transition: stroke-dashoffset 0.4s ease; }
+.progress-ring__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.progress-ring__pct { font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.progress-ring__sub { font-size: 0.68rem; color: var(--mkj-muted); }
+
+/* --- Setup wizard ------------------------------------------------------------ */
+
+.setup-shell {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 20px 16px calc(32px + env(safe-area-inset-bottom));
+}
+.setup-steps { display: flex; gap: 6px; margin: 14px 0 20px; }
+.setup-steps span {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--mkj-line);
+}
+.setup-steps span.is-done { background: var(--mkj-primary); }
+
+.choice-grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .choice-grid { grid-template-columns: repeat(3, 1fr); } }
+.choice-card {
+  text-align: left;
+  padding: 14px;
+  border: 2px solid var(--mkj-line);
+  border-radius: var(--mkj-radius);
+  background: var(--mkj-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  min-height: var(--mkj-tap);
+}
+.choice-card:hover { border-color: color-mix(in srgb, var(--mkj-primary) 45%, var(--mkj-line)); }
+.choice-card.is-selected {
+  border-color: var(--mkj-primary);
+  background: var(--mkj-primary-soft);
+}
+.choice-card__title { font-weight: 700; font-size: 0.98rem; }
+.choice-card__desc { font-size: 0.8rem; color: var(--mkj-muted); margin-top: 4px; }
+
+.subject-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--mkj-line);
+  border-radius: var(--mkj-radius-sm);
+  background: var(--mkj-surface);
+  cursor: pointer;
+  min-height: var(--mkj-tap);
+}
+.subject-pick + .subject-pick { margin-top: 6px; }
+.subject-pick.is-selected { border-color: var(--mkj-primary); background: var(--mkj-primary-soft); }
+.subject-pick input { width: 20px; height: 20px; accent-color: var(--mkj-primary); }
+
+/* --- Focus timer --------------------------------------------------------------- */
+
+.focus-dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 26px 16px;
+  border-radius: var(--mkj-radius-lg);
+  background:
+    radial-gradient(420px 220px at 50% 0%, var(--mkj-primary-soft), transparent 75%),
+    var(--mkj-surface);
+  border: 1px solid var(--mkj-line);
+}
+.focus-dial__time {
+  font-size: clamp(2.6rem, 12vw, 4.2rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+.focus-dial__state { font-size: 0.85rem; color: var(--mkj-muted); }
+.focus-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+.focus-actions .btn { min-width: 120px; justify-content: center; }
+
+.preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.preset-chip {
+  padding: 8px 16px;
+  min-height: 40px;
+  border: 1px solid var(--mkj-line);
+  border-radius: 999px;
+  background: var(--mkj-surface);
+  font-weight: 600;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.preset-chip.is-selected { border-color: var(--mkj-primary); background: var(--mkj-primary-soft); color: var(--mkj-primary); }
+
+/* --- Targets --------------------------------------------------------------------- */
+
+.target-card { border: 1px solid var(--mkj-line); border-radius: var(--mkj-radius); background: var(--mkj-surface); padding: 14px; }
+.target-card + .target-card { margin-top: 10px; }
+.target-card__head { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; }
+.target-card__title { font-weight: 650; font-size: 0.95rem; }
+.target-card__meta { font-size: 0.78rem; color: var(--mkj-muted); margin-top: 2px; }
+
+/* --- Community --------------------------------------------------------------------- */
+
+.community-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--mkj-line);
+  border-radius: var(--mkj-radius);
+  background: var(--mkj-surface);
+}
+.community-card + .community-card { margin-top: 8px; }
+.community-card__avatar {
+  width: 42px; height: 42px;
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--mkj-primary-soft);
+  color: var(--mkj-primary);
+  font-weight: 750;
+}
+.community-card__main { flex: 1; min-width: 0; }
+.community-card__name { font-weight: 650; font-size: 0.92rem; }
+.community-card__meta { font-size: 0.76rem; color: var(--mkj-muted); }
+.community-card__pct { font-weight: 750; font-variant-numeric: tabular-nums; color: var(--mkj-primary); }
+
+/* --- Sync status --------------------------------------------------------------------- */
+
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.sync-dot--ok { background: var(--mkj-primary); }
+.sync-dot--pending { background: var(--mkj-warning); }
+.sync-dot--error { background: var(--mkj-danger); }
+.sync-dot--offline { background: var(--mkj-muted); }
+
+/* --- Definition lists (setup confirm, profile) --------------------------- */
+.kv { margin: 0; display: grid; gap: 8px; }
+.kv > div { display: flex; justify-content: space-between; gap: 12px; }
+.kv dt { color: var(--mkj-muted); font-size: 0.85rem; }
+.kv dd { margin: 0; font-weight: 600; font-size: 0.9rem; text-align: right; overflow-wrap: anywhere; }
+.section-title { font-size: 1.05rem; margin: 0 0 4px; }
+.block { display: block; }
+
+/* ---------------------------------------------------------------------------
+   Syllabus dashboard: activity strip + 7-day bars
+--------------------------------------------------------------------------- */
+.stat-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.stat-strip__item {
+  flex: 1;
+  min-width: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--mkj-line);
+  border-radius: var(--mkj-radius-sm);
+  background: var(--mkj-surface-alt);
+}
+.activity-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 4px 2px 0;
+}
+.activity-bars__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.activity-bars__bar {
+  width: 100%;
+  max-width: 34px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--mkj-primary);
+  transition: height 0.25s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .activity-bars__bar { transition: none; }
+}

@@ -235,6 +235,10 @@ test('journey C: curriculum filters narrow by SSC/HSC, group and Bangla subject 
 test('journey C2: a modelled chapter keeps its status when the curriculum seed re-runs', async ({ page }) => {
   await bootLocalWorkspace(page);
   await page.goto('/#/syllabus');
+  await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Syllabus tracker' })).toBeVisible({ timeout: 20_000 });
+
+  // The redesigned dashboard links to subject pages with compact chapter rows.
+  await page.locator('.subject-card', { hasText: 'Physics' }).first().click();
   await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
 
   // Record progress against a curriculum-backed chapter.

@@ -199,6 +199,7 @@ function CurriculumContent() {
         custom_title: row.chapter.trim(),
         status: 'not_recorded',
         lecture_target_count: row.lecture_target,
+          notes: null,
         import_batch_id: importBatchId,
         is_demo: false,
       });

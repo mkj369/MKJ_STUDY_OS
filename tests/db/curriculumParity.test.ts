@@ -63,7 +63,7 @@ describe('official curriculum seed', () => {
     }>(
       `select id, education_level, stream, academic_year, version_label, scope,
               verification_status, is_demo, source_url
-         from curriculum_versions where not is_demo order by id`,
+         from curriculum_versions where authority = 'National Curriculum and Textbook Board (NCTB)' order by id`,
     );
 
     const expected = [...OFFICIAL_VERSIONS].sort((a, b) => a.id.localeCompare(b.id));
@@ -95,7 +95,7 @@ describe('official curriculum seed', () => {
               s.sort_order, s.verification_status
          from curriculum_subjects s
          join curriculum_versions v on v.id = s.curriculum_version_id
-        where not v.is_demo order by s.id`,
+        where v.authority = 'National Curriculum and Textbook Board (NCTB)' order by s.id`,
     );
 
     const expectedSubjects = [...OFFICIAL_SUBJECTS].sort((a, b) => a.id.localeCompare(b.id));
@@ -120,7 +120,7 @@ describe('official curriculum seed', () => {
               count(s.name_bn)::int as bn
          from curriculum_subjects s
          join curriculum_versions v on v.id = s.curriculum_version_id
-        where not v.is_demo
+        where v.authority = 'National Curriculum and Textbook Board (NCTB)'
         group by v.education_level, v.stream
         order by v.education_level, v.stream`,
     );
@@ -140,13 +140,15 @@ describe('official curriculum seed', () => {
     }
   });
 
-  it('does not invent chapter rows for official versions', async () => {
+  it('does not invent chapter rows for official NCTB-structure versions', async () => {
+    // The imported reference syllabus (0009) has its own parity suite; this
+    // asserts the NCTB structure-only versions still contain zero chapters.
     const [{ n }] = await rows<{ n: number }>(
       `select count(*)::int as n
          from curriculum_chapters c
          join curriculum_subjects s on s.id = c.curriculum_subject_id
          join curriculum_versions v on v.id = s.curriculum_version_id
-        where not v.is_demo`,
+        where v.authority = 'National Curriculum and Textbook Board (NCTB)'`,
     );
     expect(n).toBe(0);
   });

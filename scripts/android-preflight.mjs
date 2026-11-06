@@ -4,7 +4,7 @@
  *
  * Answers one question before you spend ten minutes downloading Gradle:
  * "is this machine able to build the APK right now?" It checks the toolchain
- * the project actually needs (JDK 17, Android SDK platform 35, the Gradle
+ * the project actually needs (JDK 21, Android SDK platform 35, the Gradle
  * wrapper, and the synced web assets) and prints the exact remedy for anything
  * missing.
  *
@@ -25,7 +25,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ANDROID_DIR = join(ROOT, 'android');
 
 /** Minimum versions this project needs (see android/variables.gradle, wrapper). */
-export const MIN_JDK = 17;
+export const MIN_JDK = 21;
 export const COMPILE_SDK = 35;
 export const MIN_NODE = [20, 19];
 
@@ -96,8 +96,8 @@ export function checkJava({ javaHome = process.env.JAVA_HOME, versionOutput } = 
       status: 'fail',
       found: output ? output.split('\n')[0] : 'java not found on PATH',
       remedy:
-        'Install JDK 17 (Eclipse Temurin 17 or Android Studio → SDK Manager → "Android Studio\'s JDK"), ' +
-        'then set JAVA_HOME to that folder. On Windows: setx JAVA_HOME "C:\\Program Files\\Eclipse Adoptium\\jdk-17"',
+        'Install JDK 21 (Eclipse Temurin 21 or Android Studio → SDK Manager → "Android Studio\'s JDK"), ' +
+        'then set JAVA_HOME to that folder. On Windows: setx JAVA_HOME "C:\\Program Files\\Eclipse Adoptium\\jdk-21"',
     };
   }
   const ok = major >= MIN_JDK;
@@ -108,7 +108,7 @@ export function checkJava({ javaHome = process.env.JAVA_HOME, versionOutput } = 
     found: `Java ${major}${javaHome ? ` (JAVA_HOME=${javaHome})` : ' (JAVA_HOME unset)'}`,
     remedy: ok
       ? null
-      : `AGP 8.7 needs JDK 17 or newer; found Java ${major}. Install JDK 17 and point JAVA_HOME at it.`,
+      : `Capacitor 7 compiles with Java 21; found Java ${major}. Install JDK 21 and point JAVA_HOME at it.`,
   };
 }
 

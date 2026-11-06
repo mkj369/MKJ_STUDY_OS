@@ -19,6 +19,10 @@ const ROUTES: { path: string; heading: string | RegExp }[] = [
   { path: '/insights', heading: 'Progress insights' },
   { path: '/focus', heading: 'Focus mode' },
   { path: '/export', heading: 'Export & academic history' },
+  { path: '/targets', heading: 'Study targets' },
+  { path: '/community', heading: 'Community' },
+  { path: '/setup', heading: 'Academic setup' },
+  { path: '/syllabus/topics', heading: 'Topic progress matrix' },
 ];
 
 test('every phase-2 route renders and none shows a load error', async ({ page }) => {
@@ -76,10 +80,29 @@ test('focus mode can start, finish and write a study session', async ({ page }) 
   await page.goto('/#/focus');
   await expect(page.getByRole('main').getByRole('heading', { level: 1, name: 'Focus mode' })).toBeVisible();
 
-  await page.getByRole('button', { name: /start focus/i }).click();
-  // A finish is only possible after a minute of focus; shorten the plan to the
-  // minimum first, then wait for the guard to lift would be slow. Instead check
-  // that the timer is running and the guard is explained.
-  await expect(page.getByRole('button', { name: /finish & log/i })).toBeDisabled();
+  // v2 engine: open-ended tab by default — start, pause, resume, finish.
+  await page.getByRole('button', { name: /^start focus/i }).click();
+  await expect(page.getByRole('timer')).toBeVisible();
+  await page.getByRole('button', { name: /^pause/i }).click();
+  await expect(page.getByText('Paused', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /^resume/i }).click();
+  await page.getByRole('button', { name: /finish & log/i }).click();
+  // Under a minute still logs honestly (1 min minimum) and resets the dial.
+  await expect(page.getByText(/focus minute\(s\)/i).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('button', { name: /^start focus/i })).toBeVisible();
   await expect(page.getByText(/Ending early is a normal outcome/i)).toBeVisible();
+
+  // The timer survives a reload mid-session (timestamp-based persistence).
+  await page.getByRole('button', { name: /^start focus/i }).click();
+  await page.reload();
+  await expect(page.getByRole('button', { name: /^pause/i })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: /finish & log/i }).click();
+
+  // Countdown tab: presets render and a custom value can be armed.
+  await page.getByRole('tab', { name: 'Timer' }).click();
+  await expect(page.getByRole('button', { name: '25 min' })).toBeVisible();
+  await page.getByRole('button', { name: '15 min' }).click();
+  await page.getByRole('button', { name: /start countdown/i }).click();
+  await expect(page.getByRole('timer')).toBeVisible();
+  await page.getByRole('button', { name: /discard/i }).click();
 });

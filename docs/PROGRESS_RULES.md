@@ -57,13 +57,26 @@ in this order:
 
 1. Declared `blocked` → **Blocked** (human statement wins).
 2. Declared `complete` → **Complete** (human statement wins, and the UI says so).
-3. **Evidenced mastery** → **Complete**: checklist 100 % **and** latest exam ≥ 80 % **and**
+3. Declared `skipped` → **Skipped** (deliberately out of the student's plan).
+4. **Evidenced mastery** → **Complete**: checklist 100 % **and** latest exam ≥ 80 % **and**
    no open difficulty **and** no unresolved mistake.
-4. No records at all → **Not recorded** (or **Not started** only if the student declared it).
-5. Open difficulty, unresolved mistake, or a practice item ticked without any practice
+5. No records at all → **Not recorded** (or **Not started** only if the student declared it).
+6. Open difficulty, unresolved mistake, or a practice item ticked without any practice
    session → **Needs practice**.
-6. Next revision overdue, or last revision older than 21 days → **Needs revision**.
-7. Otherwise → **In progress**.
+7. Next revision overdue, or last revision older than 21 days → **Needs revision**.
+8. Otherwise → **In progress**.
+
+**Skipped never silently erases anything.** All checklist ticks, lectures, sessions and
+notes on a skipped chapter stay in the database and count again the moment the student
+un-skips it. While skipped, the chapter is excluded from every completion denominator:
+
+- Dashboard overall % = complete ÷ (total − skipped). All-skipped → 0 % with a 0 denominator,
+  never a division by zero and never a fake 100 %.
+- Subject card/header % uses the same counted denominator and shows “N skipped” separately.
+- The subject average-checklist % ignores skipped chapters.
+- Skipped chapters raise no attention alerts (see §7); their raw difficulty counts are still
+  reported honestly elsewhere.
+- Community snapshots share the counted total, not the raw total.
 
 If the declared status differs from the derived one, the UI keeps the declared status and
 states what the records would suggest.
@@ -91,7 +104,8 @@ Streak-loss warnings and comparisons with other students are deliberately absent
 
 ## 7. Subject attention score
 
-Used only to order subjects on the dashboard. Each item names its evidence:
+Used only to order subjects on the dashboard. Each item names its evidence. Chapters the
+student marked **skipped** contribute nothing to the score (they are out of the plan):
 
 | Item | Points |
 | --- | --- |

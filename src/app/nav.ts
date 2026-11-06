@@ -4,7 +4,6 @@ import type { TranslationKey } from '@/i18n';
 // to fetch the icon from the icon CDN at runtime, which fails offline and in the
 // Android webview. `ionicons/icons` exports the data-URI payload.
 import {
-  addCircleOutline,
   alertCircleOutline,
   analyticsOutline,
   bookmarkOutline,
@@ -19,6 +18,7 @@ import {
   libraryOutline,
   listOutline,
   notificationsOutline,
+  peopleOutline as peopleNavIcon,
   radioButtonOnOutline,
   refreshOutline,
   schoolOutline,
@@ -64,6 +64,8 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/practice', labelKey: 'nav.practice', icon: helpCircleOutline, group: 'reflect' },
   { path: '/reports', labelKey: 'nav.reports', icon: sparklesOutline, group: 'reflect' },
   { path: '/insights', labelKey: 'nav.insights', icon: trendingUpOutline, group: 'reflect' },
+  { path: '/targets', labelKey: 'nav.targets', icon: flagOutline, group: 'plan' },
+  { path: '/community', labelKey: 'nav.community', icon: peopleNavIcon, group: 'account' },
   { path: '/export', labelKey: 'nav.export', icon: downloadOutline, group: 'account' },
   { path: '/settings', labelKey: 'nav.settings', icon: settingsOutline, group: 'account' },
 ];
@@ -77,9 +79,9 @@ export const NAV_GROUPS: { key: NavItem['group']; label: string }[] = [
 
 export const BOTTOM_NAV: { path: string; label: string; icon: string }[] = [
   { path: '/', label: 'Home', icon: homeOutline },
-  { path: '/tasks', label: 'Tasks', icon: checkboxOutline },
-  { path: '/lectures', label: 'Log', icon: addCircleOutline },
-  { path: '/revisions', label: 'Revise', icon: refreshOutline },
+  { path: '/syllabus', label: 'Syllabus', icon: listOutline },
+  { path: '/planner', label: 'Planner', icon: sparklesOutline },
+  { path: '/focus', label: 'Focus', icon: timerOutline },
 ];
 
 export function findNavItem(pathname: string): NavItem | undefined {

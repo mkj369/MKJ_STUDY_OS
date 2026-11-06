@@ -37,6 +37,10 @@ const ROUTES = [
   '/reminders',
   '/export',
   '/settings',
+  '/setup',
+  '/targets',
+  '/community',
+  '/syllabus/topics',
 ];
 
 async function boot(page: Page) {

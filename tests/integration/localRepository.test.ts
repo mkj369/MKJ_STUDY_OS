@@ -83,10 +83,10 @@ describe('per-user isolation (local mode)', () => {
     const curriculumA = await repoA.listCurriculum();
     const curriculumB = await repoB.listCurriculum();
     expect(curriculumA.versions).toHaveLength(curriculumB.versions.length);
-    // Demo rows and the official SSC/HSC subject structures coexist; the demo
-    // one is not necessarily first any more.
+    // Demo rows, the six official SSC/HSC subject structures and the imported
+    // HSC Science reference syllabus coexist; the demo one is not first.
     expect(curriculumA.versions.some((version) => version.is_demo)).toBe(true);
-    expect(curriculumA.versions.filter((version) => !version.is_demo)).toHaveLength(6);
+    expect(curriculumA.versions.filter((version) => !version.is_demo)).toHaveLength(7);
   });
 
   it('rejects writes to curriculum tables', async () => {

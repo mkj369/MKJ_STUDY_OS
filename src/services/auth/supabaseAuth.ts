@@ -80,11 +80,45 @@ export class SupabaseAuthClient implements AuthClient {
   }
 
   async sendPasswordReset(email: string): Promise<void> {
-    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : undefined;
+    // HashRouter owns the URL fragment, so the link must land on the app root:
+    // Supabase appends `#access_token=…&type=recovery`, the client detects it,
+    // and onPasswordRecovery below switches the UI to the reset form.
+    const redirectTo =
+      typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : undefined;
     const { error } = await this.client.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       ...(redirectTo ? { redirectTo } : {}),
     });
     if (error) throw mapError(error.message);
+  }
+
+  async updatePassword(newPassword: string): Promise<void> {
+    const { error } = await this.client.auth.updateUser({ password: newPassword });
+    if (error) throw mapError(error.message);
+  }
+
+  onPasswordRecovery(callback: () => void): () => void {
+    const { data } = this.client.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') callback();
+    });
+    return () => data.subscription.unsubscribe();
+  }
+
+  async signInWithGoogle(): Promise<void> {
+    const redirectTo =
+      typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : undefined;
+    const { error } = await this.client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { ...(redirectTo ? { redirectTo } : {}) },
+    });
+    if (error) {
+      if (/provider is not enabled|validation_failed/i.test(error.message)) {
+        throw new AuthError(
+          'Google sign-in is not enabled on this server yet. Use email and password, or ask the administrator to enable the Google provider in Supabase.',
+          'provider_disabled',
+        );
+      }
+      throw mapError(error.message);
+    }
   }
 
   async deleteAccount(): Promise<void> {

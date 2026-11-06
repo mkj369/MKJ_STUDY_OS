@@ -1,141 +1,221 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Badge, Notice, PageHeader, ProgressBar, SectionCard } from '@/components/ui/Page';
-import { useWorkspaceQuery, useMutate } from '@/hooks/useWorkspace';
+/**
+ * Focus v2 — three ways to work, one honest timeline.
+ *
+ *  Open-ended: start/pause/resume/finish stopwatch.
+ *  Timer:      preset or custom countdown with a native notification.
+ *  Intervals:  the classic focus/break pomodoro (kept, unchanged rules).
+ *  History:    every logged focus/study session with real durations.
+ *
+ * Elapsed time is timestamp-derived and persisted, so locking the phone,
+ * switching apps or restarting never loses or invents focus time.
+ */
+import { useMemo, useState } from 'react';
+import { IonIcon } from '@ionic/react';
+import { pauseOutline, playOutline, refreshOutline, stopOutline } from 'ionicons/icons';
+import { useAuth, useServices } from '@/app/AppProviders';
+import { useMutate, useWorkspaceQuery } from '@/hooks/useWorkspace';
+import { Badge, Notice, PageHeader, SectionCard } from '@/components/ui/Page';
+import { PageSkeleton } from '@/components/ui/BrandLoader';
 import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import {
-  FOCUS_LIMITS,
-  advance,
-  finish,
-  idleState,
-  pause,
-  resume,
-  snapshot,
-  start,
-  validatePlan,
-  type FocusPlan,
-  type FocusState,
-} from '@/domain/focus';
-import { formatMinutes } from '@/domain/timeTracking';
-import { isOpenTask } from '@/domain/tasks';
+  FOCUS_PRESETS_MINUTES,
+  MAX_CUSTOM_MINUTES,
+  finishTimer,
+  formatClock,
+  pauseTimer,
+  resumeTimer,
+  startTimer,
+  summarizeFinished,
+} from '@/domain/focusTimer';
+import { requestNotificationPermission, useFocusTimer } from '@/features/focus/useFocusTimer';
+import { FocusClassic } from '@/features/focus/FocusClassic';
 import { errorMessage } from '@/utils/errors';
 
-const DEFAULT_PLAN: FocusPlan = { focusMinutes: 25, breakMinutes: 5, plannedIntervals: 2 };
+type Tab = 'open' | 'countdown' | 'classic' | 'history';
 
-function clock(totalSeconds: number): string {
-  const safe = Math.max(0, Math.floor(totalSeconds));
-  const minutes = Math.floor(safe / 60);
-  const seconds = safe % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+function SessionHistory() {
+  const { data } = useWorkspaceQuery();
+  if (!data) return <PageSkeleton />;
+  const { view, bundle } = data;
+  const rows = bundle.focusSessions
+    .slice()
+    .sort((a, b) => b.started_at.localeCompare(a.started_at))
+    .slice(0, 40);
+
+  if (rows.length === 0) {
+    return (
+      <SectionCard title="Focus history">
+        <p className="small muted">No focus sessions logged yet. Finished timers appear here and in your study timeline.</p>
+      </SectionCard>
+    );
+  }
+  return (
+    <SectionCard title="Focus history" hint={`${rows.length} recent session(s)`}>
+      <div className="list">
+        {rows.map((session) => {
+          const subject = session.user_subject_id ? view.subjectById.get(session.user_subject_id) : undefined;
+          const chapter = session.user_chapter_id ? view.chapterById.get(session.user_chapter_id) : undefined;
+          const type = (session.notes ?? (session.planned_intervals > 1 ? 'Intervals' : 'Focus')).split(' · ')[0];
+          return (
+            <div className="list-row" key={session.id}>
+              <div className="list-row__main">
+                <div className="list-row__title">
+                  {session.started_at.slice(0, 10)} · {session.focus_minutes} min
+                </div>
+                <div className="list-row__meta">
+                  {subject ? <span>{subject.label}</span> : <span>No subject</span>}
+                  {chapter ? <span>{chapter.title}</span> : null}
+                  <span>{type}</span>
+                  <span>{session.status}</span>
+                </div>
+              </div>
+              <Badge tone={session.status === 'completed' ? 'good' : 'neutral'}>
+                {session.status === 'completed' ? 'Completed' : session.status}
+              </Badge>
+            </div>
+          );
+        })}
+      </div>
+    </SectionCard>
+  );
 }
 
 function FocusContent() {
+  const { user } = useAuth();
+  const services = useServices();
   const { data } = useWorkspaceQuery();
   const mutate = useMutate();
   const notify = useNotify();
-  const [plan, setPlan] = useState<FocusPlan>(DEFAULT_PLAN);
-  const [state, setState] = useState<FocusState>(() => idleState(DEFAULT_PLAN));
-  const [now, setNow] = useState(() => new Date().toISOString());
-  const [taskId, setTaskId] = useState('');
+  const [tab, setTab] = useState<Tab>('open');
+  const [customMinutes, setCustomMinutes] = useState('30');
+  const [preset, setPreset] = useState<number>(25);
   const [subjectId, setSubjectId] = useState('');
   const [chapterId, setChapterId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [permissionAsked, setPermissionAsked] = useState(false);
 
-  const live = state.status === 'running' || state.status === 'on_break';
+  const timer = useFocusTimer(services.storage, user?.id ?? 'anonymous', () => {
+    void notify('Countdown finished. Your focus time is ready to log.');
+  });
+  const { state } = timer;
 
-  useEffect(() => {
-    if (!live) return;
-    const handle = window.setInterval(() => setNow(new Date().toISOString()), 1000);
-    return () => window.clearInterval(handle);
-  }, [live]);
+  const chapters = useMemo(
+    () => (subjectId ? data?.view.subjectById.get(subjectId)?.chapters ?? [] : []),
+    [data, subjectId],
+  );
 
-  useEffect(() => {
-    if (!live) return;
-    setState((current) => advance(current, new Date().toISOString()));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [now]);
-
-  const snap = snapshot(state, now);
-  const issues = validatePlan(plan);
-
-  const openTasks = useMemo(() => (data?.bundle.tasks ?? []).filter(isOpenTask), [data]);
-  const subjects = data?.view.subjects ?? [];
-
-  if (!data) return null;
+  if (!data) return <PageSkeleton />;
   const { view } = data;
 
-  const changePlan = (patch: Partial<FocusPlan>) => {
-    const next = { ...plan, ...patch };
-    setPlan(next);
-    if (state.status === 'idle') setState(idleState(next));
+  const switchTab = (next: Tab) => {
+    if (next === 'open' || next === 'countdown') {
+      if (state.phase === 'idle' && state.mode !== next) {
+        timer.reset(next, next === 'countdown' ? preset : null);
+      } else if (state.phase !== 'idle' && state.mode !== next) {
+        void notify('Finish or discard the current session before switching timer type.', 'warning');
+        return;
+      }
+    }
+    setTab(next);
   };
 
-  const begin = () => {
-    if (issues.length > 0) {
-      void notify(issues[0] as string, 'warning');
-      return;
+  const begin = async () => {
+    const now = new Date().toISOString();
+    let next = state;
+    if (state.phase === 'idle') {
+      if (state.mode === 'countdown') {
+        const minutes = state.targetMs ? state.targetMs / 60_000 : preset;
+        next = { ...next, targetMs: Math.round(minutes * 60_000) };
+        if (!permissionAsked) {
+          setPermissionAsked(true);
+          await requestNotificationPermission();
+        }
+      }
+      next = startTimer({ ...next, subjectId: subjectId || null, chapterId: chapterId || null }, now);
+      timer.update(next);
+      if (next.mode === 'countdown') await timer.armNotification(next);
     }
-    const began = new Date().toISOString();
-    setNow(began);
-    setState(start(idleState(plan), began));
   };
 
-  const complete = async (early: boolean) => {
-    const summary = finish(state, new Date().toISOString());
-    if (summary.focusMinutes <= 0) {
-      void notify('No focus time was recorded yet, so there is nothing to save.', 'warning');
-      return;
-    }
+  const pause = () => {
+    timer.update(pauseTimer(state, new Date().toISOString()));
+    void timer.disarmNotification();
+  };
+
+  const resume = async () => {
+    const next = resumeTimer(state, new Date().toISOString());
+    timer.update(next);
+    if (next.mode === 'countdown' && next.phase === 'running') await timer.armNotification(next);
+  };
+
+  const finish = async () => {
+    const finished = finishTimer(state, new Date().toISOString());
+    timer.update(finished);
+    void timer.disarmNotification();
+    const summary = summarizeFinished(finished);
+    if (!summary) return;
     setSaving(true);
     try {
-      const resolvedSubject =
-        subjectId ||
-        (taskId ? openTasks.find((task) => task.id === taskId)?.user_subject_id ?? '' : '') ||
-        '';
-      const resolvedChapter =
-        chapterId ||
-        (taskId ? openTasks.find((task) => task.id === taskId)?.user_chapter_id ?? '' : '') ||
-        '';
-      const studySession = await mutate((repo) =>
-        repo.create('study_sessions', {
+      const minutes = Math.max(summary.focusMinutes, 0);
+      const resolvedSubject = finished.subjectId ?? (subjectId || null);
+      const resolvedChapter = finished.chapterId ?? (chapterId || null);
+      await mutate(async (repo) => {
+        // Idempotency: a crash between logging and reset must not double-log.
+        const alreadyLogged = (await repo.list('focus_sessions')).some((session) =>
+          (session.notes ?? '').includes(finished.sessionId),
+        );
+        if (alreadyLogged) return;
+        // The study timeline requires a subject (NOT NULL). Without one, the
+        // focus session is still saved to focus history — honestly, not dropped.
+        let studySessionId: string | null = null;
+        if (resolvedSubject) {
+          const existing = (await repo.list('study_sessions')).find(
+            (session) => session.client_entry_id === finished.sessionId,
+          );
+          const studySession =
+            existing ??
+            (await repo.create('study_sessions', {
+              user_subject_id: resolvedSubject,
+              user_chapter_id: resolvedChapter,
+              user_task_id: null,
+              user_topic_id: null,
+              activity_type: 'other',
+              session_date: summary.startedAt.slice(0, 10),
+              started_at: summary.startedAt,
+              ended_at: summary.endedAt,
+              duration_minutes: Math.max(1, minutes),
+              focus_rating: null,
+              result:
+                finished.mode === 'countdown'
+                  ? summary.reachedTarget
+                    ? `Countdown ${Math.round((finished.targetMs ?? 0) / 60_000)} min reached`
+                    : `Countdown stopped at ${minutes} min`
+                  : `Open focus ${minutes} min`,
+              notes: minutes < 1 ? 'Under a minute — logged as 1 minute so the effort is not lost.' : null,
+              source: 'timer',
+              client_entry_id: finished.sessionId,
+              is_demo: false,
+            }));
+          studySessionId = studySession.id;
+        }
+        await repo.create('focus_sessions', {
+          user_task_id: null,
           user_subject_id: resolvedSubject,
-          user_chapter_id: resolvedChapter || null,
-          user_task_id: taskId || null,
-          user_topic_id: null,
-          activity_type: 'other',
-          session_date: view.today,
+          user_chapter_id: resolvedChapter,
+          focus_minutes: Math.max(1, minutes),
+          break_minutes: 0,
+          planned_intervals: 1,
+          completed_intervals: summary.reachedTarget || finished.mode === 'open' ? 1 : 0,
           started_at: summary.startedAt,
           ended_at: summary.endedAt,
-          duration_minutes: summary.focusMinutes,
-          focus_rating: early ? 4 : 5,
-          result: `Focus mode: ${summary.completedIntervals}/${summary.plannedIntervals} blocks`,
-          notes: early ? 'Ended early — the time still counts.' : summary.message,
-          source: 'focus',
-          client_entry_id: crypto.randomUUID(),
+          status: 'completed',
+          study_session_id: studySessionId,
+          notes: `${finished.mode === 'countdown' ? 'Countdown timer' : 'Open-ended timer'} · ${finished.sessionId}`,
           is_demo: false,
-        }),
-      );
-      await mutate((repo) =>
-        repo.create('focus_sessions', {
-          user_task_id: taskId || null,
-          user_subject_id: resolvedSubject || null,
-          user_chapter_id: resolvedChapter || null,
-          focus_minutes: plan.focusMinutes,
-          break_minutes: plan.breakMinutes,
-          planned_intervals: plan.plannedIntervals,
-          completed_intervals: summary.completedIntervals,
-          started_at: summary.startedAt ?? summary.endedAt,
-          ended_at: summary.endedAt,
-          status: summary.endedEarly ? 'abandoned' : 'completed',
-          study_session_id: studySession.id,
-          notes: null,
-          is_demo: false,
-        }),
-      );
-      await notify(summary.message);
-      setState(idleState(plan));
-      setTaskId('');
-      setChapterId('');
+        });
+      });
+      await notify(`Logged ${Math.max(1, minutes)} focus minute(s). ${minutes < 1 ? 'Short sessions still count.' : 'Well done.'}`);
+      timer.reset(state.mode, state.mode === 'countdown' ? (state.targetMs ?? preset * 60_000) / 60_000 : null);
     } catch (error) {
       await notify(errorMessage(error), 'danger');
     } finally {
@@ -143,245 +223,206 @@ function FocusContent() {
     }
   };
 
-  const chapters = subjects.find((subject) => subject.subject.id === subjectId)?.chapters ?? [];
+  const discard = () => {
+    timer.reset(state.mode, state.mode === 'countdown' ? (state.targetMs ?? preset * 60_000) / 60_000 : null);
+    void notify('Session discarded. Nothing was logged.', 'warning');
+  };
+
+  const applyPreset = (minutes: number) => {
+    setPreset(minutes);
+    if (state.phase === 'idle') timer.reset('countdown', minutes);
+  };
+
+  const applyCustom = () => {
+    const minutes = Number(customMinutes);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > MAX_CUSTOM_MINUTES) {
+      void notify(`Custom countdown must be 1–${MAX_CUSTOM_MINUTES} minutes.`, 'danger');
+      return;
+    }
+    applyPreset(minutes);
+  };
+
+  const displaySeconds =
+    state.mode === 'countdown' ? Math.ceil((timer.remaining ?? 0) / 1000) : Math.floor(timer.elapsed / 1000);
+  const finishedSummary = state.phase === 'finished' ? summarizeFinished(state) : null;
+  const sessionActive = state.phase === 'running' || state.phase === 'paused';
 
   return (
     <>
       <PageHeader
         title="Focus mode"
-        description="An optional timer you can attach to a task, subject and chapter. Finished focus time is written to the same timeline as every other study session — there is no separate count."
+        description="Pick a style and start. Time is computed from real timestamps and survives locking your phone or restarting the app."
       />
 
-      <SectionCard title="Session plan" hint="Nothing here is a streak or a target you owe the app.">
-        <div className="grid grid--three">
-          <label className="field">
-            <span className="field__label">Focus minutes</span>
-            <input
-              className="input"
-              type="number"
-              min={FOCUS_LIMITS.minFocusMinutes}
-              max={FOCUS_LIMITS.maxFocusMinutes}
-              value={plan.focusMinutes}
-              disabled={state.status !== 'idle'}
-              onChange={(event) => changePlan({ focusMinutes: Number(event.target.value) })}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Break minutes</span>
-            <input
-              className="input"
-              type="number"
-              min={0}
-              max={FOCUS_LIMITS.maxBreakMinutes}
-              value={plan.breakMinutes}
-              disabled={state.status !== 'idle'}
-              onChange={(event) => changePlan({ breakMinutes: Number(event.target.value) })}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Blocks</span>
-            <input
-              className="input"
-              type="number"
-              min={1}
-              max={FOCUS_LIMITS.maxIntervals}
-              value={plan.plannedIntervals}
-              disabled={state.status !== 'idle'}
-              onChange={(event) => changePlan({ plannedIntervals: Number(event.target.value) })}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Link a task</span>
-            <select
-              className="input"
-              value={taskId}
-              disabled={state.status !== 'idle'}
-              onChange={(event) => {
-                const value = event.target.value;
-                setTaskId(value);
-                const task = openTasks.find((candidate) => candidate.id === value);
-                if (task?.user_subject_id) setSubjectId(task.user_subject_id);
-                if (task?.user_chapter_id) setChapterId(task.user_chapter_id);
-              }}
-            >
-              <option value="">No task</option>
-              {openTasks.map((task) => (
-                <option key={task.id} value={task.id}>
-                  {task.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field__label">Subject</span>
-            <select
-              className="input"
-              value={subjectId}
-              disabled={state.status !== 'idle'}
-              onChange={(event) => {
-                setSubjectId(event.target.value);
-                setChapterId('');
-              }}
-            >
-              <option value="">No subject</option>
-              {subjects.map((subject) => (
-                <option key={subject.subject.id} value={subject.subject.id}>
-                  {subject.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field__label">Chapter</span>
-            <select className="input" value={chapterId} disabled={state.status !== 'idle'} onChange={(event) => setChapterId(event.target.value)}>
-              <option value="">No chapter</option>
-              {chapters.map((chapter) => (
-                <option key={chapter.chapter.id} value={chapter.chapter.id}>
-                  {chapter.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {issues.length > 0 ? (
-          <Notice tone="warn" title="Check the plan">
-            <ul className="list">
-              {issues.map((issue) => (
-                <li key={issue}>{issue}</li>
-              ))}
-            </ul>
-          </Notice>
-        ) : null}
-      </SectionCard>
+      <div className="chip-row" role="tablist" aria-label="Focus style" style={{ marginBottom: 12 }}>
+        {(
+          [
+            ['open', 'Open-ended'],
+            ['countdown', 'Timer'],
+            ['classic', 'Intervals'],
+            ['history', 'History'],
+          ] as [Tab, string][]
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={tab === value}
+            className={`preset-chip ${tab === value ? 'is-selected' : ''}`}
+            onClick={() => switchTab(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <SectionCard title="Timer" hint="Wall-clock based, so a throttled tab or a sleeping phone does not lose time.">
-        <div className="row row--between">
-          <div>
-            <div className="timer-display" aria-live="off">
-              {clock(snap.phase === 'break' ? snap.phaseRemainingSeconds : snap.phaseRemainingSeconds)}
-            </div>
-            <p className="tiny muted">
-              {state.status === 'idle'
-                ? `Ready: ${plan.focusMinutes} min focus, ${plan.breakMinutes} min break, ${plan.plannedIntervals} block(s)`
-                : state.status === 'finished'
-                  ? 'Every planned block is complete.'
-                  : snap.phase === 'break'
-                    ? `Break · block ${snap.completedIntervals}/${snap.plannedIntervals} done`
-                    : `${state.status === 'paused' ? 'Paused' : 'Focus'} · block ${snap.completedIntervals + 1}/${snap.plannedIntervals}`}
-            </p>
-            <p className="tiny muted">
-              Focus recorded {formatMinutes(Math.round(snap.focusSeconds / 60))} · breaks{' '}
-              {formatMinutes(Math.round(snap.breakSeconds / 60))}
-            </p>
-          </div>
-          <div className="row">
-            {state.status === 'idle' ? (
-              <button type="button" className="btn btn--primary" onClick={begin}>
-                Start focus
-              </button>
-            ) : null}
-            {state.status === 'running' ? (
-              <button
-                type="button"
-                className="btn btn--secondary"
-                onClick={() => setState(pause(state, new Date().toISOString()))}
-              >
-                Pause
-              </button>
-            ) : null}
-            {state.status === 'paused' ? (
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={() => {
-                  const resumed = resume(state, new Date().toISOString());
-                  setNow(new Date().toISOString());
-                  setState(resumed);
+      {tab === 'classic' ? <FocusClassic /> : null}
+      {tab === 'history' ? <SessionHistory /> : null}
+
+      {tab === 'open' || tab === 'countdown' ? (
+        <>
+          {state.mode !== tab && state.phase !== 'idle' ? (
+            <Notice tone="warn" title="A different timer is active.">
+              Finish or discard it below, then switch style.
+            </Notice>
+          ) : null}
+
+          {tab === 'countdown' && state.phase === 'idle' ? (
+            <SectionCard title="Countdown length" hint="Presets or your own number of minutes">
+              <div className="preset-row" role="group" aria-label="Preset durations">
+                {FOCUS_PRESETS_MINUTES.map((minutes) => (
+                  <button
+                    key={minutes}
+                    type="button"
+                    className={`preset-chip ${preset === minutes ? 'is-selected' : ''}`}
+                    onClick={() => applyPreset(minutes)}
+                    aria-pressed={preset === minutes}
+                  >
+                    {minutes} min
+                  </button>
+                ))}
+              </div>
+              <form
+                className="row"
+                style={{ marginTop: 10, gap: 8 }}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  applyCustom();
                 }}
               >
-                Resume
-              </button>
-            ) : null}
-            {state.status !== 'idle' ? (
-              <button
-                type="button"
-                className="btn btn--secondary"
-                disabled={saving || !snap.canFinish}
-                onClick={() => void complete(snap.completedIntervals < plan.plannedIntervals)}
-              >
-                {saving ? 'Saving…' : 'Finish & log'}
-              </button>
-            ) : null}
-            {state.status !== 'idle' ? (
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => setState(idleState(plan))}
-                disabled={saving}
-              >
-                Discard
-              </button>
-            ) : null}
+                <input
+                  type="number"
+                  className="input"
+                  style={{ maxWidth: 120 }}
+                  min={1}
+                  max={MAX_CUSTOM_MINUTES}
+                  value={customMinutes}
+                  onChange={(event) => setCustomMinutes(event.target.value)}
+                  aria-label="Custom countdown minutes"
+                />
+                <button type="submit" className="btn btn--secondary btn--sm">Use custom</button>
+              </form>
+            </SectionCard>
+          ) : null}
+
+          <SectionCard title="What are you studying?" hint="Optional — links the session to your records">
+            <div className="grid grid--two">
+              <label className="field">
+                <span className="field__label">Subject</span>
+                <select
+                  className="input"
+                  value={subjectId}
+                  onChange={(event) => {
+                    setSubjectId(event.target.value);
+                    setChapterId('');
+                  }}
+                  disabled={sessionActive}
+                >
+                  <option value="">No subject</option>
+                  {view.subjects.map((subject) => (
+                    <option key={subject.subject.id} value={subject.subject.id}>{subject.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span className="field__label">Chapter</span>
+                <select className="input" value={chapterId} onChange={(event) => setChapterId(event.target.value)} disabled={sessionActive || !subjectId}>
+                  <option value="">No chapter</option>
+                  {chapters.map((chapter) => (
+                    <option key={chapter.chapter.id} value={chapter.chapter.id}>{chapter.title}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </SectionCard>
+
+          <div className="focus-dial" aria-live="off">
+            <div className="focus-dial__time" role="timer" aria-label={state.mode === 'countdown' ? 'Time remaining' : 'Time elapsed'}>
+              {formatClock(displaySeconds)}
+            </div>
+            <div className="focus-dial__state">
+              {state.phase === 'idle'
+                ? state.mode === 'countdown'
+                  ? `Ready · ${Math.round((state.targetMs ?? 0) / 60_000)} minute countdown`
+                  : 'Ready · open-ended'
+                : state.phase === 'running'
+                  ? state.mode === 'countdown'
+                    ? 'Counting down — you can lock the phone'
+                    : 'Focusing — you can lock the phone'
+                  : state.phase === 'paused'
+                    ? 'Paused'
+                    : finishedSummary
+                      ? finishedSummary.reachedTarget
+                        ? 'Target reached'
+                        : 'Finished'
+                      : 'Finished'}
+            </div>
+            <div className="focus-actions">
+              {state.phase === 'idle' ? (
+                <button type="button" className="btn btn--primary" onClick={() => void begin()}>
+                  <IonIcon icon={playOutline} aria-hidden="true" /> {state.mode === 'countdown' ? 'Start countdown' : 'Start focus'}
+                </button>
+              ) : null}
+              {state.phase === 'running' ? (
+                <button type="button" className="btn btn--secondary" onClick={pause}>
+                  <IonIcon icon={pauseOutline} aria-hidden="true" /> Pause
+                </button>
+              ) : null}
+              {state.phase === 'paused' ? (
+                <button type="button" className="btn btn--primary" onClick={() => void resume()}>
+                  <IonIcon icon={playOutline} aria-hidden="true" /> Resume
+                </button>
+              ) : null}
+              {state.phase === 'running' || state.phase === 'paused' ? (
+                <button type="button" className="btn btn--primary" onClick={() => void finish()} disabled={saving}>
+                  <IonIcon icon={stopOutline} aria-hidden="true" /> {saving ? 'Logging…' : 'Finish & log'}
+                </button>
+              ) : null}
+              {state.phase === 'finished' ? (
+                <>
+                  <button type="button" className="btn btn--primary" onClick={() => void finish()} disabled={saving}>
+                    {saving ? 'Logging…' : `Log ${Math.max(1, finishedSummary?.focusMinutes ?? 0)} min`}
+                  </button>
+                  <button type="button" className="btn btn--ghost" onClick={discard} disabled={saving}>
+                    Discard
+                  </button>
+                </>
+              ) : null}
+              {sessionActive ? (
+                <button type="button" className="btn btn--ghost" onClick={discard} disabled={saving}>
+                  <IonIcon icon={refreshOutline} aria-hidden="true" /> Discard
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
 
-        <ProgressBar
-          percent={snap.progressPercent}
-          done={snap.completedIntervals}
-          total={plan.plannedIntervals}
-          label="Focus blocks completed"
-        />
-
-        <Notice tone="neutral">
-          Ending early is a normal outcome: the minutes you focused are saved and the message says so. There are no
-          streaks to break and no penalty for stopping.
-        </Notice>
-      </SectionCard>
-
-      <SectionCard
-        title="Recent focus sessions"
-        hint="Each completed session is linked to the study session it created."
-        action={
-          <Link to="/time" className="btn btn--secondary btn--sm">
-            Open time tracker
-          </Link>
-        }
-      >
-        {data.bundle.focusSessions.length === 0 ? (
-          <p className="small muted">No focus session recorded yet.</p>
-        ) : (
-          <ul className="list">
-            {[...data.bundle.focusSessions]
-              .sort((a, b) => (a.started_at < b.started_at ? 1 : -1))
-              .slice(0, 10)
-              .map((session) => (
-                <li key={session.id} className="list-row">
-                  <div className="list-row__main">
-                    <div className="list-row__title">
-                      {session.completed_intervals}/{session.planned_intervals} blocks{' '}
-                      <Badge tone={session.status === 'completed' ? 'good' : 'neutral'}>{session.status}</Badge>
-                    </div>
-                    <div className="list-row__meta">
-                      <span>{session.started_at.slice(0, 16).replace('T', ' ')}</span>
-                      <span>{session.focus_minutes} min blocks</span>
-                      <span>
-                        {session.user_subject_id
-                          ? view.phase2.subjectLabels[session.user_subject_id] ?? 'Subject'
-                          : 'No subject'}
-                      </span>
-                      {session.user_task_id ? <span>linked to a task</span> : null}
-                      {session.study_session_id ? <span>timeline entry created</span> : <span>no timeline entry</span>}
-                    </div>
-                  </div>
-                </li>
-              ))}
-          </ul>
-        )}
-        <p className="tiny muted">
-          Focus time only counts while this page is open. The app does not track you in the background, and it cannot
-          claim it does.
-        </p>
-      </SectionCard>
+          <Notice tone="neutral" title="Honest timing">
+            Pausing stops the clock; finishing logs real minutes to your study timeline. Ending early is a normal
+            outcome — short sessions are kept, never shamed. Countdown alerts fire natively on Android; in a browser
+            the alarm shows while the tab is open.
+          </Notice>
+        </>
+      ) : null}
     </>
   );
 }

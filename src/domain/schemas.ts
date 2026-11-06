@@ -270,6 +270,18 @@ export const taskSchema = z.object({
 
 export const taskStatusSchema = z.object({ status: z.enum(TASK_STATUSES) });
 
+/* -------------------------------- targets -------------------------------- */
+
+export const studyTargetSchema = z.object({
+  title: trimmedText(120).min(1, 'Give the target a name.'),
+  period_type: z.enum(['weekly', 'monthly']),
+  metric: z.enum(['chapters', 'checklist_items', 'lectures', 'minutes']),
+  target_value: z.coerce.number().int().min(1, 'At least 1.').max(100000, 'That is too large to be useful.'),
+  user_subject_id: z.string().optional().or(z.literal('')),
+  notes: optionalText(500),
+});
+export type StudyTargetValues = z.infer<typeof studyTargetSchema>;
+
 /* --------------------------------- notes --------------------------------- */
 
 const tagList = z

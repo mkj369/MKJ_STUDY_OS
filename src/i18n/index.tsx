@@ -35,6 +35,9 @@ export type TranslationKey =
   | 'nav.insights'
   | 'nav.focus'
   | 'nav.export'
+  | 'nav.targets'
+  | 'nav.community'
+  | 'nav.setup'
   | 'common.loading'
   | 'common.retry'
   | 'common.cancel'
@@ -83,6 +86,9 @@ const en: Dictionary = {
   'nav.insights': 'Progress Insights',
   'nav.focus': 'Focus Mode',
   'nav.export': 'Export & History',
+  'nav.targets': 'Targets',
+  'nav.community': 'Community',
+  'nav.setup': 'Academic setup',
   'common.loading': 'Loading…',
   'common.retry': 'Retry',
   'common.cancel': 'Cancel',
@@ -130,6 +136,9 @@ const bn: Dictionary = {
   'nav.insights': 'প্রগ্রেস ইনসাইট',
   'nav.focus': 'ফোকাস মোড',
   'nav.export': 'এক্সপোর্ট ও ইতিহাস',
+  'nav.targets': 'লক্ষ্যমাত্রা',
+  'nav.community': 'কমিউনিটি',
+  'nav.setup': 'একাডেমিক সেটআপ',
   'common.loading': 'লোড হচ্ছে…',
   'common.retry': 'আবার চেষ্টা করুন',
   'common.cancel': 'বাতিল',

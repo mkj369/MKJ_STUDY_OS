@@ -101,6 +101,14 @@ export function AppProviders({ children, services, queryClient }: AppProvidersPr
     [appServices, user],
   );
 
+  // Start/stop the background sync engine with the session.
+  useEffect(() => {
+    if (!repository) return;
+    const synced = repository as Repository & { start?: () => void; dispose?: () => void };
+    synced.start?.();
+    return () => synced.dispose?.();
+  }, [repository]);
+
   const signIn = useCallback(
     async (email: string, password: string) => {
       const signedIn = await appServices.auth.signIn(email, password);

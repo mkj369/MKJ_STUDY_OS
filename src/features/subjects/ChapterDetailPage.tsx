@@ -18,7 +18,10 @@ import { WorkspaceGate, useNotify } from '@/features/shared/WorkspaceGate';
 import { checklistItemSchema, userChapterSchema, type ChapterFormValues } from '@/domain/schemas';
 import { chapterStatusLabel } from '@/domain/progress';
 import { CHECKLIST_KIND_LABELS } from '@/services/seed/checklistDefaults';
+import { ChapterLectures } from '@/features/lectures/ChapterLectures';
+import { ChapterNotes } from '@/features/subjects/ChapterNotes';
 import { errorMessage } from '@/utils/errors';
+import { formatMinutes } from '@/domain/timeTracking';
 import type { ChapterChecklistItem, ChecklistKind } from '@/types/domain';
 
 const STATUS_OPTIONS = [
@@ -29,6 +32,7 @@ const STATUS_OPTIONS = [
   { value: 'needs_revision', label: 'Needs revision' },
   { value: 'blocked', label: 'Blocked' },
   { value: 'complete', label: 'Complete' },
+  { value: 'skipped', label: 'Skipped (not in my plan)' },
 ];
 
 const KIND_OPTIONS = Object.entries(CHECKLIST_KIND_LABELS).map(([value, label]) => ({ value, label }));
@@ -144,9 +148,9 @@ function ChapterContent() {
     }
   };
 
-  const relatedLectures = bundle.lectures.filter((l) => l.user_chapter_id === chapterView.chapter.id);
   const relatedRevisions = bundle.revisions.filter((r) => r.user_chapter_id === chapterView.chapter.id);
   const relatedSessions = bundle.sessions.filter((s) => s.user_chapter_id === chapterView.chapter.id);
+  const chapterMinutes = relatedSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
   const relatedDifficulties = bundle.difficulties.filter((d) => d.user_chapter_id === chapterView.chapter.id);
 
   return (
@@ -293,6 +297,11 @@ function ChapterContent() {
                 </div>
               </div>
               <div>
+                <div className="eyebrow">Time spent</div>
+                <div className="strong">{formatMinutes(chapterMinutes)}</div>
+                <div className="tiny muted">{relatedSessions.length} linked session(s)</div>
+              </div>
+              <div>
                 <div className="eyebrow">Last activity</div>
                 <div className="strong">{progress.lastActivityDate ?? 'Not recorded'}</div>
                 <div className="tiny muted">Not proof of inactivity</div>
@@ -330,38 +339,12 @@ function ChapterContent() {
 
       <div style={{ height: 16 }} />
 
+      <ChapterNotes chapter={chapterView} />
+
+      <div style={{ height: 16 }} />
+
       <div className="grid grid--two">
-        <SectionCard
-          title="Lectures for this chapter"
-          hint={`${relatedLectures.length} record(s)`}
-          action={
-            <Link to="/lectures" className="btn btn--ghost btn--sm">
-              Open log
-            </Link>
-          }
-        >
-          {relatedLectures.length === 0 ? (
-            <p className="small muted">No lectures recorded for this chapter.</p>
-          ) : (
-            <div className="list">
-              {relatedLectures.slice(0, 6).map((lecture) => (
-                <div className="list-row" key={lecture.id}>
-                  <div className="list-row__main">
-                    <div className="list-row__title">{lecture.title}</div>
-                    <div className="list-row__meta">
-                      <span>{lecture.lecture_date}</span>
-                      <span>{lecture.source}</span>
-                      {lecture.duration_minutes ? <span>{lecture.duration_minutes} min</span> : null}
-                    </div>
-                  </div>
-                  <Badge tone={lecture.is_completed ? 'good' : 'warn'}>
-                    {lecture.is_completed ? 'Completed' : 'Not finished'}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
+        <ChapterLectures chapter={chapterView} />
 
         <SectionCard title="Revisions & difficulties" hint="Recorded review evidence">
           <div className="stack">

@@ -16,6 +16,7 @@ import {
 import { buildRevisionQueue, type RevisionQueueEntry } from '@/domain/revisions';
 import { buildChapterCoverage, computeSubjectCoverage, type ChapterCoverage, type SubjectCoverage } from '@/domain/syllabus';
 import { analyzeMistakes, type MistakeAnalysis } from '@/domain/mistakes';
+import { computeTargetProgress, summariseTargets, type TargetProgress, type TargetProgressInput, type TargetSummary } from '@/domain/targets';
 import { buildPracticeQueue, summarizePractice, type PracticeSummary, type ReviewCandidate } from '@/domain/practice';
 import { countdownFor, type ExamCountdown } from '@/domain/preparation';
 import { summarizeTasks, todayTasks, type TaskCounts } from '@/domain/tasks';
@@ -25,6 +26,10 @@ import type {
   CurriculumChapter,
   CurriculumSubject,
   DateOnly,
+  ID,
+  LectureChecklistItem,
+  Profile,
+  StudyTarget,
   UserChapter,
   UserSubject,
   UserTopic,
@@ -50,11 +55,42 @@ export interface SubjectView {
   progress: SubjectProgress;
 }
 
+export interface TargetView {
+  target: StudyTarget;
+  progress: TargetProgress;
+  subjectLabel: string | null;
+}
+
+export interface SyllabusOverview {
+  chaptersTotal: number;
+  chaptersComplete: number;
+  chaptersInProgress: number;
+  chaptersNotStarted: number;
+  /** Explicitly skipped — excluded from the completion denominator. */
+  chaptersSkipped: number;
+  /** Total minus skipped: the real denominator. */
+  chaptersCounted: number;
+  /** Counted minus complete: what is left to do. */
+  chaptersRemaining: number;
+  /** 0–100, complete / (total − skipped). Zero counted → 0. */
+  overallPercent: number;
+  checklistDone: number;
+  checklistTotal: number;
+}
+
 export interface WorkspaceView {
   today: DateOnly;
+  profile: Profile;
+  /** True once the academic setup wizard has been completed. */
+  setupCompleted: boolean;
   subjects: SubjectView[];
   chapterById: Map<string, ChapterView>;
   subjectById: Map<string, SubjectView>;
+  /** Per-lecture checklist rows keyed by lecture id (sorted). */
+  lectureChecklistByLecture: Map<ID, LectureChecklistItem[]>;
+  targets: TargetView[];
+  targetSummary: TargetSummary;
+  syllabusOverview: SyllabusOverview;
   revisionQueue: RevisionQueueEntry[];
   taskCounts: TaskCounts;
   dashboardTasks: UserDataBundle['tasks'];
@@ -71,6 +107,14 @@ export interface WorkspaceView {
   lastRecordDate: DateOnly | null;
   demoActive: boolean;
   phase2: Phase2View;
+}
+
+/** Skip-aware chapter completion for a subject card/header. */
+export function subjectChapterStats(chapters: ChapterView[]): { complete: number; counted: number; skipped: number; percent: number } {
+  const skipped = chapters.filter((c) => c.progress.status === 'skipped').length;
+  const complete = chapters.filter((c) => c.progress.status === 'complete').length;
+  const counted = chapters.length - skipped;
+  return { complete, counted, skipped, percent: counted === 0 ? 0 : Math.round((complete / counted) * 100) };
 }
 
 export function subjectDisplayName(subject: UserSubject, curriculumSubject: CurriculumSubject | null): string {
@@ -214,9 +258,14 @@ export function buildWorkspaceView(bundle: UserDataBundle, todayOverride?: DateO
 
   const base: Omit<WorkspaceView, 'phase2'> = {
     today,
+    profile: bundle.profile,
+    setupCompleted: Boolean(bundle.profile.setup_completed_at),
     subjects,
     chapterById: chapterViewsById,
     subjectById: new Map(subjects.map((s) => [s.subject.id, s])),
+    lectureChecklistByLecture: buildLectureChecklistMap(bundle.lectureChecklist),
+    ...buildTargetsView(bundle, subjects, chapterViewsById, today),
+    syllabusOverview: buildSyllabusOverview(subjects, checklistDone, checklistTotal),
     revisionQueue,
     taskCounts: summarizeTasks(bundle.tasks, today),
     dashboardTasks: todayTasks(bundle.tasks, today),
@@ -348,5 +397,87 @@ export function buildPhase2View(
     chapterTitles,
     chapterMinutes,
     availabilityMinutesThisWeek,
+  };
+}
+
+function buildLectureChecklistMap(items: LectureChecklistItem[]): Map<ID, LectureChecklistItem[]> {
+  const map = new Map<ID, LectureChecklistItem[]>();
+  for (const item of items) {
+    const list = map.get(item.lecture_record_id) ?? [];
+    list.push(item);
+    map.set(item.lecture_record_id, list);
+  }
+  for (const list of map.values()) list.sort((a, b) => a.sort_order - b.sort_order);
+  return map;
+}
+
+function buildTargetsView(
+  bundle: UserDataBundle,
+  subjects: SubjectView[],
+  chapterViewsById: Map<string, ChapterView>,
+  today: DateOnly,
+): { targets: TargetView[]; targetSummary: TargetSummary } {
+  const subjectLabelById = new Map(subjects.map((s) => [s.subject.id, s.label]));
+  const chapterStatusById = new Map<ID, string>();
+  const subjectIdByChapterId = new Map<ID, ID>();
+  for (const view of chapterViewsById.values()) {
+    chapterStatusById.set(view.chapter.id, view.progress.status);
+    subjectIdByChapterId.set(view.chapter.id, view.chapter.user_subject_id);
+  }
+  const chapterIdByItemId = new Map<ID, ID>(bundle.checklistItems.map((i) => [i.id, i.user_chapter_id]));
+  const input: TargetProgressInput = {
+    chapters: bundle.chapters,
+    chapterStatusById,
+    checklistProgress: bundle.checklistProgress,
+    chapterIdByItemId,
+    subjectIdByChapterId,
+    lectures: bundle.lectures,
+    sessions: bundle.sessions,
+  };
+  const targets: TargetView[] = bundle.studyTargets
+    .map((target) => ({
+      target,
+      progress: computeTargetProgress(target, input, today),
+      subjectLabel: target.user_subject_id ? subjectLabelById.get(target.user_subject_id) ?? null : null,
+    }))
+    .sort((a, b) => {
+      // Overdue first, then active, then upcoming, then completed; newest window first.
+      const rank = { overdue: 0, active: 1, upcoming: 2, completed: 3 } as const;
+      return (
+        rank[a.progress.state] - rank[b.progress.state] ||
+        b.progress.window.start.localeCompare(a.progress.window.start) ||
+        a.target.created_at.localeCompare(b.target.created_at)
+      );
+    });
+  return { targets, targetSummary: summariseTargets(targets.map((t) => t.progress)) };
+}
+
+function buildSyllabusOverview(subjects: SubjectView[], checklistDone: number, checklistTotal: number): SyllabusOverview {
+  let chaptersComplete = 0;
+  let chaptersInProgress = 0;
+  let chaptersNotStarted = 0;
+  let chaptersSkipped = 0;
+  let chaptersTotal = 0;
+  for (const subject of subjects) {
+    for (const chapter of subject.chapters) {
+      chaptersTotal += 1;
+      if (chapter.progress.status === 'skipped') chaptersSkipped += 1;
+      else if (chapter.progress.status === 'complete') chaptersComplete += 1;
+      else if (chapter.progress.status === 'not_started' || chapter.progress.status === 'not_recorded') chaptersNotStarted += 1;
+      else chaptersInProgress += 1;
+    }
+  }
+  const chaptersCounted = chaptersTotal - chaptersSkipped;
+  return {
+    chaptersTotal,
+    chaptersComplete,
+    chaptersInProgress,
+    chaptersNotStarted,
+    chaptersSkipped,
+    chaptersCounted,
+    chaptersRemaining: chaptersCounted - chaptersComplete,
+    overallPercent: chaptersCounted === 0 ? 0 : Math.round((chaptersComplete / chaptersCounted) * 100),
+    checklistDone,
+    checklistTotal,
   };
 }

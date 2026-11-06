@@ -8,12 +8,16 @@
  */
 import type {
   ChapterChecklistItem,
+  CommunityProfile,
   CurriculumTopic,
   DailyBlock,
   ExamTarget,
   FocusSession,
+  LectureChecklistItem,
   PracticeAttempt,
   PracticeQuestion,
+  StudyTarget,
+  UserPreferences,
   UserTopic,
   ChapterChecklistProgress,
   CurriculumChapter,
@@ -49,6 +53,11 @@ interface TableDefaults {
   user_topics: 'status' | 'notes';
   exam_targets: 'exam_type' | 'coverage_note' | 'priority' | 'status' | 'user_subject_id';
   focus_sessions: 'user_task_id' | 'user_subject_id' | 'user_chapter_id' | 'break_minutes' | 'planned_intervals' | 'completed_intervals' | 'ended_at' | 'status' | 'study_session_id' | 'notes';
+  study_targets: 'user_subject_id' | 'chapter_ids' | 'notes';
+  lecture_checklist_items: 'sort_order' | 'is_done' | 'completed_at';
+  user_preferences: 'theme' | 'community_opt_in_seen';
+  community_profiles: 'academic_track' | 'study_group' | 'sharing_enabled' | 'share_academic_info' | 'overall_percent' | 'chapters_completed' | 'chapters_total' | 'weekly_minutes' | 'snapshot_at';
+  profiles: 'academic_track' | 'study_group' | 'academic_session' | 'board' | 'setup_completed_at';
 }
 type DefaultedColumns<T extends RepositoryTable> = T extends keyof TableDefaults ? TableDefaults[T] : never;
 
@@ -133,6 +142,24 @@ export interface Repository {
     note?: string | null,
   ): Promise<ChapterChecklistProgress>;
 
+  /* --------------------------- lecture support --------------------------- */
+  /** Create the default checklist for a lecture once; never duplicates. */
+  ensureLectureChecklistDefaults(lectureRecordId: ID): Promise<LectureChecklistItem[]>;
+
+  /* ----------------------------- preferences ----------------------------- */
+  getUserPreferences(): Promise<UserPreferences>;
+  saveUserPreferences(patch: Partial<UserPreferences>): Promise<UserPreferences>;
+
+  /* ------------------------------ community ------------------------------ */
+  /** The signed-in user's own snapshot row, or null while fully private. */
+  getCommunityProfile(): Promise<CommunityProfile | null>;
+  /** Insert-or-update the user's own snapshot (idempotent by user id). */
+  saveCommunityProfile(values: Omit<CommunityProfile, 'user_id' | 'created_at' | 'updated_at'>): Promise<CommunityProfile>;
+  /** Opt-in rows from other students. Local mode: always [] (no server). */
+  listSharedCommunityProfiles(): Promise<CommunityProfile[]>;
+  /** Stop sharing and remove the public snapshot entirely. */
+  deleteCommunityProfile(): Promise<void>;
+
   /* ------------------------------ summaries ------------------------------ */
   saveSummary(summary: Omit<WeeklySummary, 'id' | 'user_id' | 'created_at'>): Promise<WeeklySummary>;
 
@@ -166,6 +193,10 @@ export interface UserDataBundle {
   checklistItems: ChapterChecklistItem[];
   checklistProgress: ChapterChecklistProgress[];
   lectures: TableMap['lecture_records'][];
+  lectureChecklist: LectureChecklistItem[];
+  studyTargets: StudyTarget[];
+  userPreferences: UserPreferences;
+  communityProfile: CommunityProfile | null;
   sessions: TableMap['study_sessions'][];
   dailyBlocks: DailyBlock[];
   focusSessions: FocusSession[];

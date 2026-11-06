@@ -17,11 +17,43 @@ Last reviewed: **2026-10-28**.
 | HSC | Science | 2026–2027 | 7 | **0** | `needs_verification` |
 | HSC | Humanities | 2026–2027 | 12 | **0** | `needs_verification` |
 | HSC | Business Studies | 2026–2027 | 7 | **0** | `needs_verification` |
+| HSC (imported reference) | Science | 2026–2027 | 13 (paper-split) | **128** | `needs_verification` |
 
-All 70 subject rows carry `scope = 'subject_structure'`. That is a deliberate,
+The six NCTB-structure versions total 70 subject rows carrying `scope = 'subject_structure'`. That is a deliberate,
 narrow claim: *these are the subjects a student in this group studies, with
 their official names in English and Bangla*. It is **not** a claim that the
 chapter list, topic list or mark distribution is known.
+
+## Imported reference syllabus (HSC Science, 128 chapters)
+
+A complete chapter dataset was imported from the public HSC Study Tracker app:
+
+- **Source app:** https://hscstudytracker.lovable.app/ (community-built tracker, not an
+  official board publication).
+- **Data URL actually read:** `https://hscstudytracker.lovable.app/assets/store-tnJ8g9ek.js`
+  (the app's public bundled default dataset; captured 2026-11-07).
+- **What it contains:** 13 paper-split subjects (Bangla 1st/2nd, English 1st/2nd, ICT,
+  Physics 1st/2nd, Chemistry 1st/2nd, Higher Math 1st/2nd, Biology 1st/2nd) and 128
+  chapter titles in the original order. It contains **no topics, no other groups, no
+  SSC and no school-class data** — nothing beyond these rows was invented.
+- **What was preserved:** every subject name (plus the app's Bangla display names),
+  paper relationship, chapter title and ordering, verbatim.
+- **Where it lives:** snapshot + provenance in
+  `src/services/seed/data/referenceSyllabus.json`; generated TypeScript seed
+  (`src/services/seed/referenceSyllabus.ts`) and SQL migration
+  (`supabase/migrations/0009_reference_syllabus.sql`). Version id
+  `962d63d5-f126-486c-8bf7-e58f9cc2c62b`, `scope = 'exam_syllabus'`,
+  `verification_status = 'needs_verification'` on every row.
+- **Repeatable import:** edit the JSON snapshot (or replace it with a fresh capture),
+  then run `node scripts/generate-reference-syllabus.mjs` and `npm run test:db`.
+  Chapter ids are stable hashes of subject code + position, so re-imports update rows
+  in place and never duplicate or orphan student progress (proved by
+  `tests/db/referenceSyllabus.test.ts`, including a re-run with linked user records).
+- **HSC Admission reuses these exact rows** — there is no second copy of the syllabus.
+- **Honesty label:** these are chapter titles as organised by that community tracker.
+  They are marked *needs verification* against the official NCTB textbooks; the app
+  says so wherever the data is shown. Only public curriculum facts were imported —
+  no source code, branding or user data from the reference app.
 
 ## Sources
 
@@ -108,7 +140,7 @@ contents is reproduced here.
 4. Re-run `npx vitest run tests/db` — the parity test will fail until
    `src/services/seed/officialCurriculum.ts` matches the SQL, which is the point.
 
-Never edit `0001`–`0007` after they have been applied anywhere. Add a new file.
+Never edit `0001`–`0008` after they have been applied anywhere. Add a new file.
 
 ## Data-safety guarantees
 

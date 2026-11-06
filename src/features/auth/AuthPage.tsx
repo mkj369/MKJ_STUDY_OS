@@ -3,7 +3,7 @@ import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { IonIcon } from '@ionic/react';
-import { cloudOfflineOutline, lockClosedOutline, mailOutline, personOutline } from 'ionicons/icons';
+import { cloudOfflineOutline, lockClosedOutline, logoGoogle, mailOutline, personOutline } from 'ionicons/icons';
 import { useAuth, useServices } from '@/app/AppProviders';
 import { signInSchema, signUpSchema, type SignInValues, type SignUpValues } from '@/domain/schemas';
 import { FormError, TextField } from '@/components/ui/Form';
@@ -229,6 +229,29 @@ export function AuthPage() {
                 <button type="button" className="link-button" onClick={onForgotPassword} disabled={busy}>
                   Forgot password?
                 </button>
+                {isCloud && services.auth.signInWithGoogle ? (
+                  <>
+                    <div className="divider" role="separator" />
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--block"
+                      disabled={busy}
+                      onClick={() => {
+                        setFormError(null);
+                        setBusy(true);
+                        void services.auth
+                          .signInWithGoogle!()
+                          .catch((error) => setFormError(errorMessage(error)))
+                          .finally(() => setBusy(false));
+                      }}
+                    >
+                      <IonIcon icon={logoGoogle} aria-hidden="true" /> Continue with Google
+                    </button>
+                    <p className="tiny muted" style={{ textAlign: 'center', margin: 0 }}>
+                      Works when the Google provider is enabled on the server.
+                    </p>
+                  </>
+                ) : null}
               </form>
             ) : (
               <form className="form" onSubmit={onSignUp} noValidate>

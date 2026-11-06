@@ -34,6 +34,12 @@ describe('SQL and TypeScript agree on the tables', () => {
     expect(orphaned).toEqual([]);
   });
 
+  it('local storage knows every repository table (no silent row loss on read)', async () => {
+    const { ALL_TABLES } = await import('@/services/local/localDatabase');
+    const missing = (REPOSITORY_TABLES as readonly string[]).filter((t) => !(ALL_TABLES as string[]).includes(t));
+    expect(missing).toEqual([]);
+  });
+
   it('keeps user-owned tables out of the curriculum list', () => {
     const curriculum = sqlTables().filter((table) => table.startsWith('curriculum_'));
     expect(curriculum.length).toBeGreaterThan(0);

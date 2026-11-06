@@ -12,12 +12,20 @@ claims the APK has been built.
 
 ---
 
+> **No local toolchain? Use CI.** `.github/workflows/android.yml` builds both APKs on
+> GitHub's runners (JDK 21, SDK 35), verifies package id / version / signature / size /
+> SHA-256, uploads them as the `mkj-studyos-apks` artifact and posts the verification
+> report as a commit comment. It runs on pushes to `arena/**` branches that touch app
+> or Android files, and can be started manually from **Actions → Android APK → Run workflow**.
+> Release signing uses repository secrets if (and only if) you configure an existing key —
+> see §4.1.
+
 ## 0. What you need
 
 | Requirement | Why | How to check |
 | --- | --- | --- |
 | Node.js 20.19+ | builds the web bundle, runs Capacitor | `node -v` |
-| JDK 17 (17 or 21 both work) | Android Gradle Plugin 8.7 requires 17+ | `java -version` |
+| JDK 21 | Capacitor 7 compiles its Android library with Java 21 | `java -version` |
 | Android SDK: `platforms;android-35`, `build-tools;35.0.0`, `platform-tools` | compiles and packages the APK | §1.2 |
 | ~2 GB free disk and internet (first build only) | Gradle 8.11.1 plus Android dependencies | — |
 
@@ -36,25 +44,25 @@ The commands assume Debian/Ubuntu (`apt`). Fedora and Arch equivalents are liste
 they differ. Only the JDK install, the udev rules and the `plugdev` group change need
 `sudo`; the SDK itself installs into your home directory.
 
-### 1.1 Install JDK 17
+### 1.1 Install JDK 21
 
 ```bash
 # Debian / Ubuntu (22.04, 24.04, Debian 12)
-sudo apt update && sudo apt install -y openjdk-17-jdk-headless
+sudo apt update && sudo apt install -y openjdk-21-jdk-headless
 
 # Fedora
-sudo dnf install -y java-17-openjdk-devel
+sudo dnf install -y java-21-openjdk-devel
 
 # Arch
-sudo pacman -S --needed jdk17-openjdk
+sudo pacman -S --needed jdk21-openjdk
 ```
 
 Prefer Eclipse Temurin? Download the `.tar.gz` from <https://adoptium.net> and unpack it
 to a stable location, e.g.:
 
 ```bash
-mkdir -p "$HOME/.jdks" && tar -xzf ~/Downloads/OpenJDK17U-jdk_x64_linux_hotspot_*.tar.gz -C "$HOME/.jdks"
-export JAVA_HOME="$HOME/.jdks/$(ls "$HOME/.jdks" | grep -m1 'jdk-17')"
+mkdir -p "$HOME/.jdks" && tar -xzf ~/Downloads/OpenJDK21U-jdk_x64_linux_hotspot_*.tar.gz -C "$HOME/.jdks"
+export JAVA_HOME="$HOME/.jdks/$(ls "$HOME/.jdks" | grep -m1 'jdk-21')"
 ```
 
 Confirm the version:
@@ -67,7 +75,7 @@ Now make `JAVA_HOME` explicit. The robust way to find it, whatever install metho
 
 ```bash
 export JAVA_HOME="$(readlink -f "$(command -v java)" | sed 's:/bin/java$::')"
-echo "$JAVA_HOME"    # e.g. /usr/lib/jvm/java-17-openjdk-amd64
+echo "$JAVA_HOME"    # e.g. /usr/lib/jvm/java-21-openjdk-amd64
 ```
 
 Add it permanently so a new terminal keeps it (log out/in once after editing):
@@ -99,7 +107,7 @@ mv /tmp/cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
 
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
-sdkmanager --version             # proves JDK 17 + the tools layout are correct
+sdkmanager --version             # proves JDK 21 + the tools layout are correct
 yes | sdkmanager --licenses      # accept the SDK licences (required before Gradle builds)
 sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 ```
@@ -148,8 +156,8 @@ It prints one line per requirement with a `fix:` line for anything missing:
 
 ```
   [PASS] Node.js ≥ 20.19        found: v22.22.3
-  [FAIL] JDK 17+                found: java not found on PATH
-         fix:   Install JDK 17 ...
+  [FAIL] JDK 21+                found: java not found on PATH
+         fix:   Install JDK 21 ...
   [FAIL] Android SDK (platform 35)
          found: no ANDROID_HOME / ANDROID_SDK_ROOT and no default SDK folder
          fix:   sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" ...
@@ -172,7 +180,7 @@ otherwise the app installs but opens a blank white screen.
   `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`; SDK via Android Studio or
   `brew install --cask android-commandlinetools`, `export ANDROID_HOME="$HOME/Library/Android/sdk"`.
 - **Windows:** install Android Studio (it sets `ANDROID_HOME` and supplies a JDK), or
-  Temurin 17 plus `setx JAVA_HOME "C:\Program Files\Eclipse Adoptium\jdk-17"` and
+  Temurin 21 plus `setx JAVA_HOME "C:\Program Files\Eclipse Adoptium\jdk-21"` and
   `setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"`. Open a **new** terminal afterwards.
   Gradle's Unix wrapper is not used there — see §3.
 
@@ -206,7 +214,7 @@ Two rules that matter more than anything else in this file:
 
 1. **`VITE_*` variables are compiled into the APK.** Anyone can extract them from the
    bundle. Only ever put the **anon / publishable** key there. It is safe *only* because
-   Row Level Security is enabled on every table (migrations `0001`–`0005`) — readers can
+   Row Level Security is enabled on every table (migrations `0001`–`0008`) — readers can
    reach only their own rows.
 2. **Never put these in `.env.local` or any `VITE_*` variable:**
    `SUPABASE_SERVICE_ROLE_KEY`, `AI_API_KEY`, or any provider secret. They belong in
@@ -233,9 +241,9 @@ npm run android:sync     # vite build → copy dist/ into android/ → update pl
 npm run android:build    # cd android && ./gradlew assembleDebug
 ```
 
-`android:sync` takes a few seconds and was verified here (40 hashed asset files copied,
-plugin list `@capacitor/local-notifications@7.0.7`). `android:build` is the step that
-needs the JDK and SDK.
+`android:sync` takes a few seconds and was verified here (49 hashed asset files copied,
+plugins `@capacitor/app@7.1.2` and `@capacitor/local-notifications@7.0.7`).
+`android:build` is the step that needs the JDK and SDK.
 
 On Linux, if the wrapper is not executable (for example after unzipping a download rather
 than cloning), run `chmod +x android/gradlew` once.
@@ -290,6 +298,50 @@ A debug APK is signed with the debug keystore generated on your machine
 Play Store upload — for that you need your own keystore and a signed AAB, and you must
 never commit the keystore.
 
+### 4.1 Signed release with an EXISTING key
+
+`android/app/build.gradle` reads signing material from **`android/keystore.properties`**
+(git-ignored) or environment variables. Nothing is generated automatically: with no key
+configured, `assembleRelease` produces `app-release-unsigned.apk`.
+
+If you already distribute v1 (`com.mkjstudyos.app`), you MUST sign v2 with the **same
+key** — Android refuses upgrades signed with a different identity.
+
+1. Put your existing keystore somewhere outside the repo (or inside `android/` — the
+   `*.keystore` / `*.jks` patterns are git-ignored).
+2. Create `android/keystore.properties`:
+
+   ```properties
+   storeFile=/absolute/path/to/your-existing.keystore
+   storePassword=...
+   keyAlias=...
+   keyPassword=...
+   ```
+
+   Or export `MKJ_KEYSTORE_PATH`, `MKJ_KEYSTORE_PASSWORD`, `MKJ_KEY_ALIAS`, `MKJ_KEY_PASSWORD`.
+3. Build and verify:
+
+   ```bash
+   cd android && ./gradlew assembleRelease
+   $ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs \
+     app/build/outputs/apk/release/app-release.apk
+   ```
+
+   With signing configured the output is `app-release.apk` (signed); without it,
+   `app-release-unsigned.apk`. To sign an unsigned APK manually with the same existing key:
+
+   ```bash
+   $ANDROID_HOME/build-tools/35.0.0/zipalign -p 4 app-release-unsigned.apk aligned.apk
+   $ANDROID_HOME/build-tools/35.0.0/apksigner sign --ks /path/to/existing.keystore \
+     --out app-release.apk aligned.apk
+   ```
+
+For CI, set repository secrets `MKJ_KEYSTORE_BASE64` (base64 of the existing keystore
+file), `MKJ_KEYSTORE_PASSWORD`, `MKJ_KEY_ALIAS`, `MKJ_KEY_PASSWORD`. The workflow writes
+them to a temporary file, signs, and deletes the material afterwards. **Never commit
+keystores or passwords, and never generate a replacement key for an app users already
+have installed.**
+
 ---
 
 ## 5. Install it on the phone
@@ -332,9 +384,22 @@ The app id is `com.mkjstudyos.app` and it needs **Android 6.0 (API 23) or newer*
 - [ ] Log a study session, kill the app, reopen: the row is still there (persistence).
 - [ ] **Export** produces a JSON download you can open in the Files app.
 - [ ] **Reminders**: on Android 13+ grant the notification permission when asked, schedule
-      one reminder, and confirm it appears. Timing may be a few minutes late because the
-      app does not request exact-alarm access — that limitation is documented.
-- [ ] Press Back from a sub-screen: it returns inside the app instead of closing it.
+      one reminder, and confirm it appears. The manifest declares `SCHEDULE_EXACT_ALARM`;
+      on Android 14+ check Settings → Apps → Special access → Alarms & reminders if
+      delivery is late.
+- [ ] **Back button order**: open a modal → Back closes only the modal; open the drawer →
+      Back closes only the drawer; navigate two screens deep → Back walks the history;
+      at the root (Home) → Back asks before exiting, never exits on a single tap.
+- [ ] **Keyboard**: focus the login e-mail field — the page resizes (`adjustResize`),
+      the field stays visible, and the auth screen scrolls on a small display.
+- [ ] **Focus timer**: start the open-ended timer, lock the phone for two minutes,
+      unlock — elapsed time includes the locked period. Start a 1-minute countdown,
+      background the app — the completion notification arrives (permission granted).
+- [ ] **Restart**: finish a focus session, force-stop the app, reopen — history intact;
+      an unfinished timer restores where it left off.
+- [ ] **Offline (cloud mode)**: enable airplane mode, tick a checklist item — the sync
+      badge shows pending; disable airplane mode — the queue drains and the badge
+      returns to synced.
 
 If something fails on device that passes in the browser, capture it with:
 
@@ -348,7 +413,7 @@ adb logcat -s Capacitor:V CapacitorConsole:V chromium:V | tee studyos-logcat.txt
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `JAVA_HOME is not set` / `Unsupported class file major version` | wrong or missing JDK | install JDK 17+, set `JAVA_HOME`, reopen the terminal |
+| `JAVA_HOME is not set` / `Unsupported class file major version` | wrong or missing JDK | install JDK 21, set `JAVA_HOME`, reopen the terminal |
 | `SDK location not found` | no `ANDROID_HOME`, no `local.properties` | one of the two, see §1 |
 | `Failed to install the following Android SDK packages … platforms;android-35` | SDK platform missing | `sdkmanager "platforms;android-35"` then accept licenses |
 | build hangs downloading `gradle-8.11.1-all.zip` | `services.gradle.org` blocked | rest of the internet? use a proxy, or build from a network that allows it |
@@ -358,7 +423,7 @@ adb logcat -s Capacitor:V CapacitorConsole:V chromium:V | tee studyos-logcat.txt
 | notifications never appear | permission denied, or battery optimisation | Settings → Apps → MKJ StudyOS → Notifications; disable battery optimisation |
 | `adb devices` shows `no permissions` or an empty list (Linux) | no udev rules for the phone's vendor id | §1.2: install the udev rules package, `usermod -aG plugdev`, replug, `adb kill-server` |
 | `Failed to install … licenses have not been accepted` | SDK licences pending | run `sdkmanager --licenses` and accept every prompt (see §1.2) |
-| `Unsupported class file major version` / `class file has wrong version` | Gradle is running on a JDK other than 17/21 (Gradle 8.11 does not support JDK 24+) | point `JAVA_HOME` at JDK 17 or 21, §1.1 |
+| `Unsupported class file major version` / `class file has wrong version` | Gradle is running on a JDK older than 21 or newer than 23 (Gradle 8.11 does not support JDK 24+) | point `JAVA_HOME` at JDK 21, §1.1 |
 | `permission denied: ./gradlew` | executable bit lost | `chmod +x android/gradlew` |
 
 ---
@@ -367,13 +432,14 @@ adb logcat -s Capacitor:V CapacitorConsole:V chromium:V | tee studyos-logcat.txt
 
 | Step | Result here |
 | --- | --- |
-| `npm run android:sync` (web build + asset copy + plugin sync) | **Executed** — 40 asset files, plugin `@capacitor/local-notifications@7.0.7` |
+| `npm run android:sync` (web build + asset copy + plugin sync) | **Executed** — 49 asset files, plugins `@capacitor/app@7.1.2` + `@capacitor/local-notifications@7.0.7` |
 | Capacitor project, manifest, permissions, status-bar icon | **Committed and config-tested** (`tests/android/config.test.ts`, 8 assertions) |
 | `npm run android:preflight` | **Executed** — reports Node ✓ (v22.22.3), wrapper ✓, synced assets ✓, **JDK ✗** (`java` not on PATH), **SDK ✗** (no `ANDROID_HOME`, no default SDK folder); exit code 2 |
-| `npm run android:build` (`gradlew assembleDebug`) | **Not executed** — no JDK, no Android SDK, and `services.gradle.org`, `dl.google.com`, `maven.google.com`, `repo.maven.apache.org`, `plugins.gradle.org`, `api.adoptium.net` all unreachable from this sandbox |
-| APK existence, size, signature | **Not verified** — no APK was produced |
-| Install on a phone | **Not performed** — no device |
+| `npm run android:build` (`gradlew assembleDebug`) | **Not executed in the sandbox** — no JDK, no Android SDK, and `services.gradle.org`, `dl.google.com`, `maven.google.com`, `repo.maven.apache.org`, `plugins.gradle.org`, `api.adoptium.net`, `objects.githubusercontent.com` all unreachable (the only JDK reachable here, PyPI `jdk4py`, is a JRE without `javac`) |
+| GitHub Actions build (`.github/workflows/android.yml`) | **Configured** — builds, verifies (aapt/apksigner/sha256/size) and uploads both APKs; check the Actions tab for the run on this commit and its commit comment for the verification report |
+| Release signing key | **None in the repo** — release APK is unsigned until an existing key is provided (§4.1); no key was generated |
+| Install on a phone | **Not performed** — no device attached to the sandbox |
 
 So the honest state is: **source and native project are complete and the pre-build stages
-pass; the compiled APK is unverified.** Running §3–§4 on a normal machine with JDK 17 and
-the Android SDK is all that remains.
+pass; the compiled APK comes from CI (or §3–§4 on a normal machine with JDK 21 and the
+Android SDK).**

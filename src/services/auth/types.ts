@@ -25,6 +25,12 @@ export interface AuthClient {
   startLocalWorkspace?(displayName: string): Promise<AuthUser>;
   /** Permanently delete the cloud account and its records (server-side). */
   deleteAccount?(): Promise<void>;
+  /** Cloud only: set a new password for the signed-in (or recovery) session. */
+  updatePassword?(newPassword: string): Promise<void>;
+  /** Cloud only: fires when a password-recovery link establishes a session. */
+  onPasswordRecovery?(callback: () => void): () => void;
+  /** Cloud only: OAuth sign-in. Requires the provider enabled in Supabase. */
+  signInWithGoogle?(): Promise<void>;
 }
 
 export class AuthError extends Error {
