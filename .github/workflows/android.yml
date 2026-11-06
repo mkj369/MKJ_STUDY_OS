@@ -56,10 +56,15 @@ jobs:
           java-version: 21 # Capacitor 7 compiles with Java 21
           cache: gradle
 
-      - uses: android-actions/setup-android@v3
-
+      # GitHub's ubuntu runners ship the Android SDK (ANDROID_HOME + cmdline-tools)
+      # preinstalled — no third-party setup action needed.
       - name: Install SDK platform 35 + build tools
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+          SDKMANAGER="$(command -v sdkmanager || echo "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager")"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Install JS dependencies
         run: npm ci
