@@ -183,8 +183,21 @@ interactions, not the old report. Gaps found and fixed in this pass:
   apksigner) → uploads `mkj-studyos-apks` artifact → posts the verification report
   as a commit comment. It triggers on pushes to `arena/**` and manual dispatch.
   Optional repository secrets sign the release with an existing key; signing
-  material is deleted after the build. **Check the Actions tab for the run on this
-  commit** — the APK, its size and SHA-256 are in the artifact and commit comment.
+  material is deleted after the build.
+- **CI build EXECUTED and PASSED** (run 2, commit `03a10af`,
+  https://github.com/mkj369/MKJ_STUDY_OS/actions/runs/42281176999). Verified on the
+  runner with aapt + apksigner (also posted as a commit comment on `03a10af`):
+
+  | APK | Package | versionCode / versionName | Size | SHA-256 | Signature |
+  | --- | --- | --- | --- | --- | --- |
+  | `app-debug.apk` | `com.mkjstudyos.app` | 2 / 2.0.0 | 4,809,172 bytes (~4.6 MB) | `8022787c4154d4aa723f04751b0dae92f126b3c1855cc5d35421485e27f54a8a` | **VERIFIED** (CI debug key) |
+  | `app-release-unsigned.apk` | `com.mkjstudyos.app` | 2 / 2.0.0 | 3,733,960 bytes (~3.6 MB) | `0f7f13dd1ff4623c54d41fad06aac0325c9a1cb7393db585a2d23684f9e2a36f` | **UNSIGNED** (no existing key configured) |
+
+  Both target SDK 35, min SDK 23, label "MKJ StudyOS". Download: the
+  **`mkj-studyos-apks` artifact** on the run page (7.9 MB zip, 30-day retention).
+  The sandbox cannot download it (artifact storage host blocked), so the files
+  live on GitHub, not in this workspace. The final docs-only commit after
+  `03a10af` records these results; app sources are identical to the built commit.
 - **No physical device is attached, so no device QA was performed — not claimed.**
 
 ---
@@ -194,7 +207,9 @@ interactions, not the old report. Gaps found and fixed in this pass:
 1. **APK signing key**: none exists in the repo. To ship signed upgrades, add the
    existing keystore via `android/keystore.properties` locally or the four
    `MKJ_KEYSTORE_*` repository secrets for CI (ANDROID_APK.md §4.1). Until then
-   use the CI **debug APK** for personal installs.
+   use the CI **debug APK** for personal installs (already built and verified —
+   see the table above; note a CI debug key differs from a local debug key, so
+   pick one install source and stay with it, or sign releases with your own key).
 2. **Supabase project**: set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`,
    `supabase db push` (0001–0010), enable email auth (+ Google if wanted), run
    `npm run verify:cloud`, then the two-account spot check incl. offline sync.

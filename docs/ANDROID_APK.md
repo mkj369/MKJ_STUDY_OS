@@ -436,10 +436,10 @@ adb logcat -s Capacitor:V CapacitorConsole:V chromium:V | tee studyos-logcat.txt
 | Capacitor project, manifest, permissions, status-bar icon | **Committed and config-tested** (`tests/android/config.test.ts`, 8 assertions) |
 | `npm run android:preflight` | **Executed** — reports Node ✓ (v22.22.3), wrapper ✓, synced assets ✓, **JDK ✗** (`java` not on PATH), **SDK ✗** (no `ANDROID_HOME`, no default SDK folder); exit code 2 |
 | `npm run android:build` (`gradlew assembleDebug`) | **Not executed in the sandbox** — no JDK, no Android SDK, and `services.gradle.org`, `dl.google.com`, `maven.google.com`, `repo.maven.apache.org`, `plugins.gradle.org`, `api.adoptium.net`, `objects.githubusercontent.com` all unreachable (the only JDK reachable here, PyPI `jdk4py`, is a JRE without `javac`) |
-| GitHub Actions build (`.github/workflows/android.yml`) | **Configured** — builds, verifies (aapt/apksigner/sha256/size) and uploads both APKs; check the Actions tab for the run on this commit and its commit comment for the verification report |
+| GitHub Actions build (`.github/workflows/android.yml`) | **EXECUTED — PASSED** ([run 42281176999](https://github.com/mkj369/MKJ_STUDY_OS/actions/runs/42281176999), commit `03a10af`): `app-debug.apk` 4,809,172 B, sha256 `8022787c…54a8a`, signature VERIFIED; `app-release-unsigned.apk` 3,733,960 B, sha256 `0f7f13dd…a36f`, UNSIGNED. Both `com.mkjstudyos.app` 2 / 2.0.0, targetSdk 35. Artifact `mkj-studyos-apks` on the run page; full report in the commit comment on `03a10af` |
 | Release signing key | **None in the repo** — release APK is unsigned until an existing key is provided (§4.1); no key was generated |
 | Install on a phone | **Not performed** — no device attached to the sandbox |
 
-So the honest state is: **source and native project are complete and the pre-build stages
-pass; the compiled APK comes from CI (or §3–§4 on a normal machine with JDK 21 and the
-Android SDK).**
+So the honest state is: **the APK was actually built and verified on CI** (table above);
+the sandbox itself still cannot run Gradle, and no device was attached for install testing.
+§3–§4 remain the route for local builds with JDK 21 and the Android SDK.

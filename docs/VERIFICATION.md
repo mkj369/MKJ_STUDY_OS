@@ -40,6 +40,19 @@ those four (dist/ was present).
 | `tests/bundle` | No service-role key or AI provider key in the built assets (ran: dist present) |
 | `tests/functions`, `tests/android` | Weekly-summary function with a stubbed provider (no live call), Capacitor config assertions |
 
+### Android CI build (executed)
+
+`.github/workflows/android.yml` ran on commit `03a10af` and **passed**
+([run 42281176999](https://github.com/mkj369/MKJ_STUDY_OS/actions/runs/42281176999)):
+Temurin 21 + SDK 35 → `npm ci` → `android:sync` → `assembleDebug assembleRelease` →
+aapt/apksigner verification. Results (also a commit comment on `03a10af`):
+`app-debug.apk` 4,809,172 B, sha256 `8022787c4154d4aa723f04751b0dae92f126b3c1855cc5d35421485e27f54a8a`,
+signature VERIFIED; `app-release-unsigned.apk` 3,733,960 B, sha256
+`0f7f13dd1ff4623c54d41fad06aac0325c9a1cb7393db585a2d23684f9e2a36f`, UNSIGNED.
+Both `com.mkjstudyos.app`, versionCode 2, versionName 2.0.0. The artifact zip lives on
+the run page (the sandbox's artifact-storage host is blocked, so it was not downloaded
+here). No device install was performed.
+
 ### Browser suite (54)
 
 `npx playwright test` runs against `npm run build && npm run preview --port 4173`
